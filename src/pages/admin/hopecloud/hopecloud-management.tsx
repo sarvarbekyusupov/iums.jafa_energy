@@ -27,6 +27,7 @@ import {
   Tooltip,
   Form,
   Divider,
+  Alert,
 } from 'antd';
 import type { TableColumnsType, TabsProps } from 'antd';
 import {
@@ -219,8 +220,8 @@ const HopeCloudManagement: React.FC = () => {
         ]).then(([stationsResponse, alarmsResponse, ownersResponse, providersResponse, treeResponse, discoveryResponse, configTypesResponse]) => {
           const stationsData = Array.isArray(stationsResponse.data?.records) ? stationsResponse.data.records : [];
           const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
-          const ownersData = Array.isArray(ownersResponse.data?.records) ? ownersResponse.data.records : [];
-          const providersData = Array.isArray(providersResponse.data?.records) ? providersResponse.data.records : [];
+          const ownersData = Array.isArray((ownersResponse.data as any)?.records) ? (ownersResponse.data as any).records : (Array.isArray(ownersResponse.data) ? ownersResponse.data : []);
+          const providersData = Array.isArray((providersResponse.data as any)?.records) ? (providersResponse.data as any).records : (Array.isArray(providersResponse.data) ? providersResponse.data : []);
           const treeData = Array.isArray(treeResponse.data) ? treeResponse.data : [];
           
           setStations(stationsData);
@@ -238,7 +239,7 @@ const HopeCloudManagement: React.FC = () => {
               pageIndex: 1,
               pageSize: 20
             }).then(commResponse => {
-              const commData = Array.isArray(commResponse.data?.records) ? commResponse.data.records : [];
+              const commData = Array.isArray((commResponse.data as any)?.records) ? (commResponse.data as any).records : (Array.isArray(commResponse.data) ? commResponse.data : []);
               setCommunicationModules(commData);
             }).catch(err => console.warn('Communication modules error:', err));
           }
@@ -274,7 +275,7 @@ const HopeCloudManagement: React.FC = () => {
   const handleViewAlarmDetails = async (alarm: HopeCloudAlarm) => {
     try {
       const response = await hopeCloudService.getAlarmDetails({
-        alarmId: alarm.id || alarm.alarmId,
+        alarmId: alarm.alarmId,
         sn: alarm.equipmentSn
       });
       setSelectedAlarmDetails(response.data);
@@ -1453,9 +1454,9 @@ const HopeCloudManagement: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Active Alarms"
-                value={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0}
-                prefix={<BellOutlined style={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }} />}
-                valueStyle={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }}
+                value={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0}
+                prefix={<BellOutlined style={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }} />}
+                valueStyle={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }}
               />
               <Text type="secondary" style={{ fontSize: '12px' }}>
                 Total: {Array.isArray(alarms) ? alarms.length : 0} alerts
@@ -1816,200 +1817,7 @@ const HopeCloudManagement: React.FC = () => {
     </div>
   );
 
-  // Single comprehensive sync management
-  const SyncContent = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Card 
-        title={
-          <Space>
-            <ApiOutlined />
-            <span>Data Synchronization Control</span>
-          </Space>
-        }
-      >
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} lg={6}>
-            <Card 
-              size="small"
-              title={<Space><ThunderboltOutlined />Real-time Sync</Space>}
-              extra={<Tag color="red">Critical</Tag>}
-            >
-              <Paragraph type="secondary" style={{ fontSize: '12px' }}>
-                Synchronizes live power generation data and current system metrics.
-              </Paragraph>
-              <Button
-                type="primary"
-                icon={<SyncOutlined />}
-                loading={syncing === 'realtime'}
-                onClick={() => handleSync('realtime')}
-                block
-              >
-                {syncing === 'realtime' ? 'Syncing...' : 'Sync Real-time Data'}
-              </Button>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} lg={6}>
-            <Card 
-              size="small"
-              title={<Space><LineChartOutlined />Daily Sync</Space>}
-              extra={<Tag color="orange">High</Tag>}
-            >
-              <Paragraph type="secondary" style={{ fontSize: '12px' }}>
-                Processes daily generation statistics and performance analytics.
-              </Paragraph>
-              <Button
-                type="primary"
-                icon={<SyncOutlined />}
-                loading={syncing === 'daily'}
-                onClick={() => handleSync('daily')}
-                block
-              >
-                {syncing === 'daily' ? 'Processing...' : 'Sync Daily Data'}
-              </Button>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} lg={6}>
-            <Card 
-              size="small"
-              title={<Space><SettingOutlined />Monthly Sync</Space>}
-              extra={<Tag color="blue">Normal</Tag>}
-            >
-              <Paragraph type="secondary" style={{ fontSize: '12px' }}>
-                Generates monthly reports and aggregated performance data.
-              </Paragraph>
-              <Button
-                type="primary"
-                icon={<SyncOutlined />}
-                loading={syncing === 'monthly'}
-                onClick={() => handleSync('monthly')}
-                block
-              >
-                {syncing === 'monthly' ? 'Generating...' : 'Sync Monthly Data'}
-              </Button>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} lg={6}>
-            <Card 
-              size="small"
-              title={<Space><DatabaseOutlined />Infrastructure</Space>}
-              extra={<Tag color="green">Low</Tag>}
-            >
-              <Paragraph type="secondary" style={{ fontSize: '12px' }}>
-                Updates station metadata and device configurations.
-              </Paragraph>
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Button
-                  icon={<SyncOutlined />}
-                  loading={syncing === 'sites'}
-                  onClick={() => handleSync('sites')}
-                  block
-                >
-                  Sync Sites
-                </Button>
-                <Button
-                  icon={<SyncOutlined />}
-                  loading={syncing === 'devices'}
-                  onClick={() => handleSync('devices')}
-                  block
-                >
-                  Sync Devices
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Device Discovery */}
-      <Card 
-        title={
-          <Space>
-            <RadarChartOutlined />
-            <span>Device Discovery & Management</span>
-          </Space>
-        }
-      >
-        <Row gutter={[16, 16]}>
-          <Col span={12}>
-            {discoveryStatus && (
-              <div>
-                <Title level={5}>Discovery Status</Title>
-                <Space direction="vertical">
-                  <Text>Last Run: {discoveryStatus.lastRun}</Text>
-                  <Text>Next Scheduled: {discoveryStatus.nextScheduledRun}</Text>
-                  <Text>Schedule: {discoveryStatus.schedule}</Text>
-                  <Badge 
-                    status={discoveryStatus.enabled ? 'success' : 'default'} 
-                    text={discoveryStatus.enabled ? 'Enabled' : 'Disabled'} 
-                  />
-                </Space>
-              </div>
-            )}
-          </Col>
-          <Col span={12}>
-            <Title level={5}>Discovery Actions</Title>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={handleDiscoverDevices}
-                block
-              >
-                Discover New Devices
-              </Button>
-              <Button
-                icon={<ToolOutlined />}
-                loading={cleaningUpDevices}
-                onClick={handleCleanupDevices}
-                block
-              >
-                Cleanup Orphaned Devices
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-
-        {discoveryStatus && (
-          <div style={{ marginTop: 16 }}>
-            <Title level={5}>Last Discovery Results</Title>
-            <Row gutter={[16, 16]}>
-              <Col span={6}>
-                <Statistic
-                  title="Discovered"
-                  value={discoveryStatus.lastRunStats.discovered}
-                  valueStyle={{ color: '#52c41a' }}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Updated"
-                  value={discoveryStatus.lastRunStats.updated}
-                  valueStyle={{ color: '#1890ff' }}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Skipped"
-                  value={discoveryStatus.lastRunStats.skipped}
-                  valueStyle={{ color: '#faad14' }}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Errors"
-                  value={discoveryStatus.lastRunStats.errors}
-                  valueStyle={{ color: '#ff4d4f' }}
-                />
-              </Col>
-            </Row>
-          </div>
-        )}
-      </Card>
-    </Space>
-  );
+  // SyncContent function removed from UI but preserved for future use
 
   // Single comprehensive alarms management
   const AlarmsContent = () => (
@@ -2018,7 +1826,7 @@ const HopeCloudManagement: React.FC = () => {
         <Space>
           <BellOutlined />
           <span>Alarm Management</span>
-          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} />
+          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} />
         </Space>
       }
       extra={
@@ -2095,8 +1903,8 @@ const HopeCloudManagement: React.FC = () => {
                        alarm.alarmGrade === '0' ? 'Prompt' : 'Unknown'}
                     </Tag>
                     <Badge 
-                      status={alarm.status === '0' ? 'error' : 'success'} 
-                      text={alarm.status === '0' ? 'Active' : 'Resolved'}
+                      status={alarm.status === 'active' ? 'error' : 'success'} 
+                      text={alarm.status === 'active' ? 'Active' : 'Resolved'}
                     />
                   </Space>
                 }
@@ -2104,7 +1912,7 @@ const HopeCloudManagement: React.FC = () => {
                   <Space direction="vertical" size={4}>
                     <Text>{alarm.alarmContent || alarm.message}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Device: {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId} • Plant: {alarm.powerPlantName || alarm.plantName || 'Unknown'}
+                      Device: {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId} • Plant: {alarm.plantName || 'Unknown'}
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                       Occurred: {new Date(alarm.reportedTime || alarm.occurredAt).toLocaleString()}
@@ -2239,7 +2047,7 @@ const HopeCloudManagement: React.FC = () => {
                 <List.Item>
                   <List.Item.Meta
                     avatar={<Avatar icon={<UserOutlined />} />}
-                    title={owner.userName}
+                    title={owner.ownerName}
                     description={
                       <Space direction="vertical" size={2}>
                         <div>
@@ -2251,7 +2059,7 @@ const HopeCloudManagement: React.FC = () => {
                           <Text type="secondary">{owner.phone}</Text>
                         </div>
                         <Text type="secondary" style={{ fontSize: '11px' }}>
-                          Nick: {owner.nickName}
+                          ID: {owner.ownerId}
                         </Text>
                       </Space>
                     }
@@ -2374,7 +2182,7 @@ const HopeCloudManagement: React.FC = () => {
         <Space>
           <BellOutlined />
           Alarms
-          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} showZero size="small" />
+          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} showZero size="small" />
         </Space>
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><AlarmsContent /></div>,
@@ -2448,7 +2256,7 @@ const HopeCloudManagement: React.FC = () => {
                       |
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {Array.isArray(stations) ? stations.length : 0} stations • {Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} active alarms
+                      {Array.isArray(stations) ? stations.length : 0} stations • {Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} active alarms
                     </Text>
                   </Space>
                 </div>
@@ -3248,7 +3056,7 @@ const HopeCloudManagement: React.FC = () => {
               <AlertOutlined />
               <span>Alarm Details</span>
               {!selectedAlarmDetails?.causesAnalysis && !selectedAlarmDetails?.diagnosticAdvice && (
-                <Tag color="orange" size="small">Basic Info</Tag>
+                <Tag color="orange">Basic Info</Tag>
               )}
             </Space>
           }
@@ -3279,23 +3087,21 @@ const HopeCloudManagement: React.FC = () => {
                 />
               )}
               <Descriptions column={2} size="small" bordered>
-              <Descriptions.Item label="Alarm ID">{selectedAlarmDetails.id || selectedAlarmDetails.alarmId}</Descriptions.Item>
-              <Descriptions.Item label="Plant">{selectedAlarmDetails.powerPlantName || selectedAlarmDetails.plantName}</Descriptions.Item>
+              <Descriptions.Item label="Alarm ID">{selectedAlarmDetails.alarmId}</Descriptions.Item>
+              <Descriptions.Item label="Plant">{selectedAlarmDetails.plantName}</Descriptions.Item>
               <Descriptions.Item label="Alarm Code">{selectedAlarmDetails.alarmCode}</Descriptions.Item>
               <Descriptions.Item label="Device SN">{selectedAlarmDetails.equipmentSn || selectedAlarmDetails.deviceSn}</Descriptions.Item>
               <Descriptions.Item label="Equipment PN">{selectedAlarmDetails.equipmentPn}</Descriptions.Item>
               <Descriptions.Item label="Alarm Grade">{selectedAlarmDetails.alarmGrade}</Descriptions.Item>
               <Descriptions.Item label="Status" span={2}>
                 <Badge 
-                  status={selectedAlarmDetails.status === '0' ? 'error' : 'success'} 
-                  text={selectedAlarmDetails.status === '0' ? 'Active' : 'Resolved'} 
+                  status={selectedAlarmDetails.status === 'active' ? 'error' : 'success'} 
+                  text={selectedAlarmDetails.status === 'active' ? 'Active' : 'Resolved'} 
                 />
               </Descriptions.Item>
               <Descriptions.Item label="Alarm Content" span={2}>
                 {selectedAlarmDetails.alarmContent || selectedAlarmDetails.message}
               </Descriptions.Item>
-              <Descriptions.Item label="Alarm Source">{selectedAlarmDetails.alarmSource}</Descriptions.Item>
-              <Descriptions.Item label="Duration">{selectedAlarmDetails.duration}</Descriptions.Item>
               <Descriptions.Item label="Reported Time">{selectedAlarmDetails.reportedTime}</Descriptions.Item>
               <Descriptions.Item label="Restore Time">{selectedAlarmDetails.restoreTime}</Descriptions.Item>
               {selectedAlarmDetails.causesAnalysis && (
