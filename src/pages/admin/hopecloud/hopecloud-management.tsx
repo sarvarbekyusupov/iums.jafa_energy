@@ -32,9 +32,7 @@ import {
 import type { TableColumnsType, TabsProps } from 'antd';
 import {
   CloudServerOutlined,
-  SyncOutlined,
   ThunderboltOutlined,
-  SettingOutlined,
   EyeOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
@@ -45,7 +43,6 @@ import {
   SafetyCertificateOutlined,
   SunOutlined,
   LineChartOutlined,
-  ApiOutlined,
   UserOutlined,
   SearchOutlined,
   ToolOutlined,
@@ -80,12 +77,10 @@ import type {
   HopeCloudStation,
   HopeCloudAlarm,
   HopeCloudHealthStatus,
-  HopeCloudSyncResult,
   HopeCloudDevice,
   HopeCloudOwner,
   HopeCloudChannelProvider,
   HopeCloudChannelTree,
-  HopeCloudDiscoveryStatus,
   HopeCloudEquipmentDetails,
   HopeCloudRealtimeData,
   HopeCloudStatistics,
@@ -97,7 +92,7 @@ import type {
   HopeCloudAuthValidation,
 } from '../../../types/hopecloud';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { Content } = Layout;
 
 const HopeCloudManagement: React.FC = () => {
@@ -110,7 +105,6 @@ const HopeCloudManagement: React.FC = () => {
   const [owners, setOwners] = useState<HopeCloudOwner[]>([]);
   const [channelProviders, setChannelProviders] = useState<HopeCloudChannelProvider[]>([]);
   const [channelTree, setChannelTree] = useState<HopeCloudChannelTree[]>([]);
-  const [discoveryStatus, setDiscoveryStatus] = useState<HopeCloudDiscoveryStatus | null>(null);
   // const [metrics, setMetrics] = useState<HopeCloudMetrics | null>(null);
   const [authValidation, setAuthValidation] = useState<HopeCloudAuthValidation | null>(null);
   
@@ -126,7 +120,6 @@ const HopeCloudManagement: React.FC = () => {
   
   // UI state
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedStation, setSelectedStation] = useState<HopeCloudStation | null>(null);
   const [stationDetailVisible, setStationDetailVisible] = useState(false);
@@ -148,7 +141,6 @@ const HopeCloudManagement: React.FC = () => {
   
   const [selectedCommModuleDetails, setSelectedCommModuleDetails] = useState<HopeCloudCommunicationModule | null>(null);
   const [commModuleDetailsVisible, setCommModuleDetailsVisible] = useState(false);
-  const [cleaningUpDevices, setCleaningUpDevices] = useState(false);
   const [stationHistoryVisible, setStationHistoryVisible] = useState(false);
   const [selectedStationForHistory, setSelectedStationForHistory] = useState<HopeCloudStation | null>(null);
   const [equipmentHistoryVisible, setEquipmentHistoryVisible] = useState(false);
@@ -215,9 +207,8 @@ const HopeCloudManagement: React.FC = () => {
           hopeCloudService.getSubOwners({ pageIndex: 1, pageSize: 20 }),
           hopeCloudService.getChannelProviders({ pageIndex: 1, pageSize: 20 }),
           hopeCloudService.getChannelTree(),
-          hopeCloudService.getDiscoveryStatus(),
           hopeCloudService.getStationConfigTypes(),
-        ]).then(([stationsResponse, alarmsResponse, ownersResponse, providersResponse, treeResponse, discoveryResponse, configTypesResponse]) => {
+        ]).then(([stationsResponse, alarmsResponse, ownersResponse, providersResponse, treeResponse, configTypesResponse]) => {
           const stationsData = Array.isArray(stationsResponse.data?.records) ? stationsResponse.data.records : [];
           const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
           const ownersData = Array.isArray((ownersResponse.data as any)?.records) ? (ownersResponse.data as any).records : (Array.isArray(ownersResponse.data) ? ownersResponse.data : []);
@@ -229,7 +220,7 @@ const HopeCloudManagement: React.FC = () => {
           setOwners(ownersData);
           setChannelProviders(providersData);
           setChannelTree(treeData);
-          setDiscoveryStatus(discoveryResponse.data);
+          // setDiscoveryStatus(discoveryResponse.data);
           setStationConfigTypes(configTypesResponse.data);
           
           // Load communication modules for first station if available
@@ -416,50 +407,6 @@ const HopeCloudManagement: React.FC = () => {
     setEquipmentHistoryVisible(true);
   };
 
-  const handleSync = async (type: 'realtime' | 'daily' | 'monthly' | 'sites' | 'devices') => {
-    try {
-      setSyncing(type);
-      let result: HopeCloudSyncResult;
-      
-      switch (type) {
-        case 'realtime':
-          result = (await hopeCloudService.triggerRealtimeSync()).data;
-          break;
-        case 'daily':
-          result = (await hopeCloudService.triggerDailySync()).data;
-          break;
-        case 'monthly':
-          result = (await hopeCloudService.triggerMonthlySync()).data;
-          break;
-        case 'sites':
-          result = (await hopeCloudService.triggerSiteSync()).data;
-          break;
-        case 'devices':
-          result = (await hopeCloudService.triggerDeviceSync()).data;
-          break;
-      }
-      
-      message.success(`${type} sync completed: ${result.recordsProcessed} processed, ${result.recordsFailed} failed`);
-      await fetchAllData();
-    } catch (error: any) {
-      message.error(`Failed to trigger ${type} sync: ` + (error?.response?.data?.message || error.message));
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  const handleDiscoverDevices = async () => {
-    try {
-      message.loading('Discovering devices...', 0);
-      const result = await hopeCloudService.discoverDevices();
-      message.destroy();
-      message.success(`Device discovery completed: ${result.data.discovered} discovered, ${result.data.updated} updated`);
-      await fetchAllData();
-    } catch (error: any) {
-      message.destroy();
-      message.error('Failed to discover devices: ' + (error?.response?.data?.message || error.message));
-    }
-  };
 
 
   // Consolidated station details handler
@@ -506,18 +453,6 @@ const HopeCloudManagement: React.FC = () => {
 
 
 
-  const handleCleanupDevices = async () => {
-    try {
-      setCleaningUpDevices(true);
-      const result = await hopeCloudService.cleanupDevices();
-      message.success(`Device cleanup completed: ${result.data.discovered} devices processed`);
-      await fetchAllData();
-    } catch (error: any) {
-      message.error('Failed to cleanup devices: ' + (error?.response?.data?.message || error.message));
-    } finally {
-      setCleaningUpDevices(false);
-    }
-  };
 
   const handleViewCommModuleDetails = async (moduleId?: string, modulePn?: string) => {
     try {
