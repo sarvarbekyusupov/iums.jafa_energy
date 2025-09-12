@@ -219,8 +219,8 @@ const HopeCloudManagement: React.FC = () => {
         ]).then(([stationsResponse, alarmsResponse, ownersResponse, providersResponse, treeResponse, discoveryResponse, configTypesResponse]) => {
           const stationsData = Array.isArray(stationsResponse.data?.records) ? stationsResponse.data.records : [];
           const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
-          const ownersData = Array.isArray(ownersResponse.data) ? ownersResponse.data : [];
-          const providersData = Array.isArray(providersResponse.data) ? providersResponse.data : [];
+          const ownersData = Array.isArray(ownersResponse.data?.records) ? ownersResponse.data.records : [];
+          const providersData = Array.isArray(providersResponse.data?.records) ? providersResponse.data.records : [];
           const treeData = Array.isArray(treeResponse.data) ? treeResponse.data : [];
           
           setStations(stationsData);
@@ -238,7 +238,7 @@ const HopeCloudManagement: React.FC = () => {
               pageIndex: 1,
               pageSize: 20
             }).then(commResponse => {
-              const commData = Array.isArray(commResponse.data) ? commResponse.data : [];
+              const commData = Array.isArray(commResponse.data?.records) ? commResponse.data.records : [];
               setCommunicationModules(commData);
             }).catch(err => console.warn('Communication modules error:', err));
           }
@@ -274,13 +274,17 @@ const HopeCloudManagement: React.FC = () => {
   const handleViewAlarmDetails = async (alarm: HopeCloudAlarm) => {
     try {
       const response = await hopeCloudService.getAlarmDetails({
-        alarmId: alarm.alarmId,
+        alarmId: alarm.id || alarm.alarmId,
         sn: alarm.equipmentSn
       });
       setSelectedAlarmDetails(response.data);
       setAlarmDetailVisible(true);
     } catch (error: any) {
-      message.error('Failed to fetch alarm details: ' + error.message);
+      // If API fails, show the alarm data we already have with a warning
+      console.warn('Failed to fetch enhanced alarm details, showing basic info:', error);
+      message.warning('Unable to fetch detailed analysis from external service. Showing basic alarm information.');
+      setSelectedAlarmDetails(alarm);
+      setAlarmDetailVisible(true);
     }
   };
 
@@ -1449,9 +1453,9 @@ const HopeCloudManagement: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Active Alarms"
-                value={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0}
-                prefix={<BellOutlined style={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }} />}
-                valueStyle={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }}
+                value={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0}
+                prefix={<BellOutlined style={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }} />}
+                valueStyle={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }}
               />
               <Text type="secondary" style={{ fontSize: '12px' }}>
                 Total: {Array.isArray(alarms) ? alarms.length : 0} alerts
@@ -2014,7 +2018,7 @@ const HopeCloudManagement: React.FC = () => {
         <Space>
           <BellOutlined />
           <span>Alarm Management</span>
-          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} />
+          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} />
         </Space>
       }
       extra={
@@ -2081,27 +2085,29 @@ const HopeCloudManagement: React.FC = () => {
                 }
                 title={
                   <Space>
-                    <Text strong>{alarm.alarmType}</Text>
+                    <Text strong>{alarm.alarmContent || alarm.alarmType || `Alarm ${alarm.alarmCode}`}</Text>
                     <Tag 
-                      color={alarm.severity === 'high' ? 'red' : 
-                             alarm.severity === 'medium' ? 'orange' : 'green'}
+                      color={alarm.alarmGrade === '2' ? 'red' : 
+                             alarm.alarmGrade === '1' ? 'orange' : 'green'}
                     >
-                      {alarm.severity}
+                      {alarm.alarmGrade === '2' ? 'Severe' : 
+                       alarm.alarmGrade === '1' ? 'General' : 
+                       alarm.alarmGrade === '0' ? 'Prompt' : 'Unknown'}
                     </Tag>
                     <Badge 
-                      status={alarm.status === 'active' ? 'error' : 'success'} 
-                      text={alarm.status}
+                      status={alarm.status === '0' ? 'error' : 'success'} 
+                      text={alarm.status === '0' ? 'Active' : 'Resolved'}
                     />
                   </Space>
                 }
                 description={
                   <Space direction="vertical" size={4}>
-                    <Text>{alarm.message}</Text>
+                    <Text>{alarm.alarmContent || alarm.message}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Device: {alarm.deviceSn || alarm.deviceId} • Plant: {alarm.plantName || 'Unknown'}
+                      Device: {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId} • Plant: {alarm.powerPlantName || alarm.plantName || 'Unknown'}
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Occurred: {new Date(alarm.occurredAt).toLocaleString()}
+                      Occurred: {new Date(alarm.reportedTime || alarm.occurredAt).toLocaleString()}
                     </Text>
                   </Space>
                 }
@@ -2233,7 +2239,7 @@ const HopeCloudManagement: React.FC = () => {
                 <List.Item>
                   <List.Item.Meta
                     avatar={<Avatar icon={<UserOutlined />} />}
-                    title={owner.ownerName}
+                    title={owner.userName}
                     description={
                       <Space direction="vertical" size={2}>
                         <div>
@@ -2245,7 +2251,7 @@ const HopeCloudManagement: React.FC = () => {
                           <Text type="secondary">{owner.phone}</Text>
                         </div>
                         <Text type="secondary" style={{ fontSize: '11px' }}>
-                          Created: {owner.createdTime}
+                          Nick: {owner.nickName}
                         </Text>
                       </Space>
                     }
@@ -2352,23 +2358,23 @@ const HopeCloudManagement: React.FC = () => {
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><StationsContent /></div>,
     },
-    {
-      key: 'sync',
-      label: (
-        <Space>
-          <SyncOutlined />
-          Data Sync
-        </Space>
-      ),
-      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><SyncContent /></div>,
-    },
+    // {
+    //   key: 'sync',
+    //   label: (
+    //     <Space>
+    //       <SyncOutlined />
+    //       Data Sync
+    //     </Space>
+    //   ),
+    //   children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><SyncContent /></div>,
+    // },
     {
       key: 'alarms',
       label: (
         <Space>
           <BellOutlined />
           Alarms
-          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} showZero size="small" />
+          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} showZero size="small" />
         </Space>
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><AlarmsContent /></div>,
@@ -2442,7 +2448,7 @@ const HopeCloudManagement: React.FC = () => {
                       |
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {Array.isArray(stations) ? stations.length : 0} stations • {Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} active alarms
+                      {Array.isArray(stations) ? stations.length : 0} stations • {Array.isArray(alarms) ? alarms.filter(a => a.status === '0').length : 0} active alarms
                     </Text>
                   </Space>
                 </div>
@@ -3237,7 +3243,15 @@ const HopeCloudManagement: React.FC = () => {
 
         {/* Alarm Details Modal */}
         <Modal
-          title="Alarm Details"
+          title={
+            <Space>
+              <AlertOutlined />
+              <span>Alarm Details</span>
+              {!selectedAlarmDetails?.causesAnalysis && !selectedAlarmDetails?.diagnosticAdvice && (
+                <Tag color="orange" size="small">Basic Info</Tag>
+              )}
+            </Space>
+          }
           open={alarmDetailVisible}
           onCancel={() => {
             setAlarmDetailVisible(false);
@@ -3254,29 +3268,36 @@ const HopeCloudManagement: React.FC = () => {
           width={700}
         >
           {selectedAlarmDetails && (
-            <Descriptions column={2} size="small" bordered>
-              <Descriptions.Item label="Alarm ID">{selectedAlarmDetails.alarmId}</Descriptions.Item>
-              <Descriptions.Item label="Plant ID">{selectedAlarmDetails.plantId}</Descriptions.Item>
-              <Descriptions.Item label="Device ID">{selectedAlarmDetails.deviceId}</Descriptions.Item>
-              <Descriptions.Item label="Serial Number">{selectedAlarmDetails.deviceSn}</Descriptions.Item>
-              <Descriptions.Item label="Alarm Type">{selectedAlarmDetails.alarmType}</Descriptions.Item>
-              <Descriptions.Item label="Severity">{selectedAlarmDetails.severity}</Descriptions.Item>
+            <>
+              {!selectedAlarmDetails.causesAnalysis && !selectedAlarmDetails.diagnosticAdvice && (
+                <Alert
+                  message="Limited Information Available"
+                  description="Detailed analysis and diagnostic advice are temporarily unavailable. Showing basic alarm information."
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              <Descriptions column={2} size="small" bordered>
+              <Descriptions.Item label="Alarm ID">{selectedAlarmDetails.id || selectedAlarmDetails.alarmId}</Descriptions.Item>
+              <Descriptions.Item label="Plant">{selectedAlarmDetails.powerPlantName || selectedAlarmDetails.plantName}</Descriptions.Item>
+              <Descriptions.Item label="Alarm Code">{selectedAlarmDetails.alarmCode}</Descriptions.Item>
+              <Descriptions.Item label="Device SN">{selectedAlarmDetails.equipmentSn || selectedAlarmDetails.deviceSn}</Descriptions.Item>
+              <Descriptions.Item label="Equipment PN">{selectedAlarmDetails.equipmentPn}</Descriptions.Item>
+              <Descriptions.Item label="Alarm Grade">{selectedAlarmDetails.alarmGrade}</Descriptions.Item>
               <Descriptions.Item label="Status" span={2}>
                 <Badge 
-                  status={selectedAlarmDetails.status === 'active' ? 'error' : 'success'} 
-                  text={selectedAlarmDetails.status} 
+                  status={selectedAlarmDetails.status === '0' ? 'error' : 'success'} 
+                  text={selectedAlarmDetails.status === '0' ? 'Active' : 'Resolved'} 
                 />
               </Descriptions.Item>
-              <Descriptions.Item label="Message" span={2}>
-                {selectedAlarmDetails.message}
+              <Descriptions.Item label="Alarm Content" span={2}>
+                {selectedAlarmDetails.alarmContent || selectedAlarmDetails.message}
               </Descriptions.Item>
-              {selectedAlarmDetails.description && (
-                <Descriptions.Item label="Description" span={2}>
-                  {selectedAlarmDetails.description}
-                </Descriptions.Item>
-              )}
-              <Descriptions.Item label="Occurred At">{selectedAlarmDetails.occurredAt}</Descriptions.Item>
+              <Descriptions.Item label="Alarm Source">{selectedAlarmDetails.alarmSource}</Descriptions.Item>
+              <Descriptions.Item label="Duration">{selectedAlarmDetails.duration}</Descriptions.Item>
               <Descriptions.Item label="Reported Time">{selectedAlarmDetails.reportedTime}</Descriptions.Item>
+              <Descriptions.Item label="Restore Time">{selectedAlarmDetails.restoreTime}</Descriptions.Item>
               {selectedAlarmDetails.causesAnalysis && (
                 <Descriptions.Item label="Causes Analysis" span={2}>
                   {selectedAlarmDetails.causesAnalysis}
@@ -3288,6 +3309,7 @@ const HopeCloudManagement: React.FC = () => {
                 </Descriptions.Item>
               )}
             </Descriptions>
+            </>
           )}
         </Modal>
 

@@ -23,7 +23,11 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
   const [historicalData, setHistoricalData] = useState<HopeCloudStationHistoricalPower[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(dayjs().subtract(1, 'day'));
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = dayjs();
+    console.log('Station History initializing with date:', today.format('YYYY-MM-DD'));
+    return today;
+  });
 
   const fetchHistoricalData = async () => {
     if (!stationId) return;
@@ -87,7 +91,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
               value={selectedDate}
               onChange={(date) => date && setSelectedDate(date)}
               format="YYYY-MM-DD"
-              disabledDate={(current) => current && current > dayjs().subtract(1, 'day')}
+              disabledDate={(current) => current && current > dayjs()}
               style={{ width: 150 }}
             />
             <Button 
@@ -158,7 +162,19 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
               </Row>
             )}
 
-            <Card title={`Power Output - ${selectedDate.format('YYYY-MM-DD')}`} size="small">
+            <Card 
+              title={
+                <span>
+                  Power Output - {selectedDate.format('YYYY-MM-DD')}
+                  {selectedDate.isSame(dayjs(), 'day') && (
+                    <span style={{ color: '#52c41a', marginLeft: 8, fontSize: '12px' }}>
+                      (Live Data)
+                    </span>
+                  )}
+                </span>
+              } 
+              size="small"
+            >
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
