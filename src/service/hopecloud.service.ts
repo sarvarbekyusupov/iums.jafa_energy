@@ -190,6 +190,32 @@ class HopeCloudService {
     return response.data;
   }
 
+  async triggerYearlySync(): Promise<HopeCloudApiResponse<HopeCloudSyncResult>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.SYNC_YEARLY);
+    return response.data;
+  }
+
+  async triggerAlarmSync(): Promise<HopeCloudApiResponse<HopeCloudSyncResult>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.SYNC_ALARMS);
+    return response.data;
+  }
+
+  async triggerHistoricalSync(config: {
+    startDate: string;
+    endDate: string;
+    siteIds?: number[];
+    dataTypes?: string[];
+    maxDaysPerBatch?: number;
+  }): Promise<HopeCloudApiResponse<HopeCloudSyncResult>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.SYNC_HISTORICAL, config);
+    return response.data;
+  }
+
+  async triggerEquipmentSync(): Promise<HopeCloudApiResponse<HopeCloudSyncResult>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.SYNC_EQUIPMENT);
+    return response.data;
+  }
+
   // User and account management
   async getSubOwners(filters?: { pageIndex?: number; pageSize?: number; userId?: string }): Promise<HopeCloudApiResponse<HopeCloudOwner[]>> {
     const params = new URLSearchParams();

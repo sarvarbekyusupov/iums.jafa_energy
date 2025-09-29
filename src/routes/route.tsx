@@ -3,6 +3,7 @@ import {
   createRoutesFromElements,
   Route,
   RouterProvider,
+  Navigate,
 } from "react-router-dom";
 import App from "../App";
 import {
@@ -18,6 +19,7 @@ import AdminLayout from "../pages/admin/admin-layout";
 import Dashboard from "../pages/admin/dashboard";
 import UserManagement from "../pages/admin/users/user-management";
 import HopeCloudManagement from "../pages/admin/hopecloud/hopecloud-management";
+import SyncDataManagement from "../pages/admin/hopecloud/sync-data-management";
 import SitesManagement from "../pages/admin/sites/sites-management";
 import FusionSolarManagement from "../pages/admin/fusion-solar/fusion-solar-management";
 import ReportsManagement from "../pages/admin/reports/reports-management";
@@ -75,7 +77,9 @@ const router = createBrowserRouter(
         <Route index element={<Dashboard />} />
         <Route path="sites" element={<SitesManagement />} />
         <Route path="devices" element={<DevicesManagement />} />
-        <Route path="hopecloud" element={<HopeCloudManagement />} />
+        <Route path="hopecloud" element={<Navigate to="/admin/hopecloud/real-time-data" replace />} />
+        <Route path="hopecloud/real-time-data" element={<HopeCloudManagement />} />
+        <Route path="hopecloud/sync-data" element={<SyncDataManagement />} />
         <Route path="fusion-solar" element={<FusionSolarManagement />} />
         <Route path="reports" element={<ReportsManagement />} />
         <Route path="monitoring" element={<MonitoringManagement />} />

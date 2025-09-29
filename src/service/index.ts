@@ -26,3 +26,4 @@ export * from './monitoring.service';
 // Device Management
 export * from './device-alarms.service';
 export * from './site-kpis.service';
+export * from './equipment-statistics.service';

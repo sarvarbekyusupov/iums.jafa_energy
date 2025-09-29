@@ -101,6 +101,10 @@ export class ApiUrls {
     SYNC_REALTIME: `${this.BASE_URL}/hopecloud/sync/realtime`,
     SYNC_DAILY: `${this.BASE_URL}/hopecloud/sync/daily`,
     SYNC_MONTHLY: `${this.BASE_URL}/hopecloud/sync/monthly`,
+    SYNC_YEARLY: `${this.BASE_URL}/hopecloud/sync/yearly`,
+    SYNC_ALARMS: `${this.BASE_URL}/hopecloud/sync/alarms`,
+    SYNC_HISTORICAL: `${this.BASE_URL}/hopecloud/sync/historical`,
+    SYNC_EQUIPMENT: `${this.BASE_URL}/hopecloud/sync/equipment`,
     SYNC_SITES: `${this.BASE_URL}/hopecloud/sync/sites`,
     SYNC_DEVICES: `${this.BASE_URL}/hopecloud/sync/devices`,
     

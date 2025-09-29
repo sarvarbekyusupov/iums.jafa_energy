@@ -25,6 +25,7 @@ import {
   ThunderboltOutlined,
   SettingOutlined as DeviceOutlined,
   AppstoreOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -43,11 +44,12 @@ const AdminLayout: React.FC = () => {
   // Set initial open keys based on current location
   React.useEffect(() => {
     const path = location.pathname;
-    // If we're on any page except HopeCloud, open the General Dashboard
-    if (path !== '/admin/hopecloud') {
-      setOpenKeys(['general-dashboard']);
+    if (path.startsWith('/admin/hopecloud')) {
+      // If we're on HopeCloud pages, open the HopeCloud submenu
+      setOpenKeys(['hopecloud']);
     } else {
-      setOpenKeys([]);
+      // Otherwise, open the General Dashboard
+      setOpenKeys(['general-dashboard']);
     }
   }, [location.pathname]);
 
@@ -145,10 +147,23 @@ const AdminLayout: React.FC = () => {
       ],
     },
     {
-      key: '/admin/hopecloud',
+      key: 'hopecloud',
       icon: <CloudServerOutlined />,
       label: 'HopeCloud',
-      onClick: () => navigate('/admin/hopecloud'),
+      children: [
+        {
+          key: '/admin/hopecloud/real-time-data',
+          icon: <ThunderboltOutlined />,
+          label: 'Real Time Data',
+          onClick: () => navigate('/admin/hopecloud/real-time-data'),
+        },
+        {
+          key: '/admin/hopecloud/sync-data',
+          icon: <DatabaseOutlined />,
+          label: 'Sync Data',
+          onClick: () => navigate('/admin/hopecloud/sync-data'),
+        },
+      ],
     },
   ];
 
