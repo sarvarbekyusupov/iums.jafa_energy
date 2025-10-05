@@ -471,6 +471,7 @@ const SyncDataManagement: React.FC = () => {
   // Alarms Content
   const AlarmsContent = () => {
     const [syncing, setSyncing] = useState(false);
+    const [alarmsLoading, setAlarmsLoading] = useState(false);
     const [showSyncModal, setShowSyncModal] = useState(false);
     const [syncStartDate, setSyncStartDate] = useState(dayjs().subtract(7, 'days').format('YYYY-MM-DD'));
     const [syncEndDate, setSyncEndDate] = useState(dayjs().format('YYYY-MM-DD'));
@@ -490,7 +491,15 @@ const SyncDataManagement: React.FC = () => {
           } else {
             message.success(`Successfully synced ${alarmsCreated} alarms from HopeCloud`);
           }
-          await loadSyncedData(); // Refresh data
+          // Refresh only alarms data without blocking entire UI
+          setAlarmsLoading(true);
+          try {
+            const alarmsRes = await deviceAlarmsService.getAllDeviceAlarms();
+            const alarmsData = alarmsRes?.data || alarmsRes || [];
+            setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+          } finally {
+            setAlarmsLoading(false);
+          }
           setShowSyncModal(false);
         } else {
           throw new Error(response.message || 'Failed to sync alarms');
@@ -499,6 +508,19 @@ const SyncDataManagement: React.FC = () => {
         message.error(err.message || 'Failed to sync alarms');
       } finally {
         setSyncing(false);
+      }
+    };
+
+    const handleRefreshAlarms = async () => {
+      setAlarmsLoading(true);
+      try {
+        const alarmsRes = await deviceAlarmsService.getAllDeviceAlarms();
+        const alarmsData = alarmsRes?.data || alarmsRes || [];
+        setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+      } catch (error) {
+        message.error('Failed to refresh alarms');
+      } finally {
+        setAlarmsLoading(false);
       }
     };
 
@@ -609,7 +631,7 @@ const SyncDataManagement: React.FC = () => {
               >
                 Sync from HopeCloud
               </Button>
-              <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
+              <Button icon={<ReloadOutlined />} onClick={handleRefreshAlarms} loading={alarmsLoading}>
                 Refresh
               </Button>
             </Space>
@@ -619,7 +641,7 @@ const SyncDataManagement: React.FC = () => {
             columns={alarmColumns}
             dataSource={filteredAlarms}
             rowKey="id"
-            loading={loading}
+            loading={alarmsLoading}
             pagination={{ pageSize: 10 }}
             scroll={{ x: 1000 }}
             locale={{
