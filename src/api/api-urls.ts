@@ -134,10 +134,6 @@ export class ApiUrls {
     SUB_OWNERS: `${this.BASE_URL}/hopecloud/users/sub-owners`,
     CHANNEL_PROVIDERS: `${this.BASE_URL}/hopecloud/users/channel-providers`,
     CHANNEL_TREE: `${this.BASE_URL}/hopecloud/users/channel-tree`,
-    
-    // Communication Modules
-    COMMUNICATION_MODULES: `${this.BASE_URL}/hopecloud/communication-modules`,
-    COMMUNICATION_MODULE_DETAILS: `${this.BASE_URL}/hopecloud/communication-modules/details`,
   };
 
   // LEGACY ENDPOINTS (keeping for backward compatibility)
