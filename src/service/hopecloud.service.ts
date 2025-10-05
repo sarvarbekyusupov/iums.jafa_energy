@@ -259,6 +259,17 @@ class HopeCloudService {
     return response.data;
   }
 
+  // Alarms Resync
+  async resyncAlarms(options?: {
+    deviceIds?: number[];
+    siteIds?: number[];
+    startDate?: string;  // YYYY-MM-DD format
+    endDate?: string;    // YYYY-MM-DD format
+  }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.ALARMS_RESYNC, options || {});
+    return response.data;
+  }
+
   // User and account management
   async getSubOwners(filters?: { pageIndex?: number; pageSize?: number; userId?: string }): Promise<HopeCloudApiResponse<HopeCloudOwner[]>> {
     const params = new URLSearchParams();

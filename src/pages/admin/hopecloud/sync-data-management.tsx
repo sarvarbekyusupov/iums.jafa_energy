@@ -137,11 +137,12 @@ const SyncDataManagement: React.FC = () => {
   const loadSyncedData = async () => {
     setLoading(true);
     try {
-      const [sitesRes, devicesRes, kpisRes, commModulesRes] = await Promise.allSettled([
+      const [sitesRes, devicesRes, kpisRes, commModulesRes, alarmsRes] = await Promise.allSettled([
         sitesService.getAllSites(),
         sitesService.getAllDevices(),
         siteKpisService.getAllSiteKpis(),
         communicationModulesService.getAllModules(),
+        deviceAlarmsService.getAllDeviceAlarms(),
       ]);
 
       // Handle sites
@@ -184,8 +185,15 @@ const SyncDataManagement: React.FC = () => {
         setCommModules([]);
       }
 
-      // Alarms - set empty for now (API not available)
-      setAlarms([]);
+      // Handle alarms
+      if (alarmsRes.status === 'fulfilled') {
+        const alarmsData = alarmsRes.value?.data || alarmsRes.value || [];
+        setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+        console.log('Device alarms loaded:', alarmsData.length);
+      } else {
+        console.error('Failed to load device alarms:', alarmsRes.reason);
+        setAlarms([]);
+      }
 
     } catch (error) {
       console.error('Error loading synced data:', error);
@@ -462,6 +470,121 @@ const SyncDataManagement: React.FC = () => {
 
   // Alarms Content
   const AlarmsContent = () => {
+    const [syncing, setSyncing] = useState(false);
+    const [showSyncModal, setShowSyncModal] = useState(false);
+    const [syncStartDate, setSyncStartDate] = useState(dayjs().subtract(7, 'days').format('YYYY-MM-DD'));
+    const [syncEndDate, setSyncEndDate] = useState(dayjs().format('YYYY-MM-DD'));
+
+    const handleSyncAlarms = async () => {
+      setSyncing(true);
+      try {
+        const response = await hopeCloudService.resyncAlarms({
+          startDate: syncStartDate,
+          endDate: syncEndDate,
+        });
+
+        if (response.status === 'success') {
+          const { alarmsCreated, errors } = response.data.details;
+          if (errors.length > 0) {
+            message.warning(`Synced ${alarmsCreated} alarms with ${errors.length} errors`);
+          } else {
+            message.success(`Successfully synced ${alarmsCreated} alarms from HopeCloud`);
+          }
+          await loadSyncedData(); // Refresh data
+          setShowSyncModal(false);
+        } else {
+          throw new Error(response.message || 'Failed to sync alarms');
+        }
+      } catch (err: any) {
+        message.error(err.message || 'Failed to sync alarms');
+      } finally {
+        setSyncing(false);
+      }
+    };
+
+    const getSeverityColor = (severity: string) => {
+      switch (severity) {
+        case 'critical': return 'red';
+        case 'high': return 'orange';
+        case 'medium': return 'gold';
+        case 'low': return 'blue';
+        default: return 'default';
+      }
+    };
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'active': return 'red';
+        case 'acknowledged': return 'orange';
+        case 'resolved': return 'green';
+        default: return 'default';
+      }
+    };
+
+    const getDeviceName = (deviceId: number) => {
+      const device = devices.find(d => d.id === deviceId);
+      return device?.deviceName || `Device ${deviceId}`;
+    };
+
+    const filteredAlarms = alarms.filter(alarm => {
+      if (!alarmSearchText) return true;
+      const searchLower = alarmSearchText.toLowerCase();
+      return (
+        alarm.title?.toLowerCase().includes(searchLower) ||
+        alarm.alarmCode?.toLowerCase().includes(searchLower) ||
+        alarm.alarmType?.toLowerCase().includes(searchLower) ||
+        getDeviceName(alarm.deviceId).toLowerCase().includes(searchLower)
+      );
+    });
+
+    const alarmColumns: TableColumnsType<SyncedAlarm> = [
+      {
+        title: 'Device',
+        dataIndex: 'deviceId',
+        key: 'deviceId',
+        render: (deviceId: number) => <Text strong>{getDeviceName(deviceId)}</Text>,
+      },
+      {
+        title: 'Code',
+        dataIndex: 'alarmCode',
+        key: 'alarmCode',
+        width: 80,
+      },
+      {
+        title: 'Title',
+        dataIndex: 'title',
+        key: 'title',
+      },
+      {
+        title: 'Type',
+        dataIndex: 'alarmType',
+        key: 'alarmType',
+        render: (type: string) => type || 'N/A',
+      },
+      {
+        title: 'Severity',
+        dataIndex: 'severity',
+        key: 'severity',
+        render: (severity: string) => (
+          <Tag color={getSeverityColor(severity)}>{severity?.toUpperCase() || 'N/A'}</Tag>
+        ),
+      },
+      {
+        title: 'Status',
+        dataIndex: 'status',
+        key: 'status',
+        render: (status: string) => (
+          <Tag color={getStatusColor(status)}>{status?.toUpperCase() || 'N/A'}</Tag>
+        ),
+      },
+      {
+        title: 'Occurred At',
+        dataIndex: 'occurredAt',
+        key: 'occurredAt',
+        render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : 'N/A',
+      },
+    ];
+
     return (
       <div style={{ padding: '24px' }}>
         <Card
@@ -480,24 +603,69 @@ const SyncDataManagement: React.FC = () => {
                 onChange={(e) => setAlarmSearchText(e.target.value)}
                 style={{ width: 200 }}
               />
+              <Button
+                icon={<SyncOutlined />}
+                onClick={() => setShowSyncModal(true)}
+              >
+                Sync from HopeCloud
+              </Button>
               <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
                 Refresh
               </Button>
             </Space>
           }
         >
-          <Alert
-            message="Device Alarms API Not Available"
-            description="The device alarms endpoint (/api/device-alarms) returns 404. Once the backend implements this API, alarm data will be displayed here with the same design as Real Time Data."
-            type="info"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-          <Empty
-            description="No alarm data available in database yet"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          <Table
+            columns={alarmColumns}
+            dataSource={filteredAlarms}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1000 }}
+            locale={{
+              emptyText: 'No alarms found. Click "Sync from HopeCloud" to load alarm data.'
+            }}
           />
         </Card>
+
+        {/* Sync Modal */}
+        <Modal
+          title="Sync Alarms from HopeCloud"
+          open={showSyncModal}
+          onCancel={() => setShowSyncModal(false)}
+          onOk={handleSyncAlarms}
+          confirmLoading={syncing}
+          okText="Sync Alarms"
+        >
+          <div style={{ marginBottom: 16 }}>
+            <Alert
+              message="Note: HopeCloud processes alarms in 1-day chunks"
+              description="Syncing large date ranges may take time. Recommended: 7-30 days at a time. Default syncs last 7 days for all devices."
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          </div>
+          <Form layout="vertical">
+            <Form.Item label="Start Date">
+              <Input
+                type="date"
+                value={syncStartDate}
+                onChange={(e) => setSyncStartDate(e.target.value)}
+                max={syncEndDate}
+              />
+            </Form.Item>
+            <Form.Item label="End Date">
+              <Input
+                type="date"
+                value={syncEndDate}
+                onChange={(e) => setSyncEndDate(e.target.value)}
+                min={syncStartDate}
+                max={dayjs().format('YYYY-MM-DD')}
+              />
+            </Form.Item>
+          </Form>
+        </Modal>
       </div>
     );
   };
