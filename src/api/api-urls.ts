@@ -118,7 +118,12 @@ export class ApiUrls {
     // Device Resync
     DEVICES_RESYNC: `${this.BASE_URL}/hopecloud/devices/resync`,
     DEVICES_COMPARE: `${this.BASE_URL}/hopecloud/devices/compare`,
-    
+
+    // Communication Modules
+    COMMUNICATION_MODULES: `${this.BASE_URL}/communication-modules`,
+    COMMUNICATION_MODULE_BY_ID: (id: number) => `${this.BASE_URL}/communication-modules/${id}`,
+    COMMUNICATION_MODULES_SYNC: `${this.BASE_URL}/hopecloud/communication-modules/sync`,
+
     // Device Discovery
     DISCOVERY_SCAN: `${this.BASE_URL}/hopecloud/discovery/scan`,
     DISCOVERY_SITE_SYNC: (siteId: number) => `${this.BASE_URL}/hopecloud/discovery/sites/${siteId}/sync`,

@@ -253,6 +253,12 @@ class HopeCloudService {
     return response.data;
   }
 
+  // Communication Modules Sync
+  async syncCommunicationModules(options?: { siteIds?: number[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.COMMUNICATION_MODULES_SYNC, options || {});
+    return response.data;
+  }
+
   // User and account management
   async getSubOwners(filters?: { pageIndex?: number; pageSize?: number; userId?: string }): Promise<HopeCloudApiResponse<HopeCloudOwner[]>> {
     const params = new URLSearchParams();

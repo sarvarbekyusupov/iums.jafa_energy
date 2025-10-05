@@ -504,3 +504,71 @@ export interface VisitLogFilters {
   startDate?: string;
   endDate?: string;
 }
+
+// Communication Modules
+export enum CommunicationModuleStatus {
+  ONLINE = 'online',
+  OFFLINE = 'offline',
+  FAULT = 'fault'
+}
+
+export interface CommunicationModule {
+  id: number;
+  siteId: number;
+  hopeCloudId: string;
+  equipmentPn?: string;
+  divertorName?: string;
+  deviceType?: string;
+  iccid?: string;
+  operatorType?: string;
+  rssi?: number;
+  longitude?: number;
+  latitude?: number;
+  status: CommunicationModuleStatus;
+  startTime?: string;
+  stopTime?: string;
+  loadedNumber?: number;
+  lastUpdate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommunicationModuleDto {
+  siteId: number;
+  hopeCloudId: string;
+  equipmentPn?: string;
+  divertorName?: string;
+  deviceType?: string;
+  iccid?: string;
+  operatorType?: string;
+  rssi?: number;
+  longitude?: number;
+  latitude?: number;
+  status?: CommunicationModuleStatus;
+  startTime?: string;
+  stopTime?: string;
+  loadedNumber?: number;
+  lastUpdate?: string;
+}
+
+export interface UpdateCommunicationModuleDto {
+  siteId?: number;
+  equipmentPn?: string;
+  divertorName?: string;
+  deviceType?: string;
+  iccid?: string;
+  operatorType?: string;
+  rssi?: number;
+  longitude?: number;
+  latitude?: number;
+  status?: CommunicationModuleStatus;
+  startTime?: string;
+  stopTime?: string;
+  loadedNumber?: number;
+  lastUpdate?: string;
+}
+
+export interface CommunicationModuleFilters {
+  siteId?: number;
+  status?: CommunicationModuleStatus;
+}

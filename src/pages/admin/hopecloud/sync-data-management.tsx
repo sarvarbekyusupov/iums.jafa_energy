@@ -51,7 +51,7 @@ import {
   RiseOutlined,
   FallOutlined,
 } from '@ant-design/icons';
-import { sitesService, siteKpisService, deviceAlarmsService, hopeCloudService } from '../../../service';
+import { sitesService, siteKpisService, deviceAlarmsService, hopeCloudService, communicationModulesService } from '../../../service';
 import StatisticsDashboard from '../../../components/StatisticsDashboard';
 import SyncedSiteHistory from '../../../components/SyncedSiteHistory';
 import dayjs from 'dayjs';
@@ -117,6 +117,7 @@ const SyncDataManagement: React.FC = () => {
   const [devices, setDevices] = useState<SyncedDevice[]>([]);
   const [kpis, setKpis] = useState<SyncedKpi[]>([]);
   const [alarms, setAlarms] = useState<SyncedAlarm[]>([]);
+  const [commModules, setCommModules] = useState<any[]>([]); // CommunicationModule type from api.ts
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
 
@@ -136,10 +137,11 @@ const SyncDataManagement: React.FC = () => {
   const loadSyncedData = async () => {
     setLoading(true);
     try {
-      const [sitesRes, devicesRes, kpisRes] = await Promise.allSettled([
+      const [sitesRes, devicesRes, kpisRes, commModulesRes] = await Promise.allSettled([
         sitesService.getAllSites(),
         sitesService.getAllDevices(),
         siteKpisService.getAllSiteKpis(),
+        communicationModulesService.getAllModules(),
       ]);
 
       // Handle sites
@@ -170,6 +172,16 @@ const SyncDataManagement: React.FC = () => {
       } else {
         console.error('Failed to load synced KPIs:', kpisRes.reason);
         setKpis([]);
+      }
+
+      // Handle communication modules
+      if (commModulesRes.status === 'fulfilled') {
+        const modulesData = commModulesRes.value || [];
+        setCommModules(Array.isArray(modulesData) ? modulesData : []);
+        console.log('Communication modules loaded:', modulesData.length);
+      } else {
+        console.error('Failed to load communication modules:', commModulesRes.reason);
+        setCommModules([]);
       }
 
       // Alarms - set empty for now (API not available)
@@ -492,6 +504,103 @@ const SyncDataManagement: React.FC = () => {
 
   // Communication Content
   const CommunicationContent = () => {
+    const [syncing, setSyncing] = useState(false);
+
+    const handleSyncCommunicationModules = async () => {
+      setSyncing(true);
+      try {
+        const response = await hopeCloudService.syncCommunicationModules();
+
+        if (response.status === 'success') {
+          message.success('Communication modules synced successfully from HopeCloud');
+          await loadSyncedData(); // Refresh data
+        } else {
+          throw new Error(response.message || 'Failed to sync communication modules');
+        }
+      } catch (err: any) {
+        message.error(err.message || 'Failed to sync communication modules');
+      } finally {
+        setSyncing(false);
+      }
+    };
+
+    const getSignalStrength = (rssi?: number) => {
+      if (!rssi) return { text: 'N/A', color: 'default', bars: 0 };
+      if (rssi >= 60) return { text: 'Excellent', color: 'green', bars: 4 };
+      if (rssi >= 40) return { text: 'Good', color: 'blue', bars: 3 };
+      if (rssi >= 20) return { text: 'Fair', color: 'orange', bars: 2 };
+      return { text: 'Poor', color: 'red', bars: 1 };
+    };
+
+    const getSiteName = (siteId: number) => {
+      const site = sites.find(s => s.id === siteId);
+      return site?.siteName || `Site ${siteId}`;
+    };
+
+    const commModuleColumns: TableColumnsType<any> = [
+      {
+        title: 'Module ID',
+        dataIndex: 'id',
+        key: 'id',
+        width: 100,
+      },
+      {
+        title: 'Site',
+        dataIndex: 'siteId',
+        key: 'siteId',
+        render: (siteId: number) => <Text strong>{getSiteName(siteId)}</Text>,
+      },
+      {
+        title: 'Equipment PN',
+        dataIndex: 'equipmentPn',
+        key: 'equipmentPn',
+        render: (pn: string) => pn || 'N/A',
+      },
+      {
+        title: 'Device Type',
+        dataIndex: 'deviceType',
+        key: 'deviceType',
+        render: (type: string) => (
+          <Tag color="blue">{type === '707' ? 'WiFi' : type === '705' ? '4G' : type || 'N/A'}</Tag>
+        ),
+      },
+      {
+        title: 'Status',
+        dataIndex: 'status',
+        key: 'status',
+        render: (status: string) => {
+          const color = status === 'online' ? 'green' : status === 'offline' ? 'default' : 'red';
+          return <Tag color={color}>{status?.toUpperCase() || 'N/A'}</Tag>;
+        },
+      },
+      {
+        title: 'Signal (RSSI)',
+        dataIndex: 'rssi',
+        key: 'rssi',
+        render: (rssi: number) => {
+          const signal = getSignalStrength(rssi);
+          return (
+            <Space>
+              <Tag color={signal.color}>{rssi || 'N/A'}</Tag>
+              <Text type="secondary">{signal.text}</Text>
+            </Space>
+          );
+        },
+      },
+      {
+        title: 'Devices',
+        dataIndex: 'loadedNumber',
+        key: 'loadedNumber',
+        render: (count: number) => count || 0,
+      },
+      {
+        title: 'Last Update',
+        dataIndex: 'lastUpdate',
+        key: 'lastUpdate',
+        render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : 'N/A',
+      },
+    ];
+
     return (
       <div style={{ padding: '24px' }}>
         <Card
@@ -499,20 +608,34 @@ const SyncDataManagement: React.FC = () => {
             <Space>
               <WifiOutlined />
               Communication Modules (Database)
-              <Badge count={0} showZero />
+              <Badge count={commModules.length} showZero />
+            </Space>
+          }
+          extra={
+            <Space>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={handleSyncCommunicationModules}
+                loading={syncing}
+              >
+                Sync from HopeCloud
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
+                Refresh
+              </Button>
             </Space>
           }
         >
-          <Alert
-            message="Communication Module Data Not Available"
-            description="Communication module synchronization from HopeCloud to database is pending. This section will show synced communication data with the same interface as Real Time Data."
-            type="info"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-          <Empty
-            description="No communication data synchronized yet"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          <Table
+            columns={commModuleColumns}
+            dataSource={commModules}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1000 }}
+            locale={{
+              emptyText: 'No communication modules found. Click "Sync from HopeCloud" to load data.'
+            }}
           />
         </Card>
       </div>
@@ -735,7 +858,7 @@ const SyncDataManagement: React.FC = () => {
         <Space>
           <WifiOutlined />
           Communication
-          <Badge count={0} showZero size="small" />
+          <Badge count={commModules.length} showZero size="small" />
         </Space>
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><CommunicationContent /></div>,

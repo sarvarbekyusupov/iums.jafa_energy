@@ -27,3 +27,4 @@ export * from './monitoring.service';
 export * from './device-alarms.service';
 export * from './site-kpis.service';
 export * from './equipment-statistics.service';
+export * from './communication-modules.service';
