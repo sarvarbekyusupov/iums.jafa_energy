@@ -216,6 +216,43 @@ class HopeCloudService {
     return response.data;
   }
 
+  // Station Resync endpoints
+  async resyncStations(options?: { stationIds?: number[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.STATIONS_RESYNC, options || {});
+    return response.data;
+  }
+
+  async resyncStationsDailyStats(options?: { stationIds?: number[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.STATIONS_DAILY_RESYNC, options || {});
+    return response.data;
+  }
+
+  async resyncStationsMonthlyStats(options?: { stationIds?: number[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.STATIONS_MONTHLY_RESYNC, options || {});
+    return response.data;
+  }
+
+  async resyncStationsYearlyStats(options?: { stationIds?: number[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.STATIONS_YEARLY_RESYNC, options || {});
+    return response.data;
+  }
+
+  async compareStationData(options?: { stationIds?: number[]; intervals?: string[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.STATIONS_COMPARE, options || {});
+    return response.data;
+  }
+
+  // Device Resync endpoints
+  async resyncDevices(options?: { deviceIds?: number[]; siteIds?: number[]; skipReadings?: boolean }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.DEVICES_RESYNC, options || {});
+    return response.data;
+  }
+
+  async compareDeviceData(options?: { deviceIds?: number[]; siteIds?: number[]; intervals?: string[] }): Promise<HopeCloudApiResponse<any>> {
+    const response = await apiClient.post(ApiUrls.HOPECLOUD.DEVICES_COMPARE, options || {});
+    return response.data;
+  }
+
   // User and account management
   async getSubOwners(filters?: { pageIndex?: number; pageSize?: number; userId?: string }): Promise<HopeCloudApiResponse<HopeCloudOwner[]>> {
     const params = new URLSearchParams();

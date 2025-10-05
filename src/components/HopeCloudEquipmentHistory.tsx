@@ -46,6 +46,7 @@ interface HopeCloudEquipmentHistoryProps {
   equipmentName?: string;
   inverterSn?: string;
   inverterId?: string;
+  deviceId?: number; // Local database device ID
 }
 
 interface ProcessedParameter {
@@ -64,7 +65,8 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
   deviceSn,
   equipmentName,
   inverterSn,
-  inverterId
+  inverterId,
+  deviceId
 }) => {
   const [historicalData, setHistoricalData] = useState<HopeCloudEquipmentHistoricalData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,6 +78,7 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
     'internalTemperature',
     'inverterEfficiency'
   ]);
+  const [syncing, setSyncing] = useState(false);
 
   const keyParameters: ParameterInfo[] = [
     { name: 'AC Active Power', key: 'acActivePower', unit: 'kW', color: '#1890ff' },
@@ -87,21 +90,55 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
     { name: 'Grid BC Line Voltage', key: 'gridBCLineVoltage', unit: 'V', color: '#f5222d' }
   ];
 
+  const handleResyncDevice = async () => {
+    setSyncing(true);
+    try {
+      const options: any = {
+        skipReadings: true // Fast mode - only sync daily statistics
+      };
+
+      // If we have a local device ID, resync that specific device
+      if (deviceId) {
+        options.deviceIds = [deviceId];
+      }
+      // Otherwise, resync all devices (fallback)
+
+      const response = await hopeCloudService.resyncDevices(options);
+
+      if (response.status === 'success') {
+        message.success(
+          deviceId
+            ? 'Device data synced successfully from HopeCloud'
+            : 'All devices synced successfully from HopeCloud'
+        );
+        // Refresh the displayed data after sync
+        await fetchEquipmentData();
+      } else {
+        throw new Error(response.message || 'Failed to sync device data');
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to sync device data';
+      message.error(errorMessage);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const fetchEquipmentData = async () => {
     if (!deviceSn) return;
-    
+
     setLoading(true);
     setError(null);
 
     try {
       const dateString = selectedDate.format('YYYY-MM-DD');
       const options: HopeCloudHistoricalOptions = {};
-      
+
       if (inverterSn) options.sn = inverterSn;
       if (inverterId) options.id = inverterId;
 
       const response = await hopeCloudService.getEquipmentHistoricalData(deviceSn, dateString, options);
-      
+
       if (response.status === 'success' && response.data) {
         setHistoricalData(response.data);
       } else {
@@ -245,8 +282,15 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
               disabledDate={(current) => current && current > dayjs().subtract(1, 'day')}
               style={{ width: 150 }}
             />
-            <Button 
-              type="primary" 
+            <Button
+              icon={<DatabaseOutlined />}
+              onClick={handleResyncDevice}
+              loading={syncing}
+            >
+              Sync from HopeCloud
+            </Button>
+            <Button
+              type="primary"
               icon={<ReloadOutlined />}
               onClick={fetchEquipmentData}
               loading={loading}

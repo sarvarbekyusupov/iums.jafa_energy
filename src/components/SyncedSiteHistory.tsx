@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, ClockCircleOutlined, CalendarOutlined, BarChartOutlined, SyncOutlined } from '@ant-design/icons';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
+import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, CalendarOutlined, BarChartOutlined, SyncOutlined } from '@ant-design/icons';
 import { hopeCloudService, siteKpisService } from '../service';
 import { apiClient } from '../service/api-client';
-import type { HopeCloudStationHistoricalPower, HopeCloudStatistics } from '../types/hopecloud';
+import type { HopeCloudStatistics } from '../types/hopecloud';
 import dayjs from 'dayjs';
 
 interface SyncedSiteHistoryProps {
   stationId: string;
   stationName?: string;
-}
-
-interface ChartDataPoint {
-  time: string;
-  power: number;
 }
 
 interface StatsDataPoint {
@@ -24,22 +19,13 @@ interface StatsDataPoint {
   revenue?: number;
 }
 
-type ViewType = 'hourly' | 'daily' | 'monthly' | 'yearly';
+type ViewType = 'daily' | 'monthly' | 'yearly';
 
 const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
   stationId,
   stationName
 }) => {
-  const [activeTab, setActiveTab] = useState<ViewType>('hourly');
-
-  // Hourly data state
-  const [historicalData, setHistoricalData] = useState<HopeCloudStationHistoricalPower[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = dayjs();
-    return today;
-  });
+  const [activeTab, setActiveTab] = useState<ViewType>('daily');
 
   // Stats data state
   const [statsData, setStatsData] = useState<HopeCloudStatistics[]>([]);
@@ -47,51 +33,85 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
   const [statsError, setStatsError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
-  const [statsDateRange, setStatsDateRange] = useState(() => {
-    // Default range - will be updated when tab changes
+
+  // Separate date ranges for each tab
+  const [dailyDateRange, setDailyDateRange] = useState(() => {
     const endDate = dayjs();
     const startDate = endDate.subtract(30, 'days');
     return { startDate, endDate };
   });
 
-  const fetchHistoricalData = async () => {
-    if (!stationId) return;
+  const [monthlyDateRange, setMonthlyDateRange] = useState(() => {
+    const endDate = dayjs();
+    const startDate = endDate.subtract(6, 'months');
+    return { startDate, endDate };
+  });
 
-    setLoading(true);
-    setError(null);
+  const [yearlyDateRange, setYearlyDateRange] = useState(() => {
+    const endDate = dayjs();
+    const startDate = endDate.subtract(5, 'years');
+    return { startDate, endDate };
+  });
 
-    try {
-      // Map database site IDs to HopeCloud station IDs
-      const hopecloudStationId = stationId === '3' ? '1921207990405709826' : stationId;
-
-      const dateString = selectedDate.format('YYYY-MM-DD');
-      const response = await hopeCloudService.getStationHistoricalPower(hopecloudStationId, dateString);
-
-      if (response?.data) {
-        setHistoricalData(response.data);
-      } else {
-        throw new Error('Failed to fetch historical data');
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch station historical data';
-      setError(errorMessage);
-      message.error(errorMessage);
-    } finally {
-      setLoading(false);
+  // Helper to get current tab's date range
+  const getCurrentDateRange = () => {
+    switch (activeTab) {
+      case 'daily':
+        return dailyDateRange;
+      case 'monthly':
+        return monthlyDateRange;
+      case 'yearly':
+        return yearlyDateRange;
+      default:
+        return dailyDateRange;
     }
   };
 
-  // Sync function to trigger HopeCloud daily sync
-  const triggerDailySync = async () => {
+  // Helper to set current tab's date range
+  const setCurrentDateRange = (newRange: { startDate: dayjs.Dayjs; endDate: dayjs.Dayjs }) => {
+    switch (activeTab) {
+      case 'daily':
+        setDailyDateRange(newRange);
+        break;
+      case 'monthly':
+        setMonthlyDateRange(newRange);
+        break;
+      case 'yearly':
+        setYearlyDateRange(newRange);
+        break;
+    }
+  };
+
+  // Sync function to trigger resync based on active tab
+  const triggerResync = async () => {
     setSyncing(true);
     setSyncResult(null);
 
     try {
-      const response = await apiClient.post('/api/hopecloud/sync/daily');
+      let response;
+
+      switch (activeTab) {
+        case 'daily':
+          response = await hopeCloudService.resyncStationsDailyStats({
+            stationIds: [parseInt(stationId)]
+          });
+          break;
+        case 'monthly':
+          response = await hopeCloudService.resyncStationsMonthlyStats({
+            stationIds: [parseInt(stationId)]
+          });
+          break;
+        case 'yearly':
+          response = await hopeCloudService.resyncStationsYearlyStats({
+            stationIds: [parseInt(stationId)]
+          });
+          break;
+      }
+
       setSyncResult(response);
 
       if (response.status === 'success') {
-        message.success(`Sync completed! ${response.data.recordsProcessed} sites processed`);
+        message.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} sync completed successfully!`);
         // Refresh data after successful sync
         setTimeout(() => {
           fetchStatsData();
@@ -118,8 +138,9 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
       let response;
 
       // Use database API as instructed: GET /api/site-kpis?siteId=1&startDate=2025-09-01&endDate=2025-09-30
-      const startDate = statsDateRange.startDate.format('YYYY-MM-DD');
-      const endDate = statsDateRange.endDate.format('YYYY-MM-DD');
+      const currentRange = getCurrentDateRange();
+      const startDate = currentRange.startDate.format('YYYY-MM-DD');
+      const endDate = currentRange.endDate.format('YYYY-MM-DD');
 
       const params = new URLSearchParams({
         siteId: stationId,
@@ -131,18 +152,109 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
       response = await apiClient.get(`/api/site-kpis?${params.toString()}`);
 
       if (response?.data && Array.isArray(response.data)) {
-        console.log(`📊 ${activeTab} Database API returned ${response.data.length} records`);
-        console.log(`📅 Date range in response:`, {
-          first: response.data[0]?.measuredAt,
-          last: response.data[response.data.length - 1]?.measuredAt
+        let filteredRecords = [];
+
+        if (activeTab === 'daily') {
+          // Filter to only get daily records (stored at 12:00:00 UTC)
+          filteredRecords = response.data.filter(item => {
+            const measuredAt = item?.measuredAt || '';
+            return measuredAt.includes('T12:00:00');
+          });
+        } else if (activeTab === 'monthly') {
+          // For monthly data: get one record per month
+          // Complete months are stored at 00:00:00 on the 1st of next month
+          // For ongoing month, take the latest record
+          const monthlyMap = new Map();
+
+          response.data.forEach(item => {
+            if (item?.monthlyYieldKwh && parseFloat(item.monthlyYieldKwh) > 0) {
+              const month = item.measuredAt.substring(0, 7); // YYYY-MM
+              const existing = monthlyMap.get(month);
+
+              // Keep the record at 00:00:00 on 1st of next month, or latest if ongoing
+              if (!existing ||
+                  item.measuredAt.includes('T00:00:00.000Z') ||
+                  new Date(item.measuredAt) > new Date(existing.measuredAt)) {
+                monthlyMap.set(month, item);
+              }
+            }
+          });
+
+          // Fill in missing months with zero values
+          const startMonth = dayjs(currentRange.startDate);
+          const endMonth = dayjs(currentRange.endDate);
+          let currentMonth = startMonth;
+
+          while (currentMonth.isBefore(endMonth) || currentMonth.isSame(endMonth, 'month')) {
+            const monthKey = currentMonth.format('YYYY-MM');
+            if (!monthlyMap.has(monthKey)) {
+              monthlyMap.set(monthKey, {
+                measuredAt: currentMonth.format('YYYY-MM-01T00:00:00.000Z'),
+                monthlyYieldKwh: '0',
+                dailyYieldKwh: '0',
+                yearlyYieldKwh: '0',
+                currentPowerKw: '0'
+              });
+            }
+            currentMonth = currentMonth.add(1, 'month');
+          }
+
+          filteredRecords = Array.from(monthlyMap.values());
+        } else if (activeTab === 'yearly') {
+          // For yearly data: get one record per year (similar logic to monthly)
+          const yearlyMap = new Map();
+
+          response.data.forEach(item => {
+            if (item?.yearlyYieldKwh && parseFloat(item.yearlyYieldKwh) > 0) {
+              const year = item.measuredAt.substring(0, 4); // YYYY
+              const existing = yearlyMap.get(year);
+
+              if (!existing ||
+                  item.measuredAt.includes('T00:00:00.000Z') ||
+                  new Date(item.measuredAt) > new Date(existing.measuredAt)) {
+                yearlyMap.set(year, item);
+              }
+            }
+          });
+
+          // Fill in missing years with zero values
+          const startYear = dayjs(currentRange.startDate).year();
+          const endYear = dayjs(currentRange.endDate).year();
+
+          for (let year = startYear; year <= endYear; year++) {
+            const yearKey = year.toString();
+            if (!yearlyMap.has(yearKey)) {
+              yearlyMap.set(yearKey, {
+                measuredAt: `${year}-01-01T00:00:00.000Z`,
+                yearlyYieldKwh: '0',
+                monthlyYieldKwh: '0',
+                dailyYieldKwh: '0',
+                currentPowerKw: '0'
+              });
+            }
+          }
+
+          filteredRecords = Array.from(yearlyMap.values());
+        }
+
+        // Sort by date ascending (oldest first) for proper chart display
+        const sortedRecords = filteredRecords.sort((a, b) => {
+          return new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime();
         });
-        console.log(`📝 Sample records:`, response.data.slice(0, 3));
 
-        // Check date distribution
-        const uniqueDates = [...new Set(response.data.map(item => dayjs(item?.measuredAt).format('YYYY-MM-DD')))];
-        console.log(`📅 Unique dates in response (${uniqueDates.length}):`, uniqueDates.slice(0, 10));
+        console.log(`📊 ${activeTab} Database API: ${response.data.length} total records, ${sortedRecords.length} ${activeTab} records`);
+        console.log(`📅 Date range:`, {
+          first: sortedRecords[0]?.measuredAt,
+          last: sortedRecords[sortedRecords.length - 1]?.measuredAt
+        });
+        console.log(`📝 Sample data:`, sortedRecords.slice(0, 3).map(r => ({
+          date: r.measuredAt,
+          daily: r.dailyYieldKwh,
+          monthly: r.monthlyYieldKwh,
+          yearly: r.yearlyYieldKwh
+        })));
 
-        setStatsData(response.data);
+        setStatsData(sortedRecords);
       } else {
         console.warn(`${activeTab} API unexpected response:`, response);
         throw new Error('Failed to fetch statistics data');
@@ -156,57 +268,12 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
     }
   };
 
-  // Effect for hourly data (when selectedDate changes)
-  useEffect(() => {
-    if (activeTab === 'hourly') {
-      fetchHistoricalData();
-    }
-  }, [selectedDate, stationId, activeTab]);
-
   // Effect for stats data (when activeTab or date range changes)
   useEffect(() => {
-    if (activeTab !== 'hourly') {
-      fetchStatsData();
-    }
-  }, [activeTab, statsDateRange, stationId]);
+    fetchStatsData();
+  }, [activeTab, dailyDateRange, monthlyDateRange, yearlyDateRange, stationId]);
 
-  // Effect to update date range when tab changes
-  useEffect(() => {
-    if (activeTab === 'hourly') return; // Hourly uses selectedDate
-
-    const now = dayjs();
-    let newStartDate, newEndDate;
-
-    switch (activeTab) {
-      case 'daily':
-        newEndDate = now;
-        newStartDate = now.subtract(30, 'days');
-        break;
-      case 'monthly':
-        newEndDate = now;
-        newStartDate = now.subtract(12, 'months');
-        break;
-      case 'yearly':
-        newEndDate = now;
-        newStartDate = now.subtract(5, 'years');
-        break;
-    }
-
-    setStatsDateRange({ startDate: newStartDate, endDate: newEndDate });
-  }, [activeTab]);
-
-  // Data processing functions
-  const processHistoricalData = (): ChartDataPoint[] => {
-    if (!Array.isArray(historicalData) || historicalData.length === 0) {
-      return [];
-    }
-
-    return historicalData.map((item, index) => ({
-      time: item?.time || `${index.toString().padStart(2, '0')}:00`,
-      power: Math.max(0, parseFloat(item?.nowKw?.toString() || '0')),
-    }));
-  };
-
+  // Data processing function
   const processStatsData = (): StatsDataPoint[] => {
     if (!Array.isArray(statsData) || statsData.length === 0) {
       return [];
@@ -282,17 +349,8 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
     }
   };
 
-  // Tab items matching Real Time Data design
+  // Tab items for sync data (daily, monthly, yearly only)
   const tabItems = [
-    {
-      key: 'hourly',
-      label: (
-        <span>
-          <ClockCircleOutlined />
-          Hourly
-        </span>
-      ),
-    },
     {
       key: 'daily',
       label: (
@@ -324,119 +382,9 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
 
   // Render tab content
   const renderTabContent = () => {
-    if (activeTab === 'hourly') {
-      // Hourly tab with date picker and power chart
-      const chartData = processHistoricalData();
-      const peakPower = chartData.length > 0 ? Math.max(...chartData.map(d => d.power)) : 0;
-      const avgPower = chartData.length > 0 ? chartData.reduce((sum, d) => sum + d.power, 0) / chartData.length : 0;
-
-      return (
-        <div>
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col span={12}>
-              <DatePicker
-                value={selectedDate}
-                onChange={(date) => date && setSelectedDate(date)}
-                style={{ width: '100%' }}
-                placeholder="Select date"
-              />
-            </Col>
-            <Col span={12}>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={fetchHistoricalData}
-                loading={loading}
-              >
-                Refresh Data
-              </Button>
-            </Col>
-          </Row>
-
-          {/* Statistics Cards */}
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col span={8}>
-              <Statistic
-                title="Peak Power"
-                value={peakPower}
-                precision={2}
-                suffix="kW"
-                valueStyle={{ color: '#cf1322' }}
-                prefix={<ThunderboltOutlined />}
-              />
-            </Col>
-            <Col span={8}>
-              <Statistic
-                title="Average Power"
-                value={avgPower}
-                precision={2}
-                suffix="kW"
-                valueStyle={{ color: '#3f8600' }}
-                prefix={<RiseOutlined />}
-              />
-            </Col>
-            <Col span={8}>
-              <Statistic
-                title="Total Data Points"
-                value={chartData.length}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Col>
-          </Row>
-
-          {/* Chart */}
-          <Card>
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px' }}>
-                <Spin size="large" />
-                <div style={{ marginTop: '16px' }}>Loading hourly power data...</div>
-              </div>
-            ) : error ? (
-              <Alert
-                message="Error Loading Data"
-                description={error}
-                type="error"
-                showIcon
-              />
-            ) : chartData.length > 0 ? (
-              <div style={{ height: '400px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#1890ff" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: any) => [`${value} kW`, 'Power']}
-                      labelFormatter={(label) => `Time: ${label}`}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="power"
-                      stroke="#1890ff"
-                      fillOpacity={1}
-                      fill="url(#colorPower)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '60px' }}>
-                No hourly data available for selected date
-              </div>
-            )}
-          </Card>
-        </div>
-      );
-    } else {
-      // Daily/Monthly/Yearly tabs with date range picker and dual charts
-      const chartData = processStatsData();
-      const stats = calculateStats(chartData);
+    // Daily/Monthly/Yearly tabs with date range picker and dual charts
+    const chartData = processStatsData();
+    const stats = calculateStats(chartData);
 
       const getDatePickerProps = () => {
         switch (activeTab) {
@@ -454,10 +402,10 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
           <Row gutter={16} style={{ marginBottom: 16 }}>
             <Col span={16}>
               <DatePicker.RangePicker
-                value={[statsDateRange.startDate, statsDateRange.endDate]}
+                value={[getCurrentDateRange().startDate, getCurrentDateRange().endDate]}
                 onChange={(dates) => {
                   if (dates && dates[0] && dates[1]) {
-                    setStatsDateRange({
+                    setCurrentDateRange({
                       startDate: dates[0],
                       endDate: dates[1],
                     });
@@ -472,10 +420,10 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
                 <Button
                   type="primary"
                   icon={<SyncOutlined />}
-                  onClick={triggerDailySync}
+                  onClick={triggerResync}
                   loading={syncing}
                 >
-                  Sync HopeCloud
+                  Sync {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </Button>
                 <Button
                   icon={<ReloadOutlined />}
@@ -550,38 +498,49 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
             ) : chartData.length > 0 ? (
               <div style={{ height: '400px' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#52c41a" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#1890ff" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: any, name: string) => {
-                        if (name === 'Energy (kWh)') return [`${value} kWh`, 'Energy'];
-                        if (name === 'Power (kW)') return [`${value} kW`, 'Power'];
-                        return [value, name];
-                      }}
-                      labelFormatter={(label) => `Time: ${label}`}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="energy"
-                      stroke="#52c41a"
-                      fillOpacity={1}
-                      fill="url(#colorEnergy)"
-                      name="Energy (kWh)"
-                    />
-                  </AreaChart>
+                  {activeTab === 'daily' ? (
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#52c41a" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value: any) => [`${value} kWh`, 'Energy']}
+                        labelFormatter={(label) => `Date: ${label}`}
+                      />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="energy"
+                        stroke="#52c41a"
+                        fillOpacity={1}
+                        fill="url(#colorEnergy)"
+                        name="Energy (kWh)"
+                      />
+                    </AreaChart>
+                  ) : (
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value: any) => [`${value} kWh`, 'Energy']}
+                        labelFormatter={(label) => `${activeTab === 'monthly' ? 'Month' : 'Year'}: ${label}`}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="energy"
+                        fill="#52c41a"
+                        name="Energy (kWh)"
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             ) : (
@@ -591,15 +550,14 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
             )}
           </Card>
         </div>
-      );
-    }
+    );
   };
 
   return (
     <div style={{ padding: '16px' }}>
       <Alert
         message="HopeCloud Synced Data - Historical Analysis"
-        description={`Station ${stationId} historical data synchronized from HopeCloud. Use tabs to view different time periods.`}
+        description={`Station ${stationId} - Showing ${activeTab} statistics synced from HopeCloud. Daily data at 12:00 noon, monthly data on 1st of next month, yearly data on Jan 1st. Use the sync button to refresh with latest data.`}
         type="info"
         showIcon
         style={{ marginBottom: '16px' }}

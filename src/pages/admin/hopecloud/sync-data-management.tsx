@@ -51,7 +51,7 @@ import {
   RiseOutlined,
   FallOutlined,
 } from '@ant-design/icons';
-import { sitesService, siteKpisService, deviceAlarmsService } from '../../../service';
+import { sitesService, siteKpisService, deviceAlarmsService, hopeCloudService } from '../../../service';
 import StatisticsDashboard from '../../../components/StatisticsDashboard';
 import SyncedSiteHistory from '../../../components/SyncedSiteHistory';
 import dayjs from 'dayjs';
@@ -547,6 +547,143 @@ const SyncDataManagement: React.FC = () => {
     );
   };
 
+  // Devices Content
+  const DevicesContent = () => {
+    const [syncing, setSyncing] = useState(false);
+
+    const handleResyncDevices = async () => {
+      setSyncing(true);
+      try {
+        const response = await hopeCloudService.resyncDevices({
+          skipReadings: true // Fast mode - only sync daily statistics
+        });
+
+        if (response.status === 'success') {
+          message.success('All devices synced successfully from HopeCloud');
+          await loadSyncedData(); // Refresh data
+        } else {
+          throw new Error(response.message || 'Failed to sync devices');
+        }
+      } catch (err: any) {
+        message.error(err.message || 'Failed to sync devices');
+      } finally {
+        setSyncing(false);
+      }
+    };
+
+    const handleResyncSingleDevice = async (deviceId: number) => {
+      try {
+        const response = await hopeCloudService.resyncDevices({
+          deviceIds: [deviceId],
+          skipReadings: true
+        });
+
+        if (response.status === 'success') {
+          message.success('Device synced successfully from HopeCloud');
+          await loadSyncedData();
+        } else {
+          throw new Error(response.message || 'Failed to sync device');
+        }
+      } catch (err: any) {
+        message.error(err.message || 'Failed to sync device');
+      }
+    };
+
+    const deviceColumns: TableColumnsType<SyncedDevice> = [
+      {
+        title: 'Device ID',
+        dataIndex: 'id',
+        key: 'id',
+        width: 100,
+      },
+      {
+        title: 'Device Name',
+        dataIndex: 'deviceName',
+        key: 'deviceName',
+        render: (name: string) => <Text strong>{name || 'N/A'}</Text>,
+      },
+      {
+        title: 'Type',
+        dataIndex: 'deviceType',
+        key: 'deviceType',
+        render: (type: string) => <Tag color="blue">{type}</Tag>,
+      },
+      {
+        title: 'Serial Number',
+        dataIndex: 'serialNumber',
+        key: 'serialNumber',
+        render: (serial: string) => serial || 'N/A',
+      },
+      {
+        title: 'Status',
+        dataIndex: 'status',
+        key: 'status',
+        render: (status: string) => (
+          <Tag color={status === 'active' ? 'green' : 'default'}>
+            {status?.toUpperCase() || 'N/A'}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Station ID',
+        dataIndex: 'stationId',
+        key: 'stationId',
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        render: (record: SyncedDevice) => (
+          <Space>
+            <Button
+              size="small"
+              icon={<SyncOutlined />}
+              onClick={() => handleResyncSingleDevice(record.id)}
+            >
+              Sync
+            </Button>
+          </Space>
+        ),
+      },
+    ];
+
+    return (
+      <div style={{ padding: '24px' }}>
+        <Card
+          title={
+            <Space>
+              <SettingOutlined />
+              Synced Devices from Database
+              <Badge count={devices.length} showZero />
+            </Space>
+          }
+          extra={
+            <Space>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={handleResyncDevices}
+                loading={syncing}
+              >
+                Sync All from HopeCloud
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
+                Refresh
+              </Button>
+            </Space>
+          }
+        >
+          <Table
+            columns={deviceColumns}
+            dataSource={devices}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1000 }}
+          />
+        </Card>
+      </div>
+    );
+  };
+
   // Tab items matching Real Time Data structure
   const tabItems: TabsProps['items'] = [
     {
@@ -569,6 +706,17 @@ const SyncDataManagement: React.FC = () => {
         </Space>
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><StationsContent /></div>,
+    },
+    {
+      key: 'devices',
+      label: (
+        <Space>
+          <SettingOutlined />
+          Devices
+          <Badge count={devices.length} showZero size="small" />
+        </Space>
+      ),
+      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><DevicesContent /></div>,
     },
     {
       key: 'alarms',

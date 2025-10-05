@@ -107,6 +107,17 @@ export class ApiUrls {
     SYNC_EQUIPMENT: `${this.BASE_URL}/hopecloud/sync/equipment`,
     SYNC_SITES: `${this.BASE_URL}/hopecloud/sync/sites`,
     SYNC_DEVICES: `${this.BASE_URL}/hopecloud/sync/devices`,
+
+    // Station Resync
+    STATIONS_DAILY_RESYNC: `${this.BASE_URL}/hopecloud/stations/daily-resync`,
+    STATIONS_MONTHLY_RESYNC: `${this.BASE_URL}/hopecloud/stations/monthly-resync`,
+    STATIONS_YEARLY_RESYNC: `${this.BASE_URL}/hopecloud/stations/yearly-resync`,
+    STATIONS_RESYNC: `${this.BASE_URL}/hopecloud/stations/resync`,
+    STATIONS_COMPARE: `${this.BASE_URL}/hopecloud/stations/compare`,
+
+    // Device Resync
+    DEVICES_RESYNC: `${this.BASE_URL}/hopecloud/devices/resync`,
+    DEVICES_COMPARE: `${this.BASE_URL}/hopecloud/devices/compare`,
     
     // Device Discovery
     DISCOVERY_SCAN: `${this.BASE_URL}/hopecloud/discovery/scan`,
