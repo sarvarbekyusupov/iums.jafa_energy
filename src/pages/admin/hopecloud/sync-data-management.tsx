@@ -478,11 +478,15 @@ const SyncDataManagement: React.FC = () => {
 
     const handleSyncAlarms = async () => {
       setSyncing(true);
+      const hideLoading = message.loading('Syncing alarms from HopeCloud... This may take 1-2 minutes for large date ranges.', 0);
+
       try {
         const response = await hopeCloudService.resyncAlarms({
           startDate: syncStartDate,
           endDate: syncEndDate,
         });
+
+        hideLoading();
 
         if (response.status === 'success') {
           const { alarmsCreated, errors } = response.data.details;
@@ -505,7 +509,16 @@ const SyncDataManagement: React.FC = () => {
           throw new Error(response.message || 'Failed to sync alarms');
         }
       } catch (err: any) {
-        message.error(err.message || 'Failed to sync alarms');
+        hideLoading();
+        if (err.message?.includes('504') || err.message?.includes('timeout')) {
+          message.warning({
+            content: 'Sync is taking longer than expected. The process is still running in the background. Please refresh in a few minutes to see the results.',
+            duration: 8,
+          });
+          setShowSyncModal(false);
+        } else {
+          message.error(err.message || 'Failed to sync alarms');
+        }
       } finally {
         setSyncing(false);
       }
