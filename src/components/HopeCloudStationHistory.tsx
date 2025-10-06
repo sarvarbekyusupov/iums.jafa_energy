@@ -556,7 +556,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                       <Legend />
                       <Bar
                         dataKey="energy"
-                        fill="#52c41a"
+                        fill="#1890ff"
                         name="Energy (kWh)"
                       />
                     </BarChart>
@@ -564,8 +564,8 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                     <AreaChart data={statsChartData}>
                       <defs>
                         <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#52c41a" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#1890ff" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -578,7 +578,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                       <Area
                         type="monotone"
                         dataKey="energy"
-                        stroke="#52c41a"
+                        stroke="#1890ff"
                         fillOpacity={1}
                         fill="url(#colorEnergy)"
                         name="Energy (kWh)"
