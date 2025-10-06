@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, ClockCircleOutlined, CalendarOutlined, BarChartOutlined } from '@ant-design/icons';
 import { hopeCloudService } from '../service';
 import type { HopeCloudStationHistoricalPower, HopeCloudStatistics } from '../types/hopecloud';
@@ -545,44 +545,69 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                 size="small"
               >
                 <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={statsChartData}>
-                    <defs>
-                      <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#52c41a" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#1890ff" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        name.includes('Energy') ? `${value.toFixed(1)} kWh` : `${value.toFixed(2)} kW`,
-                        name
-                      ]}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="energy"
-                      stroke="#52c41a"
-                      fillOpacity={1}
-                      fill="url(#colorEnergy)"
-                      name="Energy (kWh)"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="power"
-                      stroke="#1890ff"
-                      fillOpacity={1}
-                      fill="url(#colorPower)"
-                      name="Power (kW)"
-                    />
-                  </AreaChart>
+                  {activeTab === 'monthly' || activeTab === 'yearly' ? (
+                    <BarChart data={statsChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          name.includes('Energy') ? `${value.toFixed(1)} kWh` : `${value.toFixed(2)} kW`,
+                          name
+                        ]}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="energy"
+                        fill="#52c41a"
+                        name="Energy (kWh)"
+                      />
+                      <Bar
+                        dataKey="power"
+                        fill="#1890ff"
+                        name="Power (kW)"
+                      />
+                    </BarChart>
+                  ) : (
+                    <AreaChart data={statsChartData}>
+                      <defs>
+                        <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#52c41a" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#1890ff" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          name.includes('Energy') ? `${value.toFixed(1)} kWh` : `${value.toFixed(2)} kW`,
+                          name
+                        ]}
+                      />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="energy"
+                        stroke="#52c41a"
+                        fillOpacity={1}
+                        fill="url(#colorEnergy)"
+                        name="Energy (kWh)"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="power"
+                        stroke="#1890ff"
+                        fillOpacity={1}
+                        fill="url(#colorPower)"
+                        name="Power (kW)"
+                      />
+                    </AreaChart>
+                  )}
                 </ResponsiveContainer>
               </Card>
             </>
