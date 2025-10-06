@@ -44,12 +44,53 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
   const [statsData, setStatsData] = useState<HopeCloudStatistics[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [statsDateRange, setStatsDateRange] = useState(() => {
-    // Default range - will be updated when tab changes
+
+  // Separate date ranges for each tab to prevent conflicts
+  const [dailyDateRange, setDailyDateRange] = useState(() => {
     const endDate = dayjs();
     const startDate = endDate.subtract(30, 'days');
     return { startDate, endDate };
   });
+
+  const [monthlyDateRange, setMonthlyDateRange] = useState(() => {
+    const endDate = dayjs();
+    const startDate = endDate.subtract(12, 'months');
+    return { startDate, endDate };
+  });
+
+  const [yearlyDateRange, setYearlyDateRange] = useState(() => {
+    const endDate = dayjs();
+    const startDate = endDate.subtract(5, 'years');
+    return { startDate, endDate };
+  });
+
+  // Get current date range based on active tab
+  const getCurrentDateRange = () => {
+    switch (activeTab) {
+      case 'daily':
+        return dailyDateRange;
+      case 'monthly':
+        return monthlyDateRange;
+      case 'yearly':
+        return yearlyDateRange;
+      default:
+        return dailyDateRange;
+    }
+  };
+
+  const setCurrentDateRange = (range: { startDate: dayjs.Dayjs; endDate: dayjs.Dayjs }) => {
+    switch (activeTab) {
+      case 'daily':
+        setDailyDateRange(range);
+        break;
+      case 'monthly':
+        setMonthlyDateRange(range);
+        break;
+      case 'yearly':
+        setYearlyDateRange(range);
+        break;
+    }
+  };
 
   const fetchHistoricalData = async () => {
     if (!stationId) return;
@@ -84,35 +125,36 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
     try {
       let response;
       let filters;
+      const currentRange = getCurrentDateRange();
 
       // Use user-selected date range but format appropriately for each tab
       switch (activeTab) {
         case 'daily':
           filters = {
-            startTime: statsDateRange.startDate.format('YYYY-MM-DD'),
-            endTime: statsDateRange.endDate.format('YYYY-MM-DD'),
+            startTime: currentRange.startDate.format('YYYY-MM-DD'),
+            endTime: currentRange.endDate.format('YYYY-MM-DD'),
           };
           response = await hopeCloudService.getStationDailyStats(stationId, filters);
           break;
         case 'monthly':
           filters = {
-            startTime: statsDateRange.startDate.format('YYYY-MM'),
-            endTime: statsDateRange.endDate.format('YYYY-MM'),
+            startTime: currentRange.startDate.format('YYYY-MM'),
+            endTime: currentRange.endDate.format('YYYY-MM'),
           };
           console.log('Monthly date range:', filters);
           response = await hopeCloudService.getStationMonthlyStats(stationId, filters);
           break;
         case 'yearly':
           filters = {
-            startTime: statsDateRange.startDate.format('YYYY'),
-            endTime: statsDateRange.endDate.format('YYYY'),
+            startTime: currentRange.startDate.format('YYYY'),
+            endTime: currentRange.endDate.format('YYYY'),
           };
           response = await hopeCloudService.getStationYearlyStats(stationId, filters);
           break;
         default:
           filters = {
-            startTime: statsDateRange.startDate.format('YYYY-MM-DD'),
-            endTime: statsDateRange.endDate.format('YYYY-MM-DD'),
+            startTime: currentRange.startDate.format('YYYY-MM-DD'),
+            endTime: currentRange.endDate.format('YYYY-MM-DD'),
           };
           response = await hopeCloudService.getStationDailyStats(stationId, filters);
       }
@@ -132,42 +174,40 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
     }
   };
 
-  // Date ranges are now handled per-tab in fetchStatsData
-
-  // Set appropriate default date range when tab changes
-  useEffect(() => {
-    if (activeTab === 'hourly') return; // Hourly uses selectedDate
-
-    const now = dayjs();
-    let newStartDate, newEndDate;
-
-    switch (activeTab) {
-      case 'daily':
-        newEndDate = now;
-        newStartDate = now.subtract(30, 'days');
-        break;
-      case 'monthly':
-        newEndDate = now;
-        newStartDate = now.subtract(12, 'months');
-        break;
-      case 'yearly':
-        newEndDate = now;
-        newStartDate = now.subtract(5, 'years');
-        break;
-      default:
-        return;
-    }
-
-    setStatsDateRange({ startDate: newStartDate, endDate: newEndDate });
-  }, [activeTab]);
-
+  // Fetch data when tab changes or stationId changes
   useEffect(() => {
     if (activeTab === 'hourly') {
       fetchHistoricalData();
     } else {
       fetchStatsData();
     }
-  }, [stationId, selectedDate, statsDateRange, activeTab]);
+  }, [stationId, activeTab]);
+
+  // Fetch hourly data when selectedDate changes
+  useEffect(() => {
+    if (activeTab === 'hourly') {
+      fetchHistoricalData();
+    }
+  }, [selectedDate]);
+
+  // Fetch stats data when date ranges change
+  useEffect(() => {
+    if (activeTab === 'daily') {
+      fetchStatsData();
+    }
+  }, [dailyDateRange]);
+
+  useEffect(() => {
+    if (activeTab === 'monthly') {
+      fetchStatsData();
+    }
+  }, [monthlyDateRange]);
+
+  useEffect(() => {
+    if (activeTab === 'yearly') {
+      fetchStatsData();
+    }
+  }, [yearlyDateRange]);
 
   const prepareChartData = (): ChartDataPoint[] => {
     return historicalData.map(item => ({
@@ -386,10 +426,10 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
             {activeTab === 'monthly' ? (
               // Month-Year picker for monthly data
               <DatePicker.RangePicker
-                value={[statsDateRange.startDate, statsDateRange.endDate]}
+                value={[monthlyDateRange.startDate, monthlyDateRange.endDate]}
                 onChange={(dates) => {
                   if (dates) {
-                    setStatsDateRange({
+                    setMonthlyDateRange({
                       startDate: dates[0]!,
                       endDate: dates[1]!,
                     });
@@ -402,10 +442,10 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
             ) : activeTab === 'yearly' ? (
               // Year picker for yearly data
               <DatePicker.RangePicker
-                value={[statsDateRange.startDate, statsDateRange.endDate]}
+                value={[yearlyDateRange.startDate, yearlyDateRange.endDate]}
                 onChange={(dates) => {
                   if (dates) {
-                    setStatsDateRange({
+                    setYearlyDateRange({
                       startDate: dates[0]!,
                       endDate: dates[1]!,
                     });
@@ -418,10 +458,10 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
             ) : (
               // Default date picker for daily data
               <DatePicker.RangePicker
-                value={[statsDateRange.startDate, statsDateRange.endDate]}
+                value={[dailyDateRange.startDate, dailyDateRange.endDate]}
                 onChange={(dates) => {
                   if (dates) {
-                    setStatsDateRange({
+                    setDailyDateRange({
                       startDate: dates[0]!,
                       endDate: dates[1]!,
                     });
