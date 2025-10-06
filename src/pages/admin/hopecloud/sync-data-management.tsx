@@ -120,6 +120,7 @@ const SyncDataManagement: React.FC = () => {
   const [commModules, setCommModules] = useState<any[]>([]); // CommunicationModule type from api.ts
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [syncingKPIs, setSyncingKPIs] = useState(false);
 
   // Modal states
   const [selectedSite, setSelectedSite] = useState<SyncedSite | null>(null);
@@ -203,6 +204,27 @@ const SyncDataManagement: React.FC = () => {
     }
   };
 
+  // Sync Station KPIs from HopeCloud
+  const handleSyncStationKPIs = async () => {
+    setSyncingKPIs(true);
+    try {
+      // Sync daily stats which will populate the KPIs table
+      const response = await hopeCloudService.resyncStationsDailyStats();
+
+      if (response.status === 'success') {
+        message.success('Station KPIs synced successfully from HopeCloud');
+        // Reload data to show the new KPIs
+        await loadSyncedData();
+      } else {
+        throw new Error(response.message || 'Failed to sync station KPIs');
+      }
+    } catch (err: any) {
+      message.error(err.message || 'Failed to sync station KPIs');
+    } finally {
+      setSyncingKPIs(false);
+    }
+  };
+
   // Load data on mount
   useEffect(() => {
     loadSyncedData();
@@ -270,9 +292,19 @@ const SyncDataManagement: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col span={16}>
             <Card title="Recent Site KPIs (Database)" extra={
-              <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
-                Refresh
-              </Button>
+              <Space>
+                <Button
+                  icon={<SyncOutlined />}
+                  onClick={handleSyncStationKPIs}
+                  loading={syncingKPIs}
+                  type="primary"
+                >
+                  Sync KPIs from HopeCloud
+                </Button>
+                <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
+                  Refresh
+                </Button>
+              </Space>
             }>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {latestKpis.map((kpi, index) => (
@@ -313,7 +345,16 @@ const SyncDataManagement: React.FC = () => {
                   </div>
                 ))}
                 {latestKpis.length === 0 && (
-                  <Empty description="No KPI data available in database" />
+                  <Empty
+                    description={
+                      <Space direction="vertical">
+                        <Text>No KPI data available in database</Text>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          Click "Sync KPIs from HopeCloud" to fetch station performance data
+                        </Text>
+                      </Space>
+                    }
+                  />
                 )}
               </div>
             </Card>
