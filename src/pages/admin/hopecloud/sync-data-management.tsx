@@ -119,8 +119,7 @@ const SyncDataManagement: React.FC = () => {
   const [alarms, setAlarms] = useState<SyncedAlarm[]>([]);
   const [commModules, setCommModules] = useState<any[]>([]); // CommunicationModule type from api.ts
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [syncingKPIs, setSyncingKPIs] = useState(false);
+  const [activeTab, setActiveTab] = useState('stations');
 
   // Modal states
   const [selectedSite, setSelectedSite] = useState<SyncedSite | null>(null);
@@ -204,190 +203,11 @@ const SyncDataManagement: React.FC = () => {
     }
   };
 
-  // Sync Station KPIs from HopeCloud
-  const handleSyncStationKPIs = async () => {
-    setSyncingKPIs(true);
-    try {
-      // Sync daily stats which will populate the KPIs table
-      const response = await hopeCloudService.resyncStationsDailyStats();
-
-      if (response.status === 'success') {
-        message.success('Station KPIs synced successfully from HopeCloud');
-        // Reload data to show the new KPIs
-        await loadSyncedData();
-      } else {
-        throw new Error(response.message || 'Failed to sync station KPIs');
-      }
-    } catch (err: any) {
-      message.error(err.message || 'Failed to sync station KPIs');
-    } finally {
-      setSyncingKPIs(false);
-    }
-  };
-
   // Load data on mount
   useEffect(() => {
     loadSyncedData();
   }, []);
 
-  // Dashboard Content
-  const DashboardContent = () => {
-    const totalSites = sites.length;
-    const activeSites = sites.filter(s => s.status === 'active').length;
-    const totalDevices = devices.length;
-    const activeDevices = devices.filter(d => d.status === 'active').length;
-    const latestKpis = kpis.slice(0, 10);
-    const totalCapacity = sites.reduce((sum, site) => sum + parseFloat(site.capacityKw || '0'), 0);
-    const totalDailyYield = latestKpis.reduce((sum, kpi) => sum + parseFloat(kpi.dailyYieldKwh || '0'), 0);
-
-    return (
-      <div style={{ padding: '24px' }}>
-        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Total Sites (Synced)"
-                value={totalSites}
-                prefix={<HomeOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-                suffix={`/ ${activeSites} Active`}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Total Devices (Synced)"
-                value={totalDevices}
-                prefix={<DatabaseOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-                suffix={`/ ${activeDevices} Active`}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Total Capacity"
-                value={totalCapacity.toFixed(2)}
-                prefix={<ThunderboltOutlined />}
-                suffix="kW"
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Daily Yield (Latest)"
-                value={totalDailyYield.toFixed(2)}
-                prefix={<RiseOutlined />}
-                suffix="kWh"
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-
-        <Row gutter={[16, 16]}>
-          <Col span={16}>
-            <Card title="Recent Site KPIs (Database)" extra={
-              <Space>
-                <Button
-                  icon={<SyncOutlined />}
-                  onClick={handleSyncStationKPIs}
-                  loading={syncingKPIs}
-                  type="primary"
-                >
-                  Sync KPIs from HopeCloud
-                </Button>
-                <Button icon={<ReloadOutlined />} onClick={loadSyncedData} loading={loading}>
-                  Refresh
-                </Button>
-              </Space>
-            }>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {latestKpis.map((kpi, index) => (
-                  <div key={kpi.id} style={{
-                    padding: '12px',
-                    borderBottom: index < latestKpis.length - 1 ? '1px solid #f0f0f0' : 'none',
-                    background: index % 2 === 0 ? '#fafafa' : 'white'
-                  }}>
-                    <Row gutter={16}>
-                      <Col span={4}>
-                        <Text strong>Site {kpi.siteId}</Text>
-                        <br />
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          {dayjs(kpi.measuredAt).format('MM-DD HH:mm')}
-                        </Text>
-                      </Col>
-                      <Col span={5}>
-                        <Text type="secondary">Daily Yield</Text>
-                        <br />
-                        <Text strong>{parseFloat(kpi.dailyYieldKwh || '0').toFixed(2)} kWh</Text>
-                      </Col>
-                      <Col span={5}>
-                        <Text type="secondary">Current Power</Text>
-                        <br />
-                        <Text strong>{parseFloat(kpi.currentPowerKw || '0').toFixed(2)} kW</Text>
-                      </Col>
-                      <Col span={5}>
-                        <Text type="secondary">Performance</Text>
-                        <br />
-                        <Text strong>{(parseFloat(kpi.performanceRatio || '0') * 100).toFixed(1)}%</Text>
-                      </Col>
-                      <Col span={5}>
-                        <Text type="secondary">Availability</Text>
-                        <br />
-                        <Text strong>{parseFloat(kpi.availabilityPercentage || '0').toFixed(1)}%</Text>
-                      </Col>
-                    </Row>
-                  </div>
-                ))}
-                {latestKpis.length === 0 && (
-                  <Empty
-                    description={
-                      <Space direction="vertical">
-                        <Text>No KPI data available in database</Text>
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Click "Sync KPIs from HopeCloud" to fetch station performance data
-                        </Text>
-                      </Space>
-                    }
-                  />
-                )}
-              </div>
-            </Card>
-          </Col>
-          <Col span={8}>
-            <Card title="System Status">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary">Database Synchronization</Text>
-                  <div style={{ marginTop: '8px' }}>
-                    <Progress percent={100} status="success" strokeColor="#52c41a" />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      All data synced from HopeCloud
-                    </Text>
-                  </div>
-                </div>
-                <Divider style={{ margin: '12px 0' }} />
-                <div>
-                  <Text type="secondary">Data Sources</Text>
-                  <div style={{ marginTop: '8px' }}>
-                    <Tag color="green">Sites Database</Tag>
-                    <Tag color="green">Devices Database</Tag>
-                    <Tag color="green">KPIs Database</Tag>
-                    <Tag color="orange">Alarms (Pending)</Tag>
-                  </div>
-                </div>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
-      </div>
-    );
-  };
 
   // Stations Content
   const StationsContent = () => {
@@ -1053,16 +873,6 @@ const SyncDataManagement: React.FC = () => {
 
   // Tab items matching Real Time Data structure
   const tabItems: TabsProps['items'] = [
-    {
-      key: 'dashboard',
-      label: (
-        <Space>
-          <DashboardOutlined />
-          Dashboard
-        </Space>
-      ),
-      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><DashboardContent /></div>,
-    },
     {
       key: 'stations',
       label: (
