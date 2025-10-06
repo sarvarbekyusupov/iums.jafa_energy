@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import dns from 'dns'
+
+// Set DNS resolution order to prefer IPv4
+dns.setDefaultResultOrder('ipv4first')
 
 // https://vitejs.dev/config/
 export default defineConfig({
