@@ -254,9 +254,9 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
 
         return {
           time: timeFormat,
-          energy: item.kwh || 0, // API returns 'kwh' field
-          power: item.kwh || 0, // Use kwh as power approximation since no separate power field
-          efficiency: item.earnings || 0, // Use earnings as efficiency placeholder
+          energy: item.kwh || 0, // API returns 'kwh' field - energy production
+          power: item.kwh || 0, // Keep for backward compatibility but same value as energy
+          efficiency: item.earnings || 0,
         };
       });
 
@@ -551,21 +551,13 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                       <XAxis dataKey="time" />
                       <YAxis />
                       <Tooltip
-                        formatter={(value: number, name: string) => [
-                          name.includes('Energy') ? `${value.toFixed(1)} kWh` : `${value.toFixed(2)} kW`,
-                          name
-                        ]}
+                        formatter={(value: number) => `${value.toFixed(1)} kWh`}
                       />
                       <Legend />
                       <Bar
                         dataKey="energy"
                         fill="#52c41a"
                         name="Energy (kWh)"
-                      />
-                      <Bar
-                        dataKey="power"
-                        fill="#1890ff"
-                        name="Power (kW)"
                       />
                     </BarChart>
                   ) : (
@@ -575,19 +567,12 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                           <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
                           <stop offset="95%" stopColor="#52c41a" stopOpacity={0}/>
                         </linearGradient>
-                        <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#1890ff" stopOpacity={0}/>
-                        </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="time" />
                       <YAxis />
                       <Tooltip
-                        formatter={(value: number, name: string) => [
-                          name.includes('Energy') ? `${value.toFixed(1)} kWh` : `${value.toFixed(2)} kW`,
-                          name
-                        ]}
+                        formatter={(value: number) => `${value.toFixed(1)} kWh`}
                       />
                       <Legend />
                       <Area
@@ -597,14 +582,6 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                         fillOpacity={1}
                         fill="url(#colorEnergy)"
                         name="Energy (kWh)"
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="power"
-                        stroke="#1890ff"
-                        fillOpacity={1}
-                        fill="url(#colorPower)"
-                        name="Power (kW)"
                       />
                     </AreaChart>
                   )}
