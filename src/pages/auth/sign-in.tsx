@@ -1,169 +1,166 @@
-import { Form, Input, Button, Card, Typography, Space } from "antd";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginDto } from "../../types/auth";
-
-const { Title, Text } = Typography;
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
+import { Lock, Mail, Loader2 } from "lucide-react";
 
 const SignIn = () => {
-  const [form] = Form.useForm();
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
+  const [formData, setFormData] = useState<LoginDto>({
+    email: "",
+    password: "",
+  });
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const onFinish = async (values: LoginDto) => {
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+
+    if (!formData.email) {
+      newErrors.email = "Please input your email!";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email!";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Please input your password!";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await login(values);
-      navigate('/admin');
+      await login(formData);
+      navigate("/admin");
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh',
-      background: '#f0f2f5'
-    }}>
-      <Card style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div style={{ textAlign: 'center' }}>
-            <Title level={2}>Sign In</Title>
-            <Text type="secondary">Welcome back! Please sign in to your account.</Text>
-          </div>
-          
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={onFinish}
-            autoComplete="off"
-          >
-            <Form.Item
-              label="Email"
-              name="email"
-              rules={[
-                { required: true, message: 'Please input your email!' },
-                { type: 'email', message: 'Please enter a valid email!' }
-              ]}
-            >
-              <Input size="large" placeholder="Enter your email" />
-            </Form.Item>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
+      <div className="w-full max-w-md">
+        <Card className="shadow-2xl border-0">
+          <CardHeader className="space-y-2 text-center pb-8">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-2">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-base">
+              Sign in to your account to continue
+            </CardDescription>
+          </CardHeader>
 
-            <Form.Item
-              label="Password"
-              name="password"
-              rules={[{ required: true, message: 'Please input your password!' }]}
-            >
-              <Input.Password size="large" placeholder="Enter your password" />
-            </Form.Item>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email Address
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="john.doe@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`pl-10 h-11 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+                )}
+              </div>
 
-            <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                size="large"
-                block
-                loading={isLoading}
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={`pl-10 h-11 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                disabled={isLoading}
               >
-                Sign In
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
-            </Form.Item>
-          </Form>
-          
-          <div style={{ textAlign: 'center' }}>
-            <Space direction="vertical">
-              <a href="/forgot-password">Forgot your password?</a>
-              <Text type="secondary">
-                Don't have an account? Contact your administrator.
-              </Text>
-            </Space>
-          </div>
-        </Space>
-      </Card>
+            </CardContent>
+
+            <CardFooter className="flex flex-col space-y-4 pt-2">
+              <div className="text-center space-y-2">
+                <a
+                  href="/forgot-password"
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                >
+                  Forgot your password?
+                </a>
+                <p className="text-sm text-muted-foreground">
+                  Don't have an account?{" "}
+                  <span className="font-medium text-foreground">
+                    Contact your administrator.
+                  </span>
+                </p>
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
+
+        <p className="text-center text-sm text-muted-foreground mt-8">
+          © 2025 JAFA ENERGY. All rights reserved.
+        </p>
+      </div>
     </div>
   );
 };
 
 export default SignIn;
-
-// import React, { useState } from "react";
-// import { Form, Input, Button, Select, message } from "antd";
-// import { useNavigate } from "react-router-dom";
-// import { authService } from "@service";
-// import { setItem } from "../../helpers";
-
-// const { Option } = Select;
-
-// const SignIn = () => {
-//   const [loading, setLoading] = useState(false);
-//   const navigate = useNavigate();
-
-//   const onFinish = async (values: any) => {
-//     const { email, password, role } = values;
-//     setLoading(true);
-
-//     try {
-//       const res = await authService.signIn({ email, password }, role);
-
-//       if (res?.status === 201) {
-//         setItem("access_token", res.data.access_token);
-//         setItem("role", role);
-//         navigate(`/${role}`);
-//       } else {
-//         message.error("Invalid credentials or role");
-//       }
-//     } catch (err) {
-//       console.error(err);
-//       message.error("Something went wrong. Please try again.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <Form
-//       layout="vertical"
-//       onFinish={onFinish}
-//       initialValues={{ role: "student" }}
-//       style={{ maxWidth: 400, margin: "auto", marginTop: 40 }}
-//     >
-//       <Form.Item
-//         label="Email"
-//         name="email"
-//         rules={[
-//           { required: true, message: "Please input your email!" },
-//           { type: "email", message: "Invalid email format!" },
-//         ]}
-//       >
-//         <Input placeholder="Email" />
-//       </Form.Item>
-
-//       <Form.Item
-//         label="Password"
-//         name="password"
-//         rules={[{ required: true, message: "Please input your password!" }]}
-//       >
-//         <Input.Password placeholder="Password" />
-//       </Form.Item>
-
-//       <Form.Item label="Role" name="role" rules={[{ required: true }]}>
-//         <Select>
-//           <Option value="teacher">Teacher</Option>
-//           <Option value="student">Student</Option>
-//           <Option value="admin">Admin</Option>
-//           <Option value="lid">Lid</Option>
-//         </Select>
-//       </Form.Item>
-
-//       <Form.Item>
-//         <Button type="primary" htmlType="submit" block loading={loading}>
-//           Sign In
-//         </Button>
-//       </Form.Item>
-//     </Form>
-//   );
-// };
-
-// export default SignIn;
