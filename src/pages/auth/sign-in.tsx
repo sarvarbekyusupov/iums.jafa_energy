@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { Lock, Mail, Loader2 } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -59,62 +59,53 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50 p-4">
       <div className="w-full max-w-md">
-        <Card className="shadow-2xl border-0">
-          <CardHeader className="space-y-2 text-center pb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-2">
-              <Lock className="w-8 h-8 text-white" />
-            </div>
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Welcome Back
+        <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="space-y-3 text-center pb-8">
+            <CardTitle className="text-4xl font-bold text-green-800 tracking-tight">
+              JAFA ENERGY
             </CardTitle>
-            <CardDescription className="text-base">
-              Sign in to your account to continue
+            <CardDescription className="text-lg text-green-600 font-medium">
+              Utility Management System
             </CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email Address
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email
                 </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john.doe@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`pl-10 h-11 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                    disabled={isLoading}
-                  />
-                </div>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`h-12 text-base ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                  disabled={isLoading}
+                />
                 {errors.email && (
                   <p className="text-sm text-red-500 mt-1">{errors.email}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Password
                 </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`pl-10 h-11 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                    disabled={isLoading}
-                  />
-                </div>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`h-12 text-base ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                  disabled={isLoading}
+                />
                 {errors.password && (
                   <p className="text-sm text-red-500 mt-1">{errors.password}</p>
                 )}
@@ -122,7 +113,7 @@ const SignIn = () => {
 
               <Button
                 type="submit"
-                className="w-full h-11 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg transition-all duration-200"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -131,25 +122,19 @@ const SignIn = () => {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  "Login"
                 )}
               </Button>
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4 pt-2">
-              <div className="text-center space-y-2">
+              <div className="text-center">
                 <a
                   href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                  className="text-sm text-green-600 hover:text-green-700 hover:underline font-medium transition-colors"
                 >
-                  Forgot your password?
+                  Forgot password?
                 </a>
-                <p className="text-sm text-muted-foreground">
-                  Don't have an account?{" "}
-                  <span className="font-medium text-foreground">
-                    Contact your administrator.
-                  </span>
-                </p>
               </div>
             </CardFooter>
           </form>
