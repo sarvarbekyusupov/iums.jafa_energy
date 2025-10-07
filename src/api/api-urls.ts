@@ -8,6 +8,7 @@ export class ApiUrls {
     REFRESH: `${this.BASE_URL}/users/refresh`,
     REGISTER: `${this.BASE_URL}/users`,
     ACTIVATE: `${this.BASE_URL}/users/activate`,
+    VERIFY_ACTIVATION_TOKEN: (token: string) => `${this.BASE_URL}/users/verify-activation-token/${token}`,
     FORGOT_PASSWORD: `${this.BASE_URL}/users/forgot-password`,
     RESET_PASSWORD: `${this.BASE_URL}/users/reset-password`,
   };

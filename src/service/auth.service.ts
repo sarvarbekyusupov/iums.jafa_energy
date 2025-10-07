@@ -93,18 +93,29 @@ class AuthService {
     }
   }
 
+  async verifyActivationToken(token: string): Promise<{ valid: boolean; email?: string; firstName?: string; lastName?: string; message?: string }> {
+    try {
+      const response = await this.apiClient.get(
+        ApiUrls.AUTH.VERIFY_ACTIVATION_TOKEN(token)
+      );
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   async activateAccount(data: SetPasswordDto): Promise<AuthResponse> {
     try {
       const response: AxiosResponse<AuthResponse> = await this.apiClient.post(
         ApiUrls.AUTH.ACTIVATE,
         data
       );
-      
+
       if (response.data.accessToken) {
         localStorage.setItem('access_token', response.data.accessToken);
         localStorage.setItem('user_id', response.data.user_id);
       }
-      
+
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);

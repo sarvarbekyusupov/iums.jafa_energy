@@ -223,16 +223,62 @@ const HopeCloudManagement: React.FC = () => {
           // setDiscoveryStatus(discoveryResponse.data);
           setStationConfigTypes(configTypesResponse.data);
           
-          // Load communication modules for first station if available
+          // Load communication modules for all stations
           if (stationsData.length > 0) {
-            hopeCloudService.getCommunicationModules({
-              plantId: stationsData[0].id,
-              pageIndex: 1,
-              pageSize: 20
-            }).then(commResponse => {
-              const commData = Array.isArray((commResponse.data as any)?.records) ? (commResponse.data as any).records : (Array.isArray(commResponse.data) ? commResponse.data : []);
-              setCommunicationModules(commData);
-            }).catch(err => console.warn('Communication modules error:', err));
+            const modulePromises = stationsData.map(station =>
+              hopeCloudService.getCommunicationModules({
+                plantId: station.id,
+                pageIndex: 1,
+                pageSize: 100
+              }).catch(err => {
+                console.warn(`Communication modules error for station ${station.id}:`, err);
+                return { status: 'error' as const, data: [] as HopeCloudCommunicationModule[] };
+              })
+            );
+
+            Promise.all(modulePromises).then(responses => {
+              // Combine all communication modules from all stations
+              const allModules = responses.flatMap(response => {
+                if (!response) return [];
+
+                // Check if response itself is an array (direct array response)
+                if (Array.isArray(response)) {
+                  return response;
+                }
+
+                // Check if response has data property
+                if (!response.data) {
+                  // Response might be a single module object
+                  if (typeof response === 'object' && 'id' in response) {
+                    return [response as HopeCloudCommunicationModule];
+                  }
+                  return [];
+                }
+
+                const data = response.data;
+
+                // Handle different response structures
+                if (Array.isArray(data)) {
+                  return data;
+                } else if (data && typeof data === 'object' && Array.isArray((data as any).records)) {
+                  return (data as any).records;
+                } else if (data && typeof data === 'object') {
+                  return [data];
+                }
+
+                return [];
+              });
+
+              // Remove duplicates based on module ID
+              const uniqueModules = Array.from(
+                new Map(allModules.map(module => [module.id, module])).values()
+              );
+
+              console.log(`Loaded ${uniqueModules.length} unique communication modules from ${allModules.length} total`);
+              setCommunicationModules(uniqueModules);
+            }).catch(error => {
+              console.error('Failed to load communication modules:', error);
+            });
           }
         }).catch(error => {
           console.warn('Error fetching some data:', error);
@@ -454,13 +500,18 @@ const HopeCloudManagement: React.FC = () => {
 
 
 
-  const handleViewCommModuleDetails = async (moduleId?: string, modulePn?: string) => {
+  const handleViewCommModuleDetails = async (moduleId?: number | string, modulePn?: string) => {
     try {
       setLoading(true);
-      const response = await hopeCloudService.getCommunicationModuleDetails({ id: moduleId, pn: modulePn });
-      setSelectedCommModuleDetails(response.data);
+      const response = await hopeCloudService.getCommunicationModuleDetails({ id: moduleId?.toString(), pn: modulePn });
+
+      // Handle different response structures
+      const moduleData = response.data || response;
+
+      setSelectedCommModuleDetails(moduleData);
       setCommModuleDetailsVisible(true);
     } catch (error: any) {
+      console.error('[COMM_MODULE_DETAILS] Error:', error);
       message.error('Failed to load communication module details: ' + (error?.response?.data?.message || error.message));
     } finally {
       setLoading(false);
@@ -493,6 +544,7 @@ const HopeCloudManagement: React.FC = () => {
   useEffect(() => {
     fetchAllData();
   }, []);
+
 
   const isHealthy = healthStatus?.status === 'healthy';
 
@@ -596,7 +648,7 @@ const HopeCloudManagement: React.FC = () => {
       render: (text: string, record) => (
         <div style={{ padding: '8px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <HomeOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
+            <HomeOutlined style={{ color: '#13c2c2', marginRight: '8px' }} />
             <Text strong style={{ fontSize: '14px' }}>
               {stationFilter ? highlightSearchTerm(text, stationFilter) : text}
             </Text>
@@ -748,7 +800,7 @@ const HopeCloudManagement: React.FC = () => {
           >
             <Descriptions column={1} size="small" colon={false}>
               <Descriptions.Item label="Plant Type">
-                <Tag color="blue" style={{ borderRadius: '6px' }}>{record.powerPlantType}</Tag>
+                <Tag color="cyan" style={{ borderRadius: '6px' }}>{record.powerPlantType}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Network Type">
                 <Tag color="green" style={{ borderRadius: '6px' }}>{record.networkType}</Tag>
@@ -781,7 +833,7 @@ const HopeCloudManagement: React.FC = () => {
             <Descriptions column={1} size="small" colon={false}>
               <Descriptions.Item label="Monthly Generation">
                 <Space>
-                  <Text strong style={{ color: '#1890ff' }}>{(record.monKwh || 0).toFixed(1)} kWh</Text>
+                  <Text strong style={{ color: '#13c2c2' }}>{(record.monKwh || 0).toFixed(1)} kWh</Text>
                   {getTrendIndicator(record.monKwh)}
                 </Space>
               </Descriptions.Item>
@@ -823,7 +875,7 @@ const HopeCloudManagement: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Owner">
                 <Space>
-                  <UserOutlined style={{ color: '#1890ff' }} />
+                  <UserOutlined style={{ color: '#13c2c2' }} />
                   <Text strong>{record.ownerName}</Text>
                 </Space>
               </Descriptions.Item>
@@ -856,7 +908,7 @@ const HopeCloudManagement: React.FC = () => {
             size="small" 
             title={
               <Space>
-                <BarChartOutlined style={{ color: '#1890ff' }} />
+                <BarChartOutlined style={{ color: '#13c2c2' }} />
                 <span>Statistics Preview</span>
                 <Button 
                   size="small" 
@@ -878,7 +930,7 @@ const HopeCloudManagement: React.FC = () => {
                   value={record.todayKwh || 0}
                   suffix="kWh"
                   precision={1}
-                  valueStyle={{ color: '#1890ff', fontSize: '18px' }}
+                  valueStyle={{ color: '#13c2c2', fontSize: '18px' }}
                 />
               </Col>
               <Col span={6}>
@@ -960,12 +1012,11 @@ const HopeCloudManagement: React.FC = () => {
             >
               Equipment Stats
             </Button>
-            <Button 
-              type="primary"
+            <Button
               size="small"
               icon={<BarChartOutlined />}
               onClick={() => handleOpenStationStatsDashboard(record.id, record.name)}
-              style={{ background: '#1890ff' }}
+              style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
             >
               Station Stats
             </Button>
@@ -1005,7 +1056,7 @@ const HopeCloudManagement: React.FC = () => {
       render: (text: string, record) => (
         <div style={{ padding: '8px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-            <HomeOutlined style={{ color: '#1890ff', marginRight: '6px' }} />
+            <HomeOutlined style={{ color: '#13c2c2', marginRight: '6px' }} />
             <Text strong style={{ fontSize: '14px' }}>{text}</Text>
           </div>
           <div style={{ marginBottom: '4px' }}>
@@ -1043,7 +1094,7 @@ const HopeCloudManagement: React.FC = () => {
               </Text>
             }
           />
-          <Tag color="blue" style={{ fontSize: '11px', margin: '2px 0' }}>
+          <Tag color="cyan" style={{ fontSize: '11px', margin: '2px 0' }}>
             {record.powerPlantType}
           </Tag>
           <Tag color="green" style={{ fontSize: '11px', margin: '2px 0' }}>
@@ -1064,7 +1115,7 @@ const HopeCloudManagement: React.FC = () => {
       render: (_, record) => (
         <Space direction="vertical" size={6} style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text strong style={{ color: '#1890ff', fontSize: '15px' }}>
+            <Text strong style={{ color: '#13c2c2', fontSize: '15px' }}>
               {(record.nowKw || 0).toFixed(2)} kW
             </Text>
             <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -1073,7 +1124,7 @@ const HopeCloudManagement: React.FC = () => {
           </div>
           <Progress
             percent={Math.min(Math.round((record.nowKw / record.kwp) * 100), 100)}
-            strokeColor="#1890ff"
+            strokeColor="#13c2c2"
             size="small"
             showInfo={false}
           />
@@ -1105,7 +1156,7 @@ const HopeCloudManagement: React.FC = () => {
             </Text>
           </div>
           <div>
-            <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px', fontSize: '11px' }} />
+            <CalendarOutlined style={{ color: '#13c2c2', marginRight: '4px', fontSize: '11px' }} />
             <Text type="secondary" style={{ fontSize: '12px' }}>
               Month: {record.monKwh?.toFixed(1) || '0.0'} kWh
             </Text>
@@ -1196,7 +1247,7 @@ const HopeCloudManagement: React.FC = () => {
       render: (_, record) => (
         <Space direction="vertical" size={4}>
           <div>
-            <BuildOutlined style={{ color: '#1890ff', marginRight: '4px', fontSize: '11px' }} />
+            <BuildOutlined style={{ color: '#13c2c2', marginRight: '4px', fontSize: '11px' }} />
             <Text strong style={{ fontSize: '12px' }}>
               {record.companyName}
             </Text>
@@ -1255,21 +1306,20 @@ const HopeCloudManagement: React.FC = () => {
       fixed: 'right' as const,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
-          <Button 
-            type="primary"
+          <Button
             size="small"
             icon={<EyeOutlined />}
             onClick={() => handleViewStationDetailsModal(record.id)}
+            style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
             block
           >
             Details
           </Button>
-          <Button 
-            type="primary"
+          <Button
             size="small"
             icon={<BarChartOutlined />}
             onClick={() => handleOpenStationStatsDashboard(record.id, record.name)}
-            style={{ background: '#1890ff', marginBottom: '4px' }}
+            style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff', marginBottom: '4px' }}
             block
           >
             Station Stats
@@ -1318,213 +1368,228 @@ const HopeCloudManagement: React.FC = () => {
 
   // Dashboard content - single comprehensive dashboard
   const DashboardContent = () => (
-    <div style={{ width: '100%', padding: '16px 24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box', overflow: 'hidden' }}>
-      {/* System Overview */}
-      <Card 
-        title={
-          <Space>
-            <RadarChartOutlined />
-            <span>System Health & Overview</span>
-          </Space>
-        }
-        extra={
-          <Badge 
-            status={isHealthy ? 'success' : 'error'}
-            text={isHealthy ? 'All Systems Operational' : 'Issues Detected'}
-          />
-        }
+    <div style={{ width: '100%', padding: '24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box' }}>
+      {/* System Health Status Bar */}
+      <Card
+        style={{
+          marginBottom: 24,
+          background: isHealthy
+            ? 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)'
+            : 'linear-gradient(135deg, #fff7e6 0%, #fffbe6 100%)',
+          border: isHealthy ? '1px solid #91d5ff' : '1px solid #ffd666'
+        }}
       >
-        <Row gutter={[24, 16]}>
-          <Col xs={24} sm={12} lg={6}>
-            <Card size="small">
-              <Statistic
-                title="API Health"
-                value={isHealthy ? 'Healthy' : 'Warning'}
-                prefix={isHealthy ? 
-                  <CheckCircleOutlined style={{ color: '#52c41a' }} /> : 
-                  <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+        <Row gutter={16} align="middle">
+          <Col flex="auto">
+            <Space size="large">
+              <Space>
+                {isHealthy ?
+                  <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} /> :
+                  <ExclamationCircleOutlined style={{ fontSize: 24, color: '#faad14' }} />
                 }
-                valueStyle={{ color: isHealthy ? '#52c41a' : '#faad14' }}
-              />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Auth: {authValidation?.validation?.valid ? 'Valid' : 'Invalid'}
-                {authValidation?.validation?.errors && authValidation.validation.errors.length > 0 && (
-                  <Tooltip title={authValidation.validation.errors.join(', ')}>
-                    <ExclamationCircleOutlined style={{ color: '#faad14', marginLeft: 4 }} />
-                  </Tooltip>
-                )}
-              </Text>
-            </Card>
+                <div>
+                  <Title level={5} style={{ margin: 0, color: isHealthy ? '#52c41a' : '#faad14' }}>
+                    {isHealthy ? 'All Systems Operational' : 'System Issues Detected'}
+                  </Title>
+                  <Text type="secondary">
+                    API Health: {isHealthy ? 'Healthy' : 'Warning'} • Auth: {authValidation?.validation?.valid ? 'Valid' : 'Invalid'}
+                  </Text>
+                </div>
+              </Space>
+            </Space>
           </Col>
-          
-          <Col xs={24} sm={12} lg={6}>
-            <Card size="small">
-              <Statistic
-                title="Total Stations"
-                value={Array.isArray(stations) ? stations.length : 0}
-                prefix={<DatabaseOutlined style={{ color: '#1890ff' }} />}
-              />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Active: {Array.isArray(stations) ? stations.filter(s => s.status === 1).length : 0}
-              </Text>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} lg={6}>
-            <Card size="small">
-              <Statistic
-                title="Real-time Power"
-                value={Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.nowKw, 0) : 0}
-                precision={2}
-                suffix="kW"
-                prefix={<ThunderboltOutlined style={{ color: '#722ed1' }} />}
-              />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Capacity: {Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.kwp, 0) : 0} kWp
-              </Text>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} lg={6}>
-            <Card size="small">
-              <Statistic
-                title="Active Alarms"
-                value={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0}
-                prefix={<BellOutlined style={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }} />}
-                valueStyle={{ color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a' }}
-              />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Total: {Array.isArray(alarms) ? alarms.length : 0} alerts
-              </Text>
-            </Card>
-          </Col>
-        </Row>
-
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-          <Col xs={24} sm={12} lg={8}>
-            <Card size="small">
-              <Statistic
-                title="Today's Generation"
-                value={Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.todayKwh, 0) : 0}
-                precision={1}
-                suffix="kWh"
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          
-          <Col xs={24} sm={12} lg={8}>
-            <Card size="small">
-              <Statistic
-                title="Monthly Generation"
-                value={Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.monKwh, 0) : 0}
-                precision={1}
-                suffix="kWh"
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          
-          <Col xs={24} sm={12} lg={8}>
-            <Card size="small">
-              <Statistic
-                title="Total Lifetime"
-                value={Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.sumKwh, 0) / 1000 : 0}
-                precision={1}
-                suffix="MWh"
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
+          <Col>
+            <Text type="secondary">{new Date().toLocaleString()}</Text>
           </Col>
         </Row>
       </Card>
 
+      {/* Main Statistics Grid */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {/* Stations Card */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card
+            hoverable
+            style={{
+              height: '100%',
+              background: 'linear-gradient(135deg, #e6fffd 0%, #ffffff 100%)',
+              borderLeft: '4px solid #13c2c2'
+            }}
+          >
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Text type="secondary">Total Stations</Text>
+              <Title level={2} style={{ margin: '8px 0', color: '#13c2c2' }}>
+                <DatabaseOutlined style={{ marginRight: 8 }} />
+                {Array.isArray(stations) ? stations.length : 0}
+              </Title>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space split={<Divider type="vertical" />}>
+                <Text type="secondary">
+                  <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 4 }} />
+                  Active: {Array.isArray(stations) ? stations.filter(s => s.status === 1).length : 0}
+                </Text>
+                <Text type="secondary">
+                  <ExclamationCircleOutlined style={{ color: '#d9d9d9', marginRight: 4 }} />
+                  Offline: {Array.isArray(stations) ? stations.filter(s => s.status !== 1).length : 0}
+                </Text>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
 
-      {/* Recent Activity */}
-      <Card 
-        title={
-          <Space>
-            <ClusterOutlined />
-            <span>Recent Activity</span>
-          </Space>
-        }
-      >
-        <Timeline
-          items={[
-            {
-              color: 'green',
-              children: (
-                <div>
-                  <Text strong>System Status Check</Text>
-                  <br />
-                  <Text type="secondary">All systems operational - {new Date().toLocaleString()}</Text>
-                </div>
-              ),
-            },
-            {
-              color: 'purple', 
-              children: (
-                <div>
-                  <Text strong>Data Sync Completed</Text>
-                  <br />
-                  <Text type="secondary">Real-time data synchronized successfully</Text>
-                </div>
-              ),
-            },
-          ]}
-        />
-      </Card>
+        {/* Real-time Power Card */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card
+            hoverable
+            style={{
+              height: '100%',
+              background: 'linear-gradient(135deg, #f9f0ff 0%, #ffffff 100%)',
+              borderLeft: '4px solid #722ed1'
+            }}
+          >
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Text type="secondary">Current Output</Text>
+              <Title level={2} style={{ margin: '8px 0', color: '#722ed1' }}>
+                <ThunderboltOutlined style={{ marginRight: 8 }} />
+                {(Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.nowKw, 0) : 0).toFixed(1)} kW
+              </Title>
+              <Divider style={{ margin: '8px 0' }} />
+              <Progress
+                percent={Math.round((Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.nowKw, 0) : 0) / (Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.kwp, 0) : 1) * 100)}
+                strokeColor="#722ed1"
+                size="small"
+                status="active"
+              />
+              <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                Capacity: {(Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.kwp, 0) : 0).toFixed(1)} kWp
+              </Text>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* Today's Generation Card */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card
+            hoverable
+            style={{
+              height: '100%',
+              background: 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)',
+              borderLeft: '4px solid #52c41a'
+            }}
+          >
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Text type="secondary">Today's Generation</Text>
+              <Title level={2} style={{ margin: '8px 0', color: '#52c41a' }}>
+                <RiseOutlined style={{ marginRight: 8 }} />
+                {(Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.todayKwh, 0) : 0).toFixed(1)} kWh
+              </Title>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Monthly: {(Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.monKwh, 0) : 0).toFixed(1)} kWh
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Lifetime: {(Array.isArray(stations) ? stations.reduce((sum, s) => sum + s.sumKwh, 0) / 1000 : 0).toFixed(1)} MWh
+                </Text>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* Active Alarms Card */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card
+            hoverable
+            style={{
+              height: '100%',
+              background: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0
+                ? 'linear-gradient(135deg, #fff1f0 0%, #ffffff 100%)'
+                : 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)',
+              borderLeft: `4px solid ${(Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a'}`
+            }}
+          >
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Text type="secondary">Active Alarms</Text>
+              <Title level={2} style={{
+                margin: '8px 0',
+                color: (Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0 ? '#ff4d4f' : '#52c41a'
+              }}>
+                <BellOutlined style={{ marginRight: 8 }} />
+                {Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0}
+              </Title>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space split={<Divider type="vertical" />}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Total: {Array.isArray(alarms) ? alarms.length : 0}
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {(Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0) > 0
+                    ? 'Attention Required'
+                    : 'All Clear'}
+                </Text>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 
   // Stations content with enhanced design
   const StationsContent = () => (
-    <div style={{ width: '100%', padding: '16px 24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box', overflow: 'hidden' }}>
-      <Card 
-        title={
-          <Space>
+    <div style={{ width: '100%', padding: '24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <DatabaseOutlined />
-            <span>Power Stations Management</span>
-            <Badge count={Array.isArray(stations) ? stations.length : 0} showZero />
-          </Space>
-        }
-        extra={
-          <Space>
-            <Input
-              placeholder="Search stations..."
-              prefix={<SearchOutlined />}
-              value={stationFilter}
-              onChange={(e) => setStationFilter(e.target.value)}
-              onPressEnter={() => {
-                // Search is already happening in real-time, this is just for UX
-                // Could add analytics or other behavior here if needed
-              }}
-              style={{ width: 200 }}
-              allowClear
-              suffix={
-                stationFilter ? (
-                  <Text style={{ fontSize: '11px', color: '#666' }}>
-                    {getFilteredStations().length}
-                  </Text>
-                ) : null
-              }
-            />
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={() => setCreateStationVisible(true)}
-            >
-              Create Station
-            </Button>
-          </Space>
-        }
-      >
+            Power Stations Management
+            <Badge count={Array.isArray(stations) ? stations.length : 0} showZero style={{ backgroundColor: '#13c2c2' }} />
+          </Title>
+          <Text type="secondary">
+            {getFilteredStations().length} of {stations.length} stations
+            {stationFilter && ` • Searching: "${stationFilter}"`}
+          </Text>
+        </div>
+        <Space>
+          <Input
+            placeholder="Search stations..."
+            prefix={<SearchOutlined />}
+            value={stationFilter}
+            onChange={(e) => setStationFilter(e.target.value)}
+            style={{ width: 250 }}
+            allowClear
+          />
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => setCreateStationVisible(true)}
+            style={{
+              background: '#13c2c2',
+              borderColor: '#13c2c2',
+              color: '#fff'
+            }}
+          >
+            Create Station
+          </Button>
+        </Space>
+      </div>
+
+      {/* Stations Grid */}
+      <div>
         {(!Array.isArray(stations) || stations.length === 0) && !loading ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="No stations available"
           >
-            <Button type="primary" icon={<ReloadOutlined />} onClick={fetchAllData}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAllData}
+              style={{
+                background: '#13c2c2',
+                borderColor: '#13c2c2',
+                color: '#fff'
+              }}
+            >
               Retry Loading
             </Button>
           </Empty>
@@ -1556,199 +1621,167 @@ const HopeCloudManagement: React.FC = () => {
               >
                 Clear All Filters
               </Button>
-              <Button type="primary" icon={<ReloadOutlined />} onClick={fetchAllData}>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={fetchAllData}
+                style={{
+                  background: '#13c2c2',
+                  borderColor: '#13c2c2',
+                  color: '#fff'
+                }}
+              >
                 Refresh Data
               </Button>
             </Space>
           </Empty>
         ) : (
-          <>
-            {/* Station Count */}
-            <div style={{ marginBottom: '16px', padding: '0 24px' }}>
-              <Space size={4}>
-                <Text type="secondary" style={{ fontSize: '14px', fontWeight: 500 }}>
-                  {getFilteredStations().length} of {stations.length} stations
-                </Text>
-                {stationFilter && (
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    🔍 "{stationFilter}"
-                  </Text>
-                )}
-                {(statusFilter !== 'all' || regionFilter || companyFilter) && (
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    📊 filtered
-                  </Text>
-                )}
-              </Space>
-            </div>
+          <Row gutter={[16, 16]}>
+            {getFilteredStations().map((station) => (
+              <Col xs={24} sm={24} md={12} lg={12} xl={8} key={station.id}>
+                <Card
+                  hoverable
+                  style={{
+                    height: '100%',
+                    borderLeft: `4px solid ${station.status === 1 ? '#52c41a' : '#ff4d4f'}`,
+                    transition: 'all 0.3s ease'
+                  }}
+                  bodyStyle={{ padding: '20px' }}
+                >
+                  {/* Station Header */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <Title level={5} style={{ margin: 0, marginBottom: 4 }}>
+                          <HomeOutlined style={{ marginRight: 8, color: '#13c2c2' }} />
+                          {station.name}
+                        </Title>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {station.city}, {station.province}
+                        </Text>
+                      </div>
+                      <Badge
+                        status={station.status === 1 ? 'success' : 'error'}
+                        text={
+                          <Text style={{
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: station.status === 1 ? '#52c41a' : '#ff4d4f'
+                          }}>
+                            {station.status === 1 ? 'Online' : 'Offline'}
+                          </Text>
+                        }
+                      />
+                    </div>
+                  </div>
 
-            <Table
-              columns={getTableColumns()}
-              dataSource={getFilteredStations()}
-              rowKey="id"
-              loading={loading}
-              expandable={{
-                expandedRowKeys,
-                onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
-                expandedRowRender,
-                expandRowByClick: true,
-                expandIcon: ({ expanded, onExpand, record }) =>
-                  expanded ? (
-                    <UpOutlined onClick={(e) => onExpand(record, e)} style={{ color: '#1890ff' }} />
-                  ) : (
-                    <DownOutlined onClick={(e) => onExpand(record, e)} style={{ color: '#1890ff' }} />
-                  ),
-              }}
-              pagination={{
-                pageSize: 10,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} stations`,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                pageSizeOptions: ['5', '10', '20', '50'],
-              }}
-              scroll={{ x: 'max-content' }}
-              size="small"
-              style={{ backgroundColor: '#fff' }}
-              sticky={{ offsetHeader: 64 }}
-            />
-            
-            {/* Mobile Responsive Card View for small screens */}
-            <div className="mobile-cards" style={{ display: 'none' }}>
-              <style>{`
-                @media (max-width: 768px) {
-                  .ant-table-wrapper { display: none !important; }
-                  .mobile-cards { display: block !important; }
-                }
-              `}</style>
-              <Row gutter={[16, 16]}>
-                {getFilteredStations().map((station) => (
-                  <Col xs={24} sm={12} key={station.id}>
-                    <Card 
-                      size="small" 
-                      title={
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text strong style={{ fontSize: '14px' }}>{station.name}</Text>
-                          <Badge
-                            status={station.status === 1 ? 'success' : 'error'}
-                            text={
-                              <Text style={{ fontSize: '12px', color: station.status === 1 ? '#52c41a' : '#ff4d4f' }}>
-                                {station.status === 1 ? 'Online' : 'Offline'}
-                              </Text>
-                            }
-                          />
-                        </div>
-                      }
-                      extra={
-                        <Button 
-                          type="primary"
-                          size="small"
-                          icon={<EyeOutlined />}
-                          onClick={() => handleViewStationDetailsModal(station.id)}
-                        >
-                          Details
-                        </Button>
-                      }
-                    >
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <div>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>Location:</Text>
-                          <br />
-                          <Text style={{ fontSize: '13px' }}>{station.city}, {station.province}</Text>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <div>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>Current Power:</Text>
-                            <br />
-                            <Text strong style={{ color: '#1890ff' }}>{(station.nowKw || 0).toFixed(2)} kW</Text>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>Today's Gen:</Text>
-                            <br />
-                            <Text strong style={{ color: '#52c41a' }}>{(station.todayKwh || 0).toFixed(1)} kWh</Text>
-                          </div>
-                        </div>
-                        <Progress 
+                  <Divider style={{ margin: '12px 0' }} />
+
+                  {/* Power Metrics */}
+                  <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                    <Col span={12}>
+                      <div style={{
+                        background: 'linear-gradient(135deg, #f9f0ff 0%, #ffffff 100%)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #f0f0f0'
+                      }}>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                          Current Output
+                        </Text>
+                        <Title level={4} style={{ margin: 0, color: '#722ed1' }}>
+                          {(station.nowKw || 0).toFixed(1)} <Text style={{ fontSize: 14, color: '#722ed1' }}>kW</Text>
+                        </Title>
+                        <Progress
                           percent={Math.min(Math.round(((station.nowKw || 0) / (station.kwp || 1)) * 100), 100)}
-                          strokeColor="#52c41a"
+                          strokeColor="#722ed1"
                           size="small"
-                          format={(percent) => `${percent}% efficiency`}
+                          showInfo={false}
+                          style={{ marginTop: 4 }}
                         />
-                        <div style={{ textAlign: 'center' }}>
-                          <Text type="secondary" style={{ fontSize: '11px' }}>
-                            Owner: {station.ownerName} • Company: {station.companyName}
+                        <Text type="secondary" style={{ fontSize: 10 }}>
+                          {Math.round(((station.nowKw || 0) / (station.kwp || 1)) * 100)}% of {(station.kwp || 0).toFixed(0)} kWp
+                        </Text>
+                      </div>
+                    </Col>
+                    <Col span={12}>
+                      <div style={{
+                        background: 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #f0f0f0'
+                      }}>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                          Today's Gen
+                        </Text>
+                        <Title level={4} style={{ margin: 0, color: '#52c41a' }}>
+                          {(station.todayKwh || 0).toFixed(1)} <Text style={{ fontSize: 14, color: '#52c41a' }}>kWh</Text>
+                        </Title>
+                        <div style={{ marginTop: 8 }}>
+                          <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>
+                            Month: {(station.monKwh || 0).toFixed(0)} kWh
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>
+                            Total: {((station.sumKwh || 0) / 1000).toFixed(1)} MWh
                           </Text>
                         </div>
-                      </Space>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </div>
-          </>
+                      </div>
+                    </Col>
+                  </Row>
+
+                  {/* Station Info */}
+                  <div style={{
+                    background: '#fafafa',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    marginBottom: 12
+                  }}>
+                    <Space split={<Divider type="vertical" />} size="small" style={{ fontSize: 11 }}>
+                      <Text type="secondary">
+                        <UserOutlined style={{ marginRight: 4 }} />
+                        {station.ownerName || 'N/A'}
+                      </Text>
+                      <Text type="secondary">
+                        <BuildOutlined style={{ marginRight: 4 }} />
+                        {station.companyName || 'N/A'}
+                      </Text>
+                    </Space>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Button
+                      size="small"
+                      icon={<LineChartOutlined />}
+                      onClick={() => {
+                        setSelectedStationForHistory(station);
+                        setStationHistoryVisible(true);
+                      }}
+                      style={{
+                        borderColor: '#13c2c2',
+                        color: '#13c2c2'
+                      }}
+                    >
+                      History
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => handleViewStationDetailsModal(station.id)}
+                      style={{
+                        background: '#13c2c2',
+                        borderColor: '#13c2c2',
+                        color: '#fff'
+                      }}
+                    >
+                      Details
+                    </Button>
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
         )}
-      </Card>
-      
-      <style>{`
-        /* Enhanced responsive styles */
-        @media (max-width: 576px) {
-          .ant-table-thead > tr > th {
-            padding: 8px 4px !important;
-            font-size: 12px !important;
-          }
-          .ant-table-tbody > tr > td {
-            padding: 8px 4px !important;
-          }
-          .ant-card .ant-card-head-title {
-            font-size: 14px !important;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .ant-table-wrapper .ant-table-container {
-            overflow-x: auto;
-          }
-        }
-        
-        /* Custom scrollbar for table */
-        .ant-table-body::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        
-        .ant-table-body::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        
-        .ant-table-body::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .ant-table-body::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        
-        /* Enhanced hover effects */
-        .ant-table-tbody > tr:hover > td {
-          background: #f0f8ff !important;
-        }
-        
-        /* Performance indicators */
-        .ant-progress-line .ant-progress-bg {
-          transition: all 0.3s ease;
-        }
-        
-        /* Enhanced button styles */
-        .ant-btn-sm {
-          transition: all 0.2s ease;
-        }
-        
-        .ant-btn-sm:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-      `}</style>
+      </div>
     </div>
   );
 
@@ -1867,74 +1900,107 @@ const HopeCloudManagement: React.FC = () => {
   );
 
   // Communication modules management
-  const CommunicationModulesContent = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Card 
-        title={
-          <Space>
-            <WifiOutlined />
-            <span>Communication Modules</span>
-            <Badge count={Array.isArray(communicationModules) ? communicationModules.length : 0} showZero />
-          </Space>
-        }
-        extra={
-          <Button icon={<ReloadOutlined />} onClick={fetchAllData} loading={loading}>
-            Refresh
-          </Button>
-        }
-      >
-        {(!Array.isArray(communicationModules) || communicationModules.length === 0) ? (
-          <Empty description="No communication modules found" />
-        ) : (
+  const CommunicationModulesContent = () => {
+    const isEmpty = !Array.isArray(communicationModules) || communicationModules.length === 0;
+
+    return (
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Card
+          title={
+            <Space>
+              <WifiOutlined />
+              <span>Communication Modules</span>
+              <Badge count={Array.isArray(communicationModules) ? communicationModules.length : 0} showZero />
+            </Space>
+          }
+          extra={
+            <Button icon={<ReloadOutlined />} onClick={fetchAllData} loading={loading}>
+              Refresh
+            </Button>
+          }
+        >
+          {isEmpty ? (
+            <Empty description="No communication modules found" />
+          ) : (
           <Table
             columns={[
               {
-                title: 'Module Information',
-                key: 'info',
+                title: 'Module ID',
+                dataIndex: 'id',
+                key: 'id',
+                width: 100,
+              },
+              {
+                title: 'Site',
+                key: 'site',
                 render: (_, record) => (
                   <Space direction="vertical" size={4}>
-                    <Text strong>{record.divertorName}</Text>
-                    <Text type="secondary">PN: {record.equipmentPn}</Text>
-                    <Text type="secondary">Type: {record.deviceType}</Text>
+                    <Text strong>{record.site?.name || 'Unknown'}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {record.site?.location || 'No location'}
+                    </Text>
                   </Space>
                 ),
               },
               {
-                title: 'Status & Signal',
+                title: 'Equipment PN',
+                dataIndex: 'equipmentPn',
+                key: 'equipmentPn',
+              },
+              {
+                title: 'Device Type',
+                key: 'deviceType',
+                render: (_, record) => (
+                  <Tag color="blue">{record.deviceType || 'WiFi'}</Tag>
+                ),
+              },
+              {
+                title: 'Status',
                 key: 'status',
                 render: (_, record) => (
-                  <Space direction="vertical" size={4}>
-                    <Badge
-                      status={record.status === 1 ? 'success' : 'error'}
-                      text={record.status === 1 ? 'Online' : 'Offline'}
-                    />
-                    <Text type="secondary">RSSI: {record.rssi} dBm</Text>
-                    <Text type="secondary">Loaded: {record.loadedNumber}</Text>
-                  </Space>
+                  <Badge
+                    status={record.status === 'online' ? 'success' : 'error'}
+                    text={
+                      <Text strong style={{ color: record.status === 'online' ? '#52c41a' : '#ff4d4f' }}>
+                        {record.status === 'online' ? 'ONLINE' : 'OFFLINE'}
+                      </Text>
+                    }
+                  />
                 ),
               },
               {
-                title: 'Location',
-                key: 'location',
-                render: (_, record) => (
-                  <Space direction="vertical" size={4}>
-                    {record.latitude && record.longitude && (
-                      <Text>📍 {record.latitude}, {record.longitude}</Text>
-                    )}
-                    {record.powerPlantName && (
-                      <Text type="secondary">Plant: {record.powerPlantName}</Text>
-                    )}
-                  </Space>
-                ),
+                title: 'Signal (RSSI)',
+                key: 'rssi',
+                render: (_, record) => {
+                  const rssi = record.rssi || 0;
+                  const quality = rssi > 60 ? 'Excellent' : rssi > 40 ? 'Good' : rssi > 20 ? 'Fair' : 'Poor';
+                  const color = rssi > 60 ? '#52c41a' : rssi > 40 ? '#13c2c2' : rssi > 20 ? '#fa8c16' : '#ff4d4f';
+
+                  return (
+                    <Space direction="vertical" size={4}>
+                      <Tag color={rssi > 60 ? 'green' : rssi > 40 ? 'cyan' : rssi > 20 ? 'orange' : 'red'}>
+                        {rssi}
+                      </Tag>
+                      <Text type="secondary" style={{ fontSize: 12, color }}>
+                        {quality}
+                      </Text>
+                    </Space>
+                  );
+                },
               },
               {
-                title: 'Network',
-                key: 'network',
+                title: 'Devices',
+                dataIndex: 'loadedNumber',
+                key: 'loadedNumber',
+                render: (value) => <Text strong>{value || 0}</Text>,
+              },
+              {
+                title: 'Last Update',
+                key: 'updateTime',
                 render: (_, record) => (
-                  <Space direction="vertical" size={4}>
-                    {record.iccid && <Text>ICCID: {record.iccid}</Text>}
-                    {record.operatorType && <Text>Operator: {record.operatorType}</Text>}
-                  </Space>
+                  <Text type="secondary">
+                    {record.updateTime ? new Date(record.updateTime).toLocaleString() : 'N/A'}
+                  </Text>
                 ),
               },
               {
@@ -1945,6 +2011,7 @@ const HopeCloudManagement: React.FC = () => {
                     size="small"
                     icon={<EyeOutlined />}
                     onClick={() => handleViewCommModuleDetails(record.id, record.equipmentPn)}
+                    style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
                   >
                     Details
                   </Button>
@@ -1956,10 +2023,11 @@ const HopeCloudManagement: React.FC = () => {
             size="small"
             pagination={{ pageSize: 10 }}
           />
-        )}
-      </Card>
-    </Space>
-  );
+          )}
+        </Card>
+      </Space>
+    );
+  };
 
 
   // Users and channels management
@@ -1981,21 +2049,41 @@ const HopeCloudManagement: React.FC = () => {
               renderItem={(owner) => (
                 <List.Item>
                   <List.Item.Meta
-                    avatar={<Avatar icon={<UserOutlined />} />}
-                    title={owner.ownerName}
+                    avatar={
+                      <Avatar style={{ backgroundColor: '#13c2c2' }}>
+                        {owner.nickName?.[0]?.toUpperCase() || owner.userName?.[0]?.toUpperCase() || <UserOutlined />}
+                      </Avatar>
+                    }
+                    title={
+                      <Space direction="vertical" size={0}>
+                        <Text strong>{owner.nickName || owner.userName}</Text>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>@{owner.userName}</Text>
+                      </Space>
+                    }
                     description={
-                      <Space direction="vertical" size={2}>
+                      <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+                        {owner.email && (
+                          <div>
+                            <MailOutlined style={{ marginRight: 6, fontSize: '12px', color: '#13c2c2' }} />
+                            <Text type="secondary" style={{ fontSize: '12px' }}>{owner.email}</Text>
+                          </div>
+                        )}
+                        {owner.phone && (
+                          <div>
+                            <PhoneOutlined style={{ marginRight: 6, fontSize: '12px', color: '#13c2c2' }} />
+                            <Text type="secondary" style={{ fontSize: '12px' }}>{owner.phone}</Text>
+                          </div>
+                        )}
                         <div>
-                          <MailOutlined style={{ marginRight: 4, fontSize: '12px' }} />
-                          <Text type="secondary">{owner.email}</Text>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>
+                            User ID: {owner.userId}
+                          </Text>
                         </div>
-                        <div>
-                          <PhoneOutlined style={{ marginRight: 4, fontSize: '12px' }} />
-                          <Text type="secondary">{owner.phone}</Text>
-                        </div>
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          ID: {owner.ownerId}
-                        </Text>
+                        {owner.remark && (
+                          <Text type="secondary" italic style={{ fontSize: '11px' }}>
+                            {owner.remark}
+                          </Text>
+                        )}
                       </Space>
                     }
                   />
@@ -2211,64 +2299,6 @@ const HopeCloudManagement: React.FC = () => {
           </Row>
         </div>
 
-        {/* Statistics Overview Summary */}
-        {!loading && stations.length > 0 && (
-          <div style={{ 
-            padding: '16px 24px', 
-            background: 'linear-gradient(135deg, #f0f9ff 0%, #e6f4ff 100%)',
-            borderBottom: '1px solid #e6f4ff'
-          }}>
-            <Row gutter={16}>
-              <Col span={6}>
-                <Card size="small" style={{ background: 'rgba(255,255,255,0.8)' }}>
-                  <Statistic
-                    title="Total Stations"
-                    value={stations.length}
-                    prefix={<ThunderboltOutlined />}
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card size="small" style={{ background: 'rgba(255,255,255,0.8)' }}>
-                  <Statistic
-                    title="Total Power Today"
-                    value={stations.reduce((sum, station) => sum + (station.todayKwh || 0), 0)}
-                    suffix="kWh"
-                    precision={1}
-                    prefix={<BarChartOutlined />}
-                    valueStyle={{ color: '#52c41a' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card size="small" style={{ background: 'rgba(255,255,255,0.8)' }}>
-                  <Statistic
-                    title="Current Output"
-                    value={stations.reduce((sum, station) => sum + (station.nowKw || 0), 0)}
-                    suffix="kW"
-                    precision={1}
-                    prefix={<LineChartOutlined />}
-                    valueStyle={{ color: '#722ed1' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card size="small" style={{ background: 'rgba(255,255,255,0.8)' }}>
-                  <Statistic
-                    title="Total Capacity"
-                    value={(stations.reduce((sum, station) => sum + (station.kwp || 0), 0) / 1000)}
-                    suffix="MW"
-                    precision={2}
-                    prefix={<BuildOutlined />}
-                    valueStyle={{ color: '#fa8c16' }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-          </div>
-        )}
-
         {loading ? (
           <div style={{ 
             textAlign: 'center', 
@@ -2318,13 +2348,13 @@ const HopeCloudManagement: React.FC = () => {
         <Modal
           title={
             <Space>
-              <ThunderboltOutlined style={{ color: '#1890ff' }} />
+              <ThunderboltOutlined style={{ color: '#13c2c2' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <Text style={{ fontSize: '18px', fontWeight: 600 }}>
                   {selectedStation ? selectedStation.name : 'Station Details'}
                 </Text>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <Tag color="blue">Comprehensive View</Tag>
+                  <Tag color="cyan">Comprehensive View</Tag>
                   {selectedStation && (
                     <>
                       <Tag color={selectedStation.status === 1 ? 'success' : 'error'}>
@@ -2790,9 +2820,9 @@ const HopeCloudManagement: React.FC = () => {
                             Yearly Stats
                           </Button>
                           <Button
-                            type="primary"
                             icon={<LineChartOutlined />}
                             onClick={() => handleViewEquipmentHistory(selectedDevice)}
+                            style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
                           >
                             Historical Data
                           </Button>
@@ -2934,7 +2964,11 @@ const HopeCloudManagement: React.FC = () => {
             </Row>
             <Form.Item>
               <Space>
-                <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
+                <Button
+                  htmlType="submit"
+                  icon={<SaveOutlined />}
+                  style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
+                >
                   Create Station
                 </Button>
                 <Button onClick={() => setCreateStationVisible(false)} icon={<CloseOutlined />}>
@@ -2974,7 +3008,11 @@ const HopeCloudManagement: React.FC = () => {
             </Form.Item>
             <Form.Item>
               <Space>
-                <Button type="primary" htmlType="submit" icon={<LinkOutlined />}>
+                <Button
+                  htmlType="submit"
+                  icon={<LinkOutlined />}
+                  style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
+                >
                   Bind Devices
                 </Button>
                 <Button onClick={() => setBindDevicesVisible(false)} icon={<CloseOutlined />}>
@@ -3080,8 +3118,8 @@ const HopeCloudManagement: React.FC = () => {
               <Descriptions.Item label="Device Type">{selectedCommModule.deviceType}</Descriptions.Item>
               <Descriptions.Item label="Status">
                 <Badge
-                  status={selectedCommModule.status === 1 ? 'success' : 'error'}
-                  text={selectedCommModule.status === 1 ? 'Online' : 'Offline'}
+                  status={selectedCommModule.status === 'online' ? 'success' : 'error'}
+                  text={selectedCommModule.status === 'online' ? 'Online' : 'Offline'}
                 />
               </Descriptions.Item>
               <Descriptions.Item label="RSSI">{selectedCommModule.rssi} dBm</Descriptions.Item>
@@ -3194,7 +3232,7 @@ const HopeCloudManagement: React.FC = () => {
             <Descriptions.Item label="Name">{selectedCommModuleDetails.divertorName}</Descriptions.Item>
             <Descriptions.Item label="Device Type">{selectedCommModuleDetails.deviceType}</Descriptions.Item>
             <Descriptions.Item label="Status">
-              <Badge status={selectedCommModuleDetails.status === 1 ? 'success' : 'error'} text={selectedCommModuleDetails.status === 1 ? 'Online' : 'Offline'} />
+              <Badge status={selectedCommModuleDetails.status === 'online' ? 'success' : 'error'} text={selectedCommModuleDetails.status === 'online' ? 'Online' : 'Offline'} />
             </Descriptions.Item>
             <Descriptions.Item label="RSSI">{selectedCommModuleDetails.rssi} dBm</Descriptions.Item>
             <Descriptions.Item label="Loaded Devices">{selectedCommModuleDetails.loadedNumber}</Descriptions.Item>

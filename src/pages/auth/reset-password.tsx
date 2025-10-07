@@ -114,7 +114,10 @@ const ResetPassword = () => {
               The password reset link you used is invalid or has expired. 
               Please request a new password reset from the login page.
             </Text>
-            <Button type="primary" onClick={() => navigate('/')}>
+            <Button
+              onClick={() => navigate('/')}
+              style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
+            >
               Go to Login
             </Button>
           </Space>
@@ -210,12 +213,12 @@ const ResetPassword = () => {
             </Form.Item>
 
             <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
+              <Button
+                htmlType="submit"
                 size="large"
                 block
                 loading={isLoading}
+                style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
               >
                 Reset Password
               </Button>

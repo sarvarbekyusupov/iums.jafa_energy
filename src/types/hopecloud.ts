@@ -141,11 +141,16 @@ export interface HopeCloudSyncResult {
 }
 
 export interface HopeCloudOwner {
-  ownerId: string;
-  ownerName: string;
+  userId: string;
+  userName: string;
+  nickName: string;
   email: string;
   phone: string;
-  createdTime: string;
+  remark?: string | null;
+  // Legacy field names for backward compatibility
+  ownerId?: string;
+  ownerName?: string;
+  createdTime?: string;
 }
 
 export interface HopeCloudChannelProvider {
@@ -199,12 +204,13 @@ export interface HopeCloudEquipmentRealtimeData {
 }
 
 export interface HopeCloudCommunicationModule {
-  id: string;
+  id: number;
+  siteId: number;
   equipmentPn: string;
   divertorName: string;
   deviceType: string;
   rssi: number;
-  status: number;
+  status: string; // "online" or "offline"
   loadedNumber: number;
   iccid?: string;
   latitude?: string;
@@ -217,6 +223,12 @@ export interface HopeCloudCommunicationModule {
   updateTime?: string;
   userId?: string;
   userName?: string;
+  // Nested site information
+  site?: {
+    id: number;
+    name: string;
+    location?: string;
+  };
 }
 
 // Request/Response wrapper types

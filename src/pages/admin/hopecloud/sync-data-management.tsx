@@ -931,50 +931,18 @@ const SyncDataManagement: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      <Content style={{ background: '#f0f2f5', padding: 0, margin: 0 }}>
-        <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '24px',
-          color: 'white',
-          marginBottom: '0'
-        }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <Space align="center" size="large">
-              <Avatar size={64} icon={<DatabaseOutlined />} style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
-              <div>
-                <Title level={2} style={{ color: 'white', margin: 0 }}>
-                  HopeCloud Sync Data Management
-                </Title>
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px' }}>
-                  View and manage synchronized data from HopeCloud stored in local database
-                </Text>
-              </div>
-            </Space>
-          </div>
-        </div>
-
-        <div style={{
-          background: 'white',
-          borderRadius: '8px 8px 0 0',
-          margin: '0 24px',
-          boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
-        }}>
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            size="large"
-            items={tabItems}
-            style={{ margin: 0, width: '100%', overflow: 'hidden' }}
-            tabBarStyle={{
-              paddingLeft: '24px',
-              paddingRight: '24px',
-              marginBottom: 0,
-              background: 'white',
-              borderBottom: '1px solid #f0f0f0'
-            }}
-          />
-        </div>
+      <Content style={{ background: 'transparent', padding: '24px', margin: 0 }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          size="large"
+          items={tabItems}
+          style={{ margin: 0, width: '100%' }}
+          tabBarStyle={{
+            marginBottom: 0,
+            background: 'transparent'
+          }}
+        />
       </Content>
 
       {/* Site Details Modal */}

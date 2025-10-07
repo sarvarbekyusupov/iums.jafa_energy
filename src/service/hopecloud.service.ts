@@ -399,11 +399,17 @@ class HopeCloudService {
   }
 
   async getCommunicationModuleDetails(query?: DivertorDetailQueryDto): Promise<HopeCloudApiResponse<HopeCloudCommunicationModule>> {
+    // If we have an ID, use the by-id endpoint
+    if (query?.id) {
+      const response = await apiClient.get(ApiUrls.HOPECLOUD.COMMUNICATION_MODULE_BY_ID(parseInt(query.id)));
+      return response.data;
+    }
+
+    // Otherwise, use query parameters
     const params = new URLSearchParams();
-    if (query?.id) params.append('id', query.id);
     if (query?.pn) params.append('pn', query.pn);
-    
-    const response = await apiClient.get(`${ApiUrls.HOPECLOUD.COMMUNICATION_MODULE_DETAILS}?${params.toString()}`);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD.COMMUNICATION_MODULES}?${params.toString()}`);
     return response.data;
   }
 

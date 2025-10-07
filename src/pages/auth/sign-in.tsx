@@ -1,17 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginDto } from "../../types/auth";
 import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { Loader2, Leaf, Sun, Zap } from "lucide-react";
+import { Loader2, Leaf, Sun, Zap, CheckCircle, Info, Eye, EyeOff } from "lucide-react";
 import Lottie from "lottie-react";
 import greenEnergyAnimation from "../../assets/Green Energy Animation.json";
 
 const SignIn = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoading } = useAuth();
   const lottieRef = useRef<any>(null);
   const [formData, setFormData] = useState<LoginDto>({
@@ -19,6 +20,20 @@ const SignIn = () => {
     password: "",
   });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Check for success message from navigation state
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the state
+      navigate(location.pathname, { replace: true, state: {} });
+
+      // Auto-clear message after 10 seconds
+      setTimeout(() => setSuccessMessage(""), 10000);
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     if (lottieRef.current) {
@@ -138,6 +153,23 @@ const SignIn = () => {
           </CardHeader>
           <form onSubmit={handleSubmit} method="post" action="/admin" name="login-form">
             <CardContent className="pt-2 pb-6 px-8 space-y-5">
+              {/* Success message from activation */}
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-green-800 font-medium">{successMessage}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSuccessMessage("")}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -171,20 +203,34 @@ const SignIn = () => {
                 >
                   Password
                 </Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={formData.password}
-                  onChange={handleChange}
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={handleChange}
                   autoComplete="current-password"
                   required
-                  className={`h-11 text-[15px] border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
-                    errors.password ? "border-red-500 focus-visible:ring-red-500/20" : ""
-                  }`}
-                  disabled={isLoading}
-                />
+                    className={`h-11 text-[15px] pr-10 border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
+                      errors.password ? "border-red-500 focus-visible:ring-red-500/20" : ""
+                    }`}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="text-sm text-red-600 font-medium mt-1.5">{errors.password}</p>
                 )}
