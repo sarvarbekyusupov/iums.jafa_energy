@@ -168,23 +168,89 @@ const AdminLayout: React.FC = () => {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} width={260}>
+    <Layout style={{ minHeight: '100vh', position: 'relative', background: 'transparent' }}>
+      {/* Green energy background */}
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'linear-gradient(to bottom right, rgb(236, 253, 245), rgb(240, 253, 244), rgb(240, 253, 250))',
+        zIndex: 0,
+      }}>
+        {/* Decorative circles */}
         <div style={{
-          height: 40,
-          margin: 16,
-          background: 'rgba(255, 255, 255, 0.15)',
-          borderRadius: 8,
+          position: 'absolute',
+          top: '5rem',
+          left: '2.5rem',
+          width: '18rem',
+          height: '18rem',
+          background: 'rgba(134, 239, 172, 0.3)',
+          borderRadius: '9999px',
+          mixBlendMode: 'multiply',
+          filter: 'blur(48px)',
+          animation: 'blob 7s infinite',
+        }} />
+        <div style={{
+          position: 'absolute',
+          top: '10rem',
+          right: '2.5rem',
+          width: '18rem',
+          height: '18rem',
+          background: 'rgba(167, 243, 208, 0.3)',
+          borderRadius: '9999px',
+          mixBlendMode: 'multiply',
+          filter: 'blur(48px)',
+          animation: 'blob 7s infinite',
+          animationDelay: '2s',
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-2rem',
+          left: '50%',
+          width: '18rem',
+          height: '18rem',
+          background: 'rgba(153, 246, 228, 0.3)',
+          borderRadius: '9999px',
+          mixBlendMode: 'multiply',
+          filter: 'blur(48px)',
+          animation: 'blob 7s infinite',
+          animationDelay: '4s',
+        }} />
+        {/* Subtle grid pattern */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'linear-gradient(to right, rgba(128, 128, 128, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(128, 128, 128, 0.03) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }} />
+      </div>
+
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        width={260}
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          background: 'linear-gradient(180deg, rgba(6, 78, 59, 0.95) 0%, rgba(4, 47, 46, 0.95) 100%)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <div style={{
+          height: 64,
+          margin: '20px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
-          fontWeight: 'bold',
-          fontSize: '18px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: '#fff',
+          fontWeight: '700',
+          fontSize: collapsed ? '24px' : '22px',
+          letterSpacing: '1.5px',
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
         }}>
-          {collapsed ? 'JI' : 'JAFA IUMS'}
+          {collapsed ? 'JE' : 'JAFA ENERGY'}
         </div>
         <Menu
           theme="dark"
@@ -195,14 +261,16 @@ const AdminLayout: React.FC = () => {
           items={sidebarItems}
         />
       </Sider>
-      <Layout>
+      <Layout style={{ position: 'relative', zIndex: 1, background: 'transparent' }}>
         <Header style={{
           padding: '0 16px',
-          background: '#fff',
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          borderBottom: '1px solid rgba(16, 185, 129, 0.1)',
         }}>
           <Button
             type="text"
@@ -215,29 +283,40 @@ const AdminLayout: React.FC = () => {
             }}
           />
           <Space>
-            <Text>Welcome, {user?.firstName || 'User'} {user?.lastName || ''}</Text>
-            <Dropdown 
-              menu={{ items: userMenuItems }} 
+            <Text style={{ fontWeight: 500, color: '#047857' }}>Welcome, {user?.firstName || 'User'} {user?.lastName || ''}</Text>
+            <Dropdown
+              menu={{ items: userMenuItems }}
               placement="bottomRight"
               trigger={['click']}
             >
               <Avatar
-                style={{ 
+                style={{
                   cursor: 'pointer',
-                  backgroundColor: '#1890ff',
-                  border: '2px solid #fff'
+                  backgroundColor: '#10b981',
+                  border: '2px solid rgba(16, 185, 129, 0.3)',
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)',
                 }}
                 icon={<UserOutlined />}
               />
             </Dropdown>
-            <Button 
+            <Button
               onClick={handleLogout}
               title="Logout"
               style={{
-                backgroundColor: '#1890ff',
-                borderColor: '#1890ff',
+                backgroundColor: '#10b981',
+                borderColor: '#10b981',
                 color: '#fff',
                 borderRadius: '8px',
+                fontWeight: 500,
+                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#059669';
+                e.currentTarget.style.borderColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#10b981';
+                e.currentTarget.style.borderColor = '#10b981';
               }}
             >
               Logout
@@ -249,9 +328,11 @@ const AdminLayout: React.FC = () => {
             margin: '16px',
             padding: 0,
             minHeight: 280,
-            background: '#f5f5f5',
-            borderRadius: 8,
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: 12,
             overflow: 'auto',
+            border: '1px solid rgba(16, 185, 129, 0.1)',
           }}
         >
           <div style={{ padding: '24px' }}>

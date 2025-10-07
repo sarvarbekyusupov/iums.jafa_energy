@@ -67,3 +67,88 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+}
+
+/* Ant Design Menu customization for green theme */
+.ant-menu-dark {
+  background: transparent !important;
+}
+
+/* Submenu group container with full border */
+.ant-menu-dark .ant-menu-submenu {
+  margin: 12px !important;
+  border: 2px solid rgba(16, 185, 129, 0.35) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+/* Submenu title (header like "General Dashboard") */
+.ant-menu-dark .ant-menu-submenu-title {
+  background: rgba(16, 185, 129, 0.12) !important;
+  margin: 0 !important;
+  border-radius: 10px 10px 0 0 !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
+  color: rgba(209, 250, 229, 1) !important;
+  font-weight: 500 !important;
+  padding: 12px 16px !important;
+}
+
+/* Fix arrow icon area */
+.ant-menu-dark .ant-menu-submenu-title .ant-menu-submenu-arrow {
+  color: rgba(209, 250, 229, 1) !important;
+}
+
+.ant-menu-dark .ant-menu-submenu-title::after {
+  background: transparent !important;
+}
+
+.ant-menu-dark .ant-menu-submenu-title:hover {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #fff !important;
+}
+
+.ant-menu-dark .ant-menu-submenu-open > .ant-menu-submenu-title {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #fff !important;
+}
+
+/* Submenu content area (items inside) */
+.ant-menu-dark .ant-menu-sub {
+  background: transparent !important;
+  padding: 4px !important;
+}
+
+/* Individual menu items */
+.ant-menu-dark .ant-menu-item {
+  margin: 4px 8px !important;
+  border-radius: 8px !important;
+  color: rgba(209, 250, 229, 0.85) !important;
+  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  transition: all 0.2s ease !important;
+  background: rgba(16, 185, 129, 0.05) !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #fff !important;
+}
+
+/* Selected menu item - dark background */
+.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(4, 120, 87, 0.6) !important;
+  color: #fff !important;
+  border: 2px solid rgba(16, 185, 129, 0.7) !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}

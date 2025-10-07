@@ -2163,14 +2163,15 @@ const HopeCloudManagement: React.FC = () => {
           <Row justify="space-between" align="middle" style={{ padding: 0, width: '100%' }}>
             <Col>
               <Space size="large">
-                <div style={{ 
-                  width: '56px', 
-                  height: '56px', 
+                <div style={{
+                  width: '56px',
+                  height: '56px',
                   borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
                 }}>
                   <CloudServerOutlined style={{ color: '#fff', fontSize: '24px' }} />
                 </div>

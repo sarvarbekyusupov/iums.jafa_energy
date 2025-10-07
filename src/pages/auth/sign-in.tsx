@@ -1,21 +1,36 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginDto } from "../../types/auth";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Leaf, Sun, Zap } from "lucide-react";
+import Lottie from "lottie-react";
+import greenEnergyAnimation from "../../assets/Green Energy Animation.json";
 
 const SignIn = () => {
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
+  const lottieRef = useRef<any>(null);
   const [formData, setFormData] = useState<LoginDto>({
     email: "",
     password: "",
   });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  useEffect(() => {
+    if (lottieRef.current) {
+      const animation = lottieRef.current;
+
+      // Set up smooth looping
+      animation.setSpeed(0.9);
+
+      // Use playSegments with force flag for seamless looping
+      animation.playSegments([60, 270], true);
+    }
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
@@ -34,7 +49,7 @@ const SignIn = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -42,8 +57,13 @@ const SignIn = () => {
     }
 
     try {
+      const form = e.currentTarget;
       await login(formData);
-      navigate("/admin");
+
+      // Allow browser to detect successful login before navigation
+      setTimeout(() => {
+        navigate("/admin");
+      }, 100);
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -59,25 +79,65 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 p-4">
-      <div className="w-full max-w-[440px]">
-        {/* Logo and Title Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-600 shadow-lg">
-            <Zap className="w-9 h-9 text-white" strokeWidth={2.5} />
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-2">
-            JAFA ENERGY
-          </h1>
-          <p className="text-base text-gray-600 font-medium">
-            Utility Management System
-          </p>
-        </div>
+    <div className="flex min-h-screen relative overflow-hidden">
+      {/* Animated background with green energy theme */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
+        {/* Decorative circles representing clean energy */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-green-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+        <div className="absolute top-40 right-10 w-72 h-72 bg-emerald-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-teal-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
 
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      </div>
+
+      {/* Left side - Animation */}
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center relative z-10 p-12">
+        <div className="w-full max-w-2xl">
+          <Lottie
+            lottieRef={lottieRef}
+            animationData={greenEnergyAnimation}
+            loop={true}
+            autoplay={false}
+            className="w-full h-full"
+            rendererSettings={{
+              preserveAspectRatio: 'xMidYMid slice'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Right side - Login Form */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center relative z-10 p-4">
         {/* Login Card */}
-        <Card className="border border-gray-200 shadow-xl bg-white">
-          <form onSubmit={handleSubmit}>
-            <CardContent className="pt-8 pb-6 px-8 space-y-5">
+        <Card className="border border-green-100 shadow-2xl bg-white/95 backdrop-blur-sm w-full max-w-[440px]">
+          <CardHeader className="text-center space-y-4 pb-6">
+            {/* Company values icons */}
+            <div className="flex items-center justify-center gap-3">
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-md">
+                <Leaf className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
+                <Sun className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-teal-500 to-green-600 shadow-md">
+                <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-700 via-emerald-700 to-teal-700 bg-clip-text text-transparent tracking-tight mb-1.5">
+                JAFA ENERGY
+              </h1>
+              <p className="text-sm text-gray-600 font-medium">
+                Utility Management System
+              </p>
+              <p className="text-xs text-emerald-600 font-medium italic mt-1">
+                Powering a Sustainable Future
+              </p>
+            </div>
+          </CardHeader>
+          <form onSubmit={handleSubmit} method="post" action="/admin" name="login-form">
+            <CardContent className="pt-2 pb-6 px-8 space-y-5">
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -92,6 +152,8 @@ const SignIn = () => {
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
+                  autoComplete="username email"
+                  required
                   className={`h-11 text-[15px] border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
                     errors.email ? "border-red-500 focus-visible:ring-red-500/20" : ""
                   }`}
@@ -116,6 +178,8 @@ const SignIn = () => {
                   placeholder="Enter password"
                   value={formData.password}
                   onChange={handleChange}
+                  autoComplete="current-password"
+                  required
                   className={`h-11 text-[15px] border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
                     errors.password ? "border-red-500 focus-visible:ring-red-500/20" : ""
                   }`}
@@ -154,9 +218,11 @@ const SignIn = () => {
             </CardFooter>
           </form>
         </Card>
+      </div>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-6">
+      {/* Footer - Centered at bottom */}
+      <div className="absolute bottom-6 left-0 right-0 z-20 flex justify-center">
+        <p className="text-center text-sm text-gray-600">
           © 2025 JAFA ENERGY. All rights reserved.
         </p>
       </div>
