@@ -1,62 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card,
-  Row,
-  Col,
   Typography,
   Space,
   Button,
   Table,
   Tag,
-  Spin,
   message,
   Tabs,
-  Statistic,
-  Progress,
   Modal,
   Descriptions,
   Badge,
-  Avatar,
   Layout,
   Input,
-  Select,
-  List,
   Empty,
-  Tooltip,
   Form,
-  Divider,
   Alert,
 } from 'antd';
 import type { TableColumnsType, TabsProps } from 'antd';
 import {
-  CloudServerOutlined,
-  ThunderboltOutlined,
   EyeOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
   ReloadOutlined,
-  DatabaseOutlined,
-  DashboardOutlined,
   BellOutlined,
-  SearchOutlined,
   LineChartOutlined,
   TeamOutlined,
-  HomeOutlined,
   WifiOutlined,
-  BarChartOutlined,
-  CalendarOutlined,
   SettingOutlined,
   SyncOutlined,
-  ClockCircleOutlined,
-  RiseOutlined,
-  FallOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
-import { sitesService, siteKpisService, deviceAlarmsService, hopeCloudService, communicationModulesService } from '../../../service';
-import StatisticsDashboard from '../../../components/StatisticsDashboard';
+import { sitesService, deviceAlarmsService, hopeCloudService, communicationModulesService } from '../../../service';
 import SyncedSiteHistory from '../../../components/SyncedSiteHistory';
 import dayjs from 'dayjs';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Content } = Layout;
 const { Search } = Input;
 
@@ -86,17 +63,17 @@ interface SyncedDevice {
   updatedAt: string;
 }
 
-interface SyncedKpi {
-  id: number;
-  siteId: number;
-  measuredAt: string;
-  dailyYieldKwh: string;
-  currentPowerKw: string;
-  performanceRatio: string;
-  availabilityPercentage: string;
-  totalYieldKwh: string;
-  createdAt: string;
-}
+// interface SyncedKpi {
+//   id: number;
+//   siteId: number;
+//   measuredAt: string;
+//   dailyYieldKwh: string;
+//   currentPowerKw: string;
+//   performanceRatio: string;
+//   availabilityPercentage: string;
+//   totalYieldKwh: string;
+//   createdAt: string;
+// }
 
 interface SyncedAlarm {
   id: number;
@@ -115,7 +92,6 @@ const SyncDataManagement: React.FC = () => {
   // Core state for synced data
   const [sites, setSites] = useState<SyncedSite[]>([]);
   const [devices, setDevices] = useState<SyncedDevice[]>([]);
-  const [kpis, setKpis] = useState<SyncedKpi[]>([]);
   const [alarms, setAlarms] = useState<SyncedAlarm[]>([]);
   const [commModules, setCommModules] = useState<any[]>([]); // CommunicationModule type from api.ts
   const [loading, setLoading] = useState(false);
@@ -123,32 +99,28 @@ const SyncDataManagement: React.FC = () => {
 
   // Modal states
   const [selectedSite, setSelectedSite] = useState<SyncedSite | null>(null);
-  const [selectedDevice, setSelectedDevice] = useState<SyncedDevice | null>(null);
   const [siteModalVisible, setSiteModalVisible] = useState(false);
-  const [deviceModalVisible, setDeviceModalVisible] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
 
   // Search and filter states
   const [siteSearchText, setSiteSearchText] = useState('');
   const [alarmSearchText, setAlarmSearchText] = useState('');
-  const [selectedSiteFilter, setSelectedSiteFilter] = useState<number | undefined>(undefined);
 
   // Load all synced data
   const loadSyncedData = async () => {
     setLoading(true);
     try {
-      const [sitesRes, devicesRes, kpisRes, commModulesRes, alarmsRes] = await Promise.allSettled([
+      const [sitesRes, devicesRes, commModulesRes, alarmsRes] = await Promise.allSettled([
         sitesService.getAllSites(),
         sitesService.getAllDevices(),
-        siteKpisService.getAllSiteKpis(),
         communicationModulesService.getAllModules(),
         deviceAlarmsService.getAllDeviceAlarms(),
       ]);
 
       // Handle sites
       if (sitesRes.status === 'fulfilled') {
-        const sitesData = sitesRes.value?.data || sitesRes.value || [];
-        setSites(Array.isArray(sitesData) ? sitesData : []);
+        const sitesData = Array.isArray(sitesRes.value) ? sitesRes.value as any[] : [];
+        setSites(sitesData);
         console.log('Synced sites loaded:', sitesData.length);
       } else {
         console.error('Failed to load synced sites:', sitesRes.reason);
@@ -157,28 +129,18 @@ const SyncDataManagement: React.FC = () => {
 
       // Handle devices
       if (devicesRes.status === 'fulfilled') {
-        const devicesData = devicesRes.value?.data || devicesRes.value || [];
-        setDevices(Array.isArray(devicesData) ? devicesData : []);
+        const devicesData = Array.isArray(devicesRes.value) ? devicesRes.value as any[] : [];
+        setDevices(devicesData);
         console.log('Synced devices loaded:', devicesData.length);
       } else {
         console.error('Failed to load synced devices:', devicesRes.reason);
         setDevices([]);
       }
 
-      // Handle KPIs
-      if (kpisRes.status === 'fulfilled') {
-        const kpisData = kpisRes.value?.data || kpisRes.value || [];
-        setKpis(Array.isArray(kpisData) ? kpisData : []);
-        console.log('Synced KPIs loaded:', kpisData.length);
-      } else {
-        console.error('Failed to load synced KPIs:', kpisRes.reason);
-        setKpis([]);
-      }
-
       // Handle communication modules
       if (commModulesRes.status === 'fulfilled') {
-        const modulesData = commModulesRes.value || [];
-        setCommModules(Array.isArray(modulesData) ? modulesData : []);
+        const modulesData = Array.isArray(commModulesRes.value) ? commModulesRes.value : [];
+        setCommModules(modulesData);
         console.log('Communication modules loaded:', modulesData.length);
       } else {
         console.error('Failed to load communication modules:', commModulesRes.reason);
@@ -187,8 +149,8 @@ const SyncDataManagement: React.FC = () => {
 
       // Handle alarms
       if (alarmsRes.status === 'fulfilled') {
-        const alarmsData = alarmsRes.value?.data || alarmsRes.value || [];
-        setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+        const alarmsData = Array.isArray(alarmsRes.value) ? alarmsRes.value : [];
+        setAlarms(alarmsData);
         console.log('Device alarms loaded:', alarmsData.length);
       } else {
         console.error('Failed to load device alarms:', alarmsRes.reason);
@@ -360,8 +322,8 @@ const SyncDataManagement: React.FC = () => {
           setAlarmsLoading(true);
           try {
             const alarmsRes = await deviceAlarmsService.getAllDeviceAlarms();
-            const alarmsData = alarmsRes?.data || alarmsRes || [];
-            setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+            const alarmsData = Array.isArray(alarmsRes) ? alarmsRes : [];
+            setAlarms(alarmsData);
           } finally {
             setAlarmsLoading(false);
           }
@@ -389,8 +351,8 @@ const SyncDataManagement: React.FC = () => {
       setAlarmsLoading(true);
       try {
         const alarmsRes = await deviceAlarmsService.getAllDeviceAlarms();
-        const alarmsData = alarmsRes?.data || alarmsRes || [];
-        setAlarms(Array.isArray(alarmsData) ? alarmsData : []);
+        const alarmsData = Array.isArray(alarmsRes) ? alarmsRes : [];
+        setAlarms(alarmsData);
       } catch (error) {
         message.error('Failed to refresh alarms');
       } finally {
@@ -426,9 +388,8 @@ const SyncDataManagement: React.FC = () => {
       if (!alarmSearchText) return true;
       const searchLower = alarmSearchText.toLowerCase();
       return (
-        alarm.title?.toLowerCase().includes(searchLower) ||
-        alarm.alarmCode?.toLowerCase().includes(searchLower) ||
-        alarm.alarmType?.toLowerCase().includes(searchLower) ||
+        alarm.message?.toLowerCase().includes(searchLower) ||
+        alarm.severity?.toLowerCase().includes(searchLower) ||
         getDeviceName(alarm.deviceId).toLowerCase().includes(searchLower)
       );
     });

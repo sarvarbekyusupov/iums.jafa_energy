@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, ClockCircleOutlined, CalendarOutlined, BarChartOutlined } from '@ant-design/icons';
 import { hopeCloudService } from '../service';
 import type { HopeCloudStationHistoricalPower, HopeCloudStatistics } from '../types/hopecloud';
@@ -78,19 +78,19 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
     }
   };
 
-  const setCurrentDateRange = (range: { startDate: dayjs.Dayjs; endDate: dayjs.Dayjs }) => {
-    switch (activeTab) {
-      case 'daily':
-        setDailyDateRange(range);
-        break;
-      case 'monthly':
-        setMonthlyDateRange(range);
-        break;
-      case 'yearly':
-        setYearlyDateRange(range);
-        break;
-    }
-  };
+  // const setCurrentDateRange = (range: { startDate: dayjs.Dayjs; endDate: dayjs.Dayjs }) => {
+  //   switch (activeTab) {
+  //     case 'daily':
+  //       setDailyDateRange(range);
+  //       break;
+  //     case 'monthly':
+  //       setMonthlyDateRange(range);
+  //       break;
+  //     case 'yearly':
+  //       setYearlyDateRange(range);
+  //       break;
+  //   }
+  // };
 
   const fetchHistoricalData = async () => {
     if (!stationId) return;

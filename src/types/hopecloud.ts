@@ -98,6 +98,12 @@ export interface HopeCloudStatistics {
   income: number;
   dayKw?: number;
   radiantQuantity?: number;
+  // Additional fields for synced site history
+  measuredAt?: string;
+  dailyYieldKwh?: number | string;
+  monthlyYieldKwh?: number | string;
+  yearlyYieldKwh?: number | string;
+  currentPowerKw?: number | string;
 }
 
 export interface HopeCloudHealthStatus {

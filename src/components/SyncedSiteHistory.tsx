@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, CalendarOutlined, BarChartOutlined, SyncOutlined } from '@ant-design/icons';
-import { hopeCloudService, siteKpisService } from '../service';
+import { hopeCloudService } from '../service';
 import { apiClient } from '../service/api-client';
 import type { HopeCloudStatistics } from '../types/hopecloud';
 import dayjs from 'dayjs';
@@ -23,7 +23,6 @@ type ViewType = 'daily' | 'monthly' | 'yearly';
 
 const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
   stationId,
-  stationName
 }) => {
   const [activeTab, setActiveTab] = useState<ViewType>('daily');
 

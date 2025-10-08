@@ -11,7 +11,6 @@ import {
   Badge,
   Tag,
   Button,
-  Divider,
   Empty,
 } from 'antd';
 import {
@@ -22,10 +21,7 @@ import {
   SafetyCertificateOutlined,
   MailOutlined,
   ArrowUpOutlined,
-  EyeOutlined,
   BellOutlined,
-  ThunderboltOutlined,
-  DatabaseOutlined,
   CloudServerOutlined,
 } from '@ant-design/icons';
 import { authService } from '../../service/auth.service';

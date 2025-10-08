@@ -506,11 +506,13 @@ export interface VisitLogFilters {
 }
 
 // Communication Modules
-export enum CommunicationModuleStatus {
-  ONLINE = 'online',
-  OFFLINE = 'offline',
-  FAULT = 'fault'
-}
+export const CommunicationModuleStatus = {
+  ONLINE: 'online',
+  OFFLINE: 'offline',
+  FAULT: 'fault'
+} as const;
+
+export type CommunicationModuleStatus = typeof CommunicationModuleStatus[keyof typeof CommunicationModuleStatus];
 
 export interface CommunicationModule {
   id: number;

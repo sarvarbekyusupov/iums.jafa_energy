@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/c
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { Loader2, Leaf, Sun, Zap, CheckCircle, Info, Eye, EyeOff } from "lucide-react";
+import { Loader2, Leaf, Sun, Zap, CheckCircle, Eye, EyeOff } from "lucide-react";
 import Lottie from "lottie-react";
 import greenEnergyAnimation from "../../assets/Green Energy Animation.json";
 
@@ -72,7 +72,6 @@ const SignIn = () => {
     }
 
     try {
-      const form = e.currentTarget;
       await login(formData);
 
       // Allow browser to detect successful login before navigation
