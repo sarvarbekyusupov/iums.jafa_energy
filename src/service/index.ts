@@ -13,6 +13,7 @@ export * from './timezone.service';
 // Integration Services
 export * from './hopecloud.service';
 export * from './fusion-solar.service';
+export * from './fsolar';
 export * from './integration-orchestrator.service';
 export * from './webhooks.service';
 
