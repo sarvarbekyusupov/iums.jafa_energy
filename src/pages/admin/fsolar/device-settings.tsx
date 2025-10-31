@@ -222,25 +222,100 @@ const DeviceSettings: React.FC = () => {
 
           <Divider />
 
-          <Card title="Protection Settings">
-            <Row gutter={16}>
+          <Card title="Voltage Protection Settings">
+            <Row gutter={[16, 16]}>
               <Col span={12}>
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="Over-Voltage Stage 1">
+                <Text strong>Stage 1 Over-Voltage</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
                     {settings.overVoltageStage1TripValue} V
                   </Descriptions.Item>
-                  <Descriptions.Item label="Under-Voltage Stage 1">
-                    {settings.underVoltageStage1TripValue} V
+                  <Descriptions.Item label="Trip Time">
+                    {settings.overVoltageStage1TripTime} s
                   </Descriptions.Item>
                 </Descriptions>
               </Col>
               <Col span={12}>
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="Over-Frequency Stage 1">
+                <Text strong>Stage 2 Over-Voltage</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
+                    {settings.overVoltageStage2TripValue} V
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.overVoltageStage2TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col span={12}>
+                <Text strong>Stage 1 Under-Voltage</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
+                    {settings.underVoltageStage1TripValue} V
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.underVoltageStage1TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col span={12}>
+                <Text strong>Stage 2 Under-Voltage</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
+                    {settings.underVoltageStage2TripValue} V
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.underVoltageStage2TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+            </Row>
+          </Card>
+
+          <Divider />
+
+          <Card title="Frequency Protection Settings">
+            <Row gutter={[16, 16]}>
+              <Col span={12}>
+                <Text strong>Stage 1 Over-Frequency</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
                     {settings.overFrequencyStage1TripValue} Hz
                   </Descriptions.Item>
-                  <Descriptions.Item label="Under-Frequency Stage 1">
+                  <Descriptions.Item label="Trip Time">
+                    {settings.overFrequencyStage1TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col span={12}>
+                <Text strong>Stage 2 Over-Frequency</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
+                    {settings.overFrequencyStage2TripValue} Hz
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.overFrequencyStage2TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col span={12}>
+                <Text strong>Stage 1 Under-Frequency</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
                     {settings.underFrequencyStage1TripValue} Hz
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.underFrequencyStage1TripTime} s
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col span={12}>
+                <Text strong>Stage 2 Under-Frequency</Text>
+                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
+                  <Descriptions.Item label="Trip Value">
+                    {settings.underFrequencyStage2TripValue} Hz
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trip Time">
+                    {settings.underFrequencyStage2TripTime} s
                   </Descriptions.Item>
                 </Descriptions>
               </Col>
@@ -260,6 +335,65 @@ const DeviceSettings: React.FC = () => {
                 {settings.zeroExportAdjustmentPower} W
               </Descriptions.Item>
             </Descriptions>
+          </Card>
+
+          <Divider />
+
+          <Card title="Voltage Ride Through (VRT) Settings">
+            <Row gutter={[16, 16]}>
+              <Col span={24}>
+                <Card size="small" title="High Voltage Ride Through (HVRT)">
+                  <Descriptions bordered column={2} size="small">
+                    <Descriptions.Item label="HVRT Function Enable">
+                      <Tag color={settings.highVoltageRideThroughFunctionEnable === '1' ? 'green' : 'red'}>
+                        {settings.highVoltageRideThroughFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Crossing Trip Threshold">
+                      {settings.highVoltageCrossingTripThreshold} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Start Point Trip Value">
+                      {settings.highVoltageStartPointTripValue} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Start Point Trip Time">
+                      {settings.highVoltageStartPointTripTime} s
+                    </Descriptions.Item>
+                    <Descriptions.Item label="End Point Trip Value">
+                      {settings.highVoltageEndPointTripValue} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="End Point Trip Time">
+                      {settings.highVoltageEndPointTripTime} s
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              </Col>
+              <Col span={24}>
+                <Card size="small" title="Low Voltage Ride Through (LVRT)">
+                  <Descriptions bordered column={2} size="small">
+                    <Descriptions.Item label="LVRT Function Enable">
+                      <Tag color={settings.lowVoltageRideThroughFunctionEnable === '1' ? 'green' : 'red'}>
+                        {settings.lowVoltageRideThroughFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Crossing Trip Threshold">
+                      {settings.lowVoltageCrossingTripThreshold} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Start Point Trip Value">
+                      {settings.lowVoltageStartPointTripValue} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Start Point Trip Time">
+                      {settings.lowVoltageStartPointTripTime} s
+                    </Descriptions.Item>
+                    <Descriptions.Item label="End Point Trip Value">
+                      {settings.lowVoltageEndPointTripValue} V
+                    </Descriptions.Item>
+                    <Descriptions.Item label="End Point Trip Time">
+                      {settings.lowVoltageEndPointTripTime} s
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              </Col>
+            </Row>
           </Card>
         </TabPane>
 
@@ -320,9 +454,11 @@ const DeviceSettings: React.FC = () => {
                     }
                   >
                     <Descriptions bordered column={2} size="small">
-                      {rule.ruleMode && (
+                      {rule.ruleMode !== null && rule.ruleMode !== undefined && (
                         <Descriptions.Item label="Rule Mode">
-                          {rule.ruleMode}
+                          <Tag color={rule.ruleMode === '1' ? 'green' : 'default'}>
+                            {rule.ruleMode === '1' ? 'Charge Enabled' : rule.ruleMode === '0' ? 'Disabled' : rule.ruleMode}
+                          </Tag>
                         </Descriptions.Item>
                       )}
                       {rule.startTime && (
@@ -346,8 +482,28 @@ const DeviceSettings: React.FC = () => {
                         </Descriptions.Item>
                       )}
                       {rule.soc && (
-                        <Descriptions.Item label="SOC">
+                        <Descriptions.Item label="SOC Target">
                           {rule.soc}%
+                        </Descriptions.Item>
+                      )}
+                      {rule.power && (
+                        <Descriptions.Item label="Power">
+                          {rule.power} W
+                        </Descriptions.Item>
+                      )}
+                      {rule.voltage && (
+                        <Descriptions.Item label="Voltage">
+                          {rule.voltage} V
+                        </Descriptions.Item>
+                      )}
+                      {rule.daysOfEffectiveWeek && (
+                        <Descriptions.Item label="Effective Days" span={2}>
+                          {Array.isArray(rule.daysOfEffectiveWeek)
+                            ? rule.daysOfEffectiveWeek.map((day: string) => (
+                                <Tag key={day} color="blue" style={{ marginRight: 4 }}>{day}</Tag>
+                              ))
+                            : rule.daysOfEffectiveWeek
+                          }
                         </Descriptions.Item>
                       )}
                     </Descriptions>
@@ -395,6 +551,125 @@ const DeviceSettings: React.FC = () => {
                 <Tag color={settings.lcdBacklightEnable === '1' ? 'green' : 'red'}>
                   {settings.lcdBacklightEnable === '1' ? 'Enabled' : 'Disabled'}
                 </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </TabPane>
+
+        {/* Advanced Settings */}
+        <TabPane
+          tab={
+            <span>
+              <SettingOutlined />
+              Advanced
+            </span>
+          }
+          key="advanced"
+        >
+          <Card title="Curve Function Settings">
+            <Descriptions bordered column={2}>
+              <Descriptions.Item label="FP Curve Function">
+                <Tag color={settings.fpCurveFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.fpCurveFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="PF-Power Curve Function">
+                <Tag color={settings.pfPowerCurveFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.pfPowerCurveFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="P(U) Curve Function">
+                <Tag color={settings.puCurveFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.puCurveFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Q(U) Curve Function">
+                <Tag color={settings.quCurveFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.quCurveFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="FP Charge Curve Function">
+                <Tag color={settings.fpChargeCurveFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.fpChargeCurveFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Fix Q Percent">
+                {settings.fixQPencent}%
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          <Divider />
+
+          <Card title="Protection & Detection Settings">
+            <Descriptions bordered column={2}>
+              <Descriptions.Item label="Anti-Islanding Detection">
+                <Tag color={settings.antiIslandingDetectionEnable === '1' ? 'green' : 'red'}>
+                  {settings.antiIslandingDetectionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="ISO Detection">
+                <Tag color={settings.isoDetectionEnable === '1' ? 'green' : 'red'}>
+                  {settings.isoDetectionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Grid Waveform Detection Mode">
+                {settings.gridWaveformDetectionMode}
+              </Descriptions.Item>
+              <Descriptions.Item label="Grid Power Unbalance">
+                <Tag color={settings.gridPowerUnbalanceEnable === '1' ? 'green' : 'red'}>
+                  {settings.gridPowerUnbalanceEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Overload Protection Reset">
+                <Tag color={settings.overLoadProtectionResetEnable === '1' ? 'green' : 'red'}>
+                  {settings.overLoadProtectionResetEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="On-Grid Observation Time">
+                {settings.onGridObservationTime} s
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          <Divider />
+
+          <Card title="GFCI Protection Levels">
+            <Descriptions bordered column={3}>
+              <Descriptions.Item label="GFCI Level 1">
+                <Tag color={settings.gfciLevel1ProtectionEnable === '1' ? 'green' : 'red'}>
+                  {settings.gfciLevel1ProtectionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="GFCI Level 2">
+                <Tag color={settings.gfciLevel2ProtectionEnable === '1' ? 'green' : 'red'}>
+                  {settings.gfciLevel2ProtectionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="GFCI Level 3">
+                <Tag color={settings.gfciLevel3ProtectionEnable === '1' ? 'green' : 'red'}>
+                  {settings.gfciLevel3ProtectionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          <Divider />
+
+          <Card title="Logging & Miscellaneous">
+            <Descriptions bordered column={2}>
+              <Descriptions.Item label="Fault Log Function">
+                <Tag color={settings.faultLogFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.faultLogFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Event Log Function">
+                <Tag color={settings.eventLogFunctionEnable === '1' ? 'green' : 'red'}>
+                  {settings.eventLogFunctionEnable === '1' ? 'Enabled' : 'Disabled'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="PV Parallel Setting">
+                {settings.pvParallelSetting}
               </Descriptions.Item>
             </Descriptions>
           </Card>
