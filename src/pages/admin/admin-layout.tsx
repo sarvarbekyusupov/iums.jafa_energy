@@ -227,6 +227,12 @@ const AdminLayout: React.FC = () => {
           label: "Run Records",
           onClick: () => navigate("/admin/fsolar/records"),
         },
+        {
+          key: "/admin/fsolar/alarms",
+          icon: <BellOutlined />,
+          label: "Device Alarms",
+          onClick: () => navigate("/admin/fsolar/alarms"),
+        },
       ],
     },
   ];

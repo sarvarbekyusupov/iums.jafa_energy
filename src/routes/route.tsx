@@ -37,6 +37,7 @@ import FsolarTemplatesManagement from "../pages/admin/fsolar/templates-managemen
 import FsolarTasksManagement from "../pages/admin/fsolar/tasks-management";
 import FsolarTaskMonitoring from "../pages/admin/fsolar/task-monitoring";
 import FsolarRunRecords from "../pages/admin/fsolar/run-records";
+import FsolarDeviceAlarms from "../pages/admin/fsolar/device-alarms";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -107,6 +108,7 @@ const router = createBrowserRouter(
         <Route path="fsolar/tasks" element={<FsolarTasksManagement />} />
         <Route path="fsolar/monitor" element={<FsolarTaskMonitoring />} />
         <Route path="fsolar/records" element={<FsolarRunRecords />} />
+        <Route path="fsolar/alarms" element={<FsolarDeviceAlarms />} />
       </Route>
     </Route>
   )
