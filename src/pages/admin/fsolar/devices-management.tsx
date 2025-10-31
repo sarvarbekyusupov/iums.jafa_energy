@@ -127,29 +127,36 @@ const DevicesManagement: React.FC = () => {
       dataIndex: 'deviceSn',
       key: 'deviceSn',
       fixed: 'left',
-      width: 150,
-    },
-    {
-      title: 'Device Name',
-      dataIndex: 'deviceName',
-      key: 'deviceName',
       width: 200,
+      render: (deviceSn: string) => <Text copyable>{deviceSn}</Text>,
     },
     {
-      title: 'Device Type',
-      dataIndex: 'deviceType',
-      key: 'deviceType',
+      title: 'Master Version',
+      dataIndex: 'masterVersion',
+      key: 'masterVersion',
       width: 150,
+      render: (version: string) => version ? <Tag color="cyan">v{version}</Tag> : <Text type="secondary">N/A</Text>,
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 120,
-      render: (status: string) => {
-        const color = status === 'online' ? 'green' : status === 'offline' ? 'red' : 'orange';
-        return <Tag color={color}>{status?.toUpperCase() || 'UNKNOWN'}</Tag>;
-      },
+      title: 'Slave Version',
+      dataIndex: 'slaveVersion',
+      key: 'slaveVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="cyan">v{version}</Tag> : <Text type="secondary">N/A</Text>,
+    },
+    {
+      title: 'Comm Version',
+      dataIndex: 'commVersion',
+      key: 'commVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="geekblue">v{version}</Tag> : <Text type="secondary">N/A</Text>,
+    },
+    {
+      title: 'Hardware Version',
+      dataIndex: 'hardwareVersion',
+      key: 'hardwareVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="purple">v{version}</Tag> : <Text type="secondary">N/A</Text>,
     },
     {
       title: 'Actions',
