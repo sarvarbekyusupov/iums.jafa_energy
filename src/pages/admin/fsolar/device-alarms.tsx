@@ -302,11 +302,11 @@ const DeviceAlarms: React.FC = () => {
       {Object.keys(groupedAlarms).length > 0 && (
         <Card
           title={
-            <Space wrap>
-              <Badge count={Object.keys(groupedAlarms).length} showZero>
-                <WarningOutlined style={{ fontSize: 20 }} />
-              </Badge>
-              <Text strong style={{ fontSize: 16 }}>Active Alarm Types</Text>
+            <Space>
+              <WarningOutlined style={{ fontSize: 20 }} />
+              <Text strong style={{ fontSize: 16 }}>
+                Active Alarm Types ({Object.keys(groupedAlarms).length})
+              </Text>
             </Space>
           }
           style={{ marginBottom: 16 }}
