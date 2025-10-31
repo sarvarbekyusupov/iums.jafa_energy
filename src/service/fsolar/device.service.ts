@@ -186,7 +186,7 @@ class FsolarDeviceService {
   ): Promise<SetDeviceSettingResponse> {
     validateDeviceSn(request.deviceSn);
 
-    if (!request.settingsContent || request.settingsContent.length === 0) {
+    if (!request.content || Object.keys(request.content).length === 0) {
       throw new Error('At least one setting must be provided');
     }
 

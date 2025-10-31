@@ -191,15 +191,14 @@ export interface DeviceSettings {
 
 export interface SetDeviceSettingRequest {
   deviceSn: string;
-  settingsContent: {
-    settingId: number;
-    value: string;
-  }[];
+  content: {
+    [key: string]: string | number;
+  };
 }
 
 export interface SetDeviceSettingResponse {
-  commandId: string;
-  status: string;
+  id: string;
+  deviceSn: string;
 }
 
 // ============================================

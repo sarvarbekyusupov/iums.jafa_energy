@@ -16,6 +16,8 @@ import {
   Collapse,
   Form,
   Modal,
+  InputNumber,
+  Switch,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -85,21 +87,18 @@ const DeviceSettings: React.FC = () => {
   const handleSaveSettings = async (values: any) => {
     try {
       setLoading(true);
-      // Convert values to settings format
-      const settingsContent = Object.keys(values).map((key) => ({
-        settingId: parseInt(key.replace('setting_', '')),
-        value: String(values[key]),
-      }));
 
-      await fsolarDeviceService.setDeviceSettings({
+      const result = await fsolarDeviceService.setDeviceSettings({
         deviceSn: selectedDevice,
-        settingsContent,
+        content: values,
       });
 
-      message.success('Settings updated successfully');
+      message.success(`Settings updated successfully. Command ID: ${result.id}`);
       setEditModalVisible(false);
       form.resetFields();
-      fetchSettings(selectedDevice);
+
+      // Refresh settings after a short delay to allow backend to process
+      setTimeout(() => fetchSettings(selectedDevice), 2000);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to update settings');
     } finally {
@@ -324,7 +323,22 @@ const DeviceSettings: React.FC = () => {
 
           <Divider />
 
-          <Card title="Zero Export">
+          <Card
+            title="Zero Export"
+            extra={
+              <Button
+                icon={<EditOutlined />}
+                onClick={() =>
+                  handleEdit('zeroExport', {
+                    zeroExportFunction: settings.zeroExportFunction,
+                    zeroExportAdjustmentPower: settings.zeroExportAdjustmentPower,
+                  })
+                }
+              >
+                Edit
+              </Button>
+            }
+          >
             <Descriptions bordered>
               <Descriptions.Item label="Zero Export Function">
                 <Tag color={settings.zeroExportFunction === '1' ? 'green' : 'red'}>
@@ -407,7 +421,24 @@ const DeviceSettings: React.FC = () => {
           }
           key="battery"
         >
-          <Card title="Battery Configuration">
+          <Card
+            title="Battery Configuration"
+            extra={
+              <Button
+                icon={<EditOutlined />}
+                onClick={() =>
+                  handleEdit('battery', {
+                    batteryModel: settings.batteryModel,
+                    batteryOnGridDischargeDepthSoc: settings.batteryOnGridDischargeDepthSoc,
+                    batteryOffGridDischargeDepthSoc: settings.batteryOffGridDischargeDepthSoc,
+                    batteryOffGridRecoveryDepthSoc: settings.batteryOffGridRecoveryDepthSoc,
+                  })
+                }
+              >
+                Edit
+              </Button>
+            }
+          >
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Battery Model">
                 {settings.batteryModel}
@@ -524,7 +555,24 @@ const DeviceSettings: React.FC = () => {
           }
           key="operation"
         >
-          <Card title="Operation Mode & Control">
+          <Card
+            title="Operation Mode & Control"
+            extra={
+              <Button
+                icon={<EditOutlined />}
+                onClick={() =>
+                  handleEdit('operation', {
+                    operatedMode: settings.operatedMode,
+                    remoteOnOffEnable: settings.remoteOnOffEnable,
+                    remoteOutputOnOffControl: settings.remoteOutputOnOffControl,
+                    buzzerEnable: settings.buzzerEnable,
+                  })
+                }
+              >
+                Edit
+              </Button>
+            }
+          >
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Operated Mode">
                 {settings.operatedMode}
@@ -686,6 +734,7 @@ const DeviceSettings: React.FC = () => {
         }}
         onOk={() => form.submit()}
         confirmLoading={loading}
+        width={600}
       >
         <Alert
           message="Warning"
@@ -695,10 +744,131 @@ const DeviceSettings: React.FC = () => {
           style={{ marginBottom: 16 }}
         />
         <Form form={form} layout="vertical" onFinish={handleSaveSettings}>
-          {/* Form fields will be dynamically generated based on section */}
-          <Text type="secondary">
-            Note: Settings update functionality requires backend support
-          </Text>
+          {editingSection === 'grid' && (
+            <>
+              <Form.Item
+                label="AC Output Rated Voltage (V)"
+                name="acOutputRatedVoltage"
+                rules={[{ required: true, message: 'Please enter voltage' }]}
+              >
+                <InputNumber min={0} max={400} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                label="On-Grid Power Limit (%)"
+                name="onGridPowerLimit"
+                rules={[{ required: true, message: 'Please enter power limit' }]}
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                label="Power Factor"
+                name="powerFactor"
+                rules={[{ required: true, message: 'Please enter power factor' }]}
+              >
+                <InputNumber min={0} max={1} step={0.01} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
+          )}
+
+          {editingSection === 'battery' && (
+            <>
+              <Form.Item
+                label="Battery Model"
+                name="batteryModel"
+                rules={[{ required: true, message: 'Please select battery model' }]}
+              >
+                <Select>
+                  <Select.Option value="1">Model 1</Select.Option>
+                  <Select.Option value="2">Model 2</Select.Option>
+                  <Select.Option value="3">FelicitySolar LPBA</Select.Option>
+                </Select>
+              </Form.Item>
+              <Form.Item
+                label="On-Grid Discharge Depth SOC (%)"
+                name="batteryOnGridDischargeDepthSoc"
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                label="Off-Grid Discharge Depth SOC (%)"
+                name="batteryOffGridDischargeDepthSoc"
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                label="Off-Grid Recovery Depth SOC (%)"
+                name="batteryOffGridRecoveryDepthSoc"
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
+          )}
+
+          {editingSection === 'operation' && (
+            <>
+              <Form.Item
+                label="Operated Mode"
+                name="operatedMode"
+                rules={[{ required: true }]}
+              >
+                <Select>
+                  <Select.Option value="0">General</Select.Option>
+                  <Select.Option value="1">Backup</Select.Option>
+                  <Select.Option value="2">Eco Mode</Select.Option>
+                </Select>
+              </Form.Item>
+              <Form.Item
+                label="Remote On/Off Enable"
+                name="remoteOnOffEnable"
+                valuePropName="checked"
+                getValueFromEvent={(checked) => checked ? '1' : '0'}
+                getValueProps={(value) => ({ checked: value === '1' })}
+              >
+                <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" />
+              </Form.Item>
+              <Form.Item
+                label="Remote Output Control"
+                name="remoteOutputOnOffControl"
+                valuePropName="checked"
+                getValueFromEvent={(checked) => checked ? '1' : '0'}
+                getValueProps={(value) => ({ checked: value === '1' })}
+              >
+                <Switch checkedChildren="ON" unCheckedChildren="OFF" />
+              </Form.Item>
+              <Form.Item
+                label="Buzzer Enable"
+                name="buzzerEnable"
+                valuePropName="checked"
+                getValueFromEvent={(checked) => checked ? '1' : '0'}
+                getValueProps={(value) => ({ checked: value === '1' })}
+              >
+                <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" />
+              </Form.Item>
+            </>
+          )}
+
+          {editingSection === 'zeroExport' && (
+            <>
+              <Form.Item
+                label="Zero Export Function"
+                name="zeroExportFunction"
+                valuePropName="checked"
+                getValueFromEvent={(checked) => checked ? '1' : '0'}
+                getValueProps={(value) => ({ checked: value === '1' })}
+              >
+                <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" />
+              </Form.Item>
+              <Form.Item
+                label="Zero Export Adjustment Power (W)"
+                name="zeroExportAdjustmentPower"
+              >
+                <InputNumber min={-1000} max={1000} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>
