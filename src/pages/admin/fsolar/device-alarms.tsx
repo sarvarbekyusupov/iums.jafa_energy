@@ -315,7 +315,7 @@ const DeviceAlarms: React.FC = () => {
             {Object.entries(groupedAlarms).map(([alarmName, alarmEvents]) => {
               const latestEvent = alarmEvents[0];
               return (
-                <Col span={8} key={alarmName}>
+                <Col xs={24} sm={12} md={12} lg={8} xl={6} key={alarmName}>
                   <Card size="small" hoverable>
                     <Space direction="vertical" style={{ width: '100%' }}>
                       <Space>
@@ -325,7 +325,7 @@ const DeviceAlarms: React.FC = () => {
                         <Badge count={alarmEvents.length} />
                       </Space>
                       <Text strong>{alarmName}</Text>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="secondary" style={{ fontSize: 12, wordBreak: 'break-word' }}>
                         {getAlarmDescription(latestEvent.warnCode)}
                       </Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>
