@@ -173,10 +173,28 @@ const AdminLayout: React.FC = () => {
       label: "Fsolar",
       children: [
         {
+          key: "/admin/fsolar/realtime",
+          icon: <DashboardOutlined />,
+          label: "Real-time Monitor",
+          onClick: () => navigate("/admin/fsolar/realtime"),
+        },
+        {
           key: "/admin/fsolar/devices",
           icon: <DeviceOutlined />,
           label: "Devices",
           onClick: () => navigate("/admin/fsolar/devices"),
+        },
+        {
+          key: "/admin/fsolar/settings",
+          icon: <SettingOutlined />,
+          label: "Device Settings",
+          onClick: () => navigate("/admin/fsolar/settings"),
+        },
+        {
+          key: "/admin/fsolar/energy",
+          icon: <BarChartOutlined />,
+          label: "Energy Analytics",
+          onClick: () => navigate("/admin/fsolar/energy"),
         },
         {
           key: "/admin/fsolar/templates",
