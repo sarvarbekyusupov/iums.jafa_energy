@@ -1,12 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../helpers/hooks/useAuth";
 import type { LoginDto } from "../../types/auth";
-import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { Loader2, Leaf, Sun, Zap, CheckCircle, Eye, EyeOff } from "lucide-react";
+import {
+  Loader2,
+  Leaf,
+  Sun,
+  Zap,
+  CheckCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import Lottie from "lottie-react";
 import greenEnergyAnimation from "../../assets/Green Energy Animation.json";
 
@@ -19,7 +32,9 @@ const SignIn = () => {
     email: "",
     password: "",
   });
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
@@ -115,7 +130,7 @@ const SignIn = () => {
             autoplay={false}
             className="w-full h-full"
             rendererSettings={{
-              preserveAspectRatio: 'xMidYMid slice'
+              preserveAspectRatio: "xMidYMid slice",
             }}
           />
         </div>
@@ -150,14 +165,21 @@ const SignIn = () => {
               </p>
             </div>
           </CardHeader>
-          <form onSubmit={handleSubmit} method="post" action="/admin" name="login-form">
+          <form
+            onSubmit={handleSubmit}
+            method="post"
+            action="/admin"
+            name="login-form"
+          >
             <CardContent className="pt-2 pb-6 px-8 space-y-5">
               {/* Success message from activation */}
               {successMessage && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-green-800 font-medium">{successMessage}</p>
+                    <p className="text-sm text-green-800 font-medium">
+                      {successMessage}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -186,12 +208,16 @@ const SignIn = () => {
                   autoComplete="username email"
                   required
                   className={`h-11 text-[15px] border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
-                    errors.email ? "border-red-500 focus-visible:ring-red-500/20" : ""
+                    errors.email
+                      ? "border-red-500 focus-visible:ring-red-500/20"
+                      : ""
                   }`}
                   disabled={isLoading}
                 />
                 {errors.email && (
-                  <p className="text-sm text-red-600 font-medium mt-1.5">{errors.email}</p>
+                  <p className="text-sm text-red-600 font-medium mt-1.5">
+                    {errors.email}
+                  </p>
                 )}
               </div>
 
@@ -210,10 +236,12 @@ const SignIn = () => {
                     placeholder="Enter password"
                     value={formData.password}
                     onChange={handleChange}
-                  autoComplete="current-password"
-                  required
+                    autoComplete="current-password"
+                    required
                     className={`h-11 text-[15px] pr-10 border-gray-300 focus-visible:border-green-500 focus-visible:ring-green-500/20 ${
-                      errors.password ? "border-red-500 focus-visible:ring-red-500/20" : ""
+                      errors.password
+                        ? "border-red-500 focus-visible:ring-red-500/20"
+                        : ""
                     }`}
                     disabled={isLoading}
                   />
@@ -231,7 +259,9 @@ const SignIn = () => {
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-sm text-red-600 font-medium mt-1.5">{errors.password}</p>
+                  <p className="text-sm text-red-600 font-medium mt-1.5">
+                    {errors.password}
+                  </p>
                 )}
               </div>
 

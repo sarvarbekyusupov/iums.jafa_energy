@@ -27,6 +27,12 @@ import MonitoringManagement from "../pages/admin/monitoring/monitoring-managemen
 import AnalyticsManagement from "../pages/admin/analytics/analytics-management";
 import NotificationsManagement from "../pages/admin/notifications/notifications-management";
 import DevicesManagement from "../pages/admin/devices/devices-management";
+// Fsolar pages
+import FsolarDevicesManagement from "../pages/admin/fsolar/devices-management";
+import FsolarTemplatesManagement from "../pages/admin/fsolar/templates-management";
+import FsolarTasksManagement from "../pages/admin/fsolar/tasks-management";
+import FsolarTaskMonitoring from "../pages/admin/fsolar/task-monitoring";
+import FsolarRunRecords from "../pages/admin/fsolar/run-records";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -86,6 +92,13 @@ const router = createBrowserRouter(
         <Route path="analytics" element={<AnalyticsManagement />} />
         <Route path="notifications" element={<NotificationsManagement />} />
         <Route path="users" element={<UserManagement />} />
+        {/* Fsolar routes */}
+        <Route path="fsolar" element={<Navigate to="/admin/fsolar/devices" replace />} />
+        <Route path="fsolar/devices" element={<FsolarDevicesManagement />} />
+        <Route path="fsolar/templates" element={<FsolarTemplatesManagement />} />
+        <Route path="fsolar/tasks" element={<FsolarTasksManagement />} />
+        <Route path="fsolar/monitor" element={<FsolarTaskMonitoring />} />
+        <Route path="fsolar/records" element={<FsolarRunRecords />} />
       </Route>
     </Route>
   )

@@ -1,5 +1,5 @@
-import { Navigate, useLocation } from "react-router-dom"; 
-import { useAuth } from "../../hooks/useAuth";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../helpers/hooks/useAuth";
 import { Spin } from "antd";
 
 interface ProtectProps {
@@ -12,12 +12,14 @@ const LoginProtect = ({ children }: ProtectProps) => {
 
   if (isLoading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh' 
-      }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
+      >
         <Spin size="large" />
       </div>
     );
