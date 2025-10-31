@@ -159,6 +159,27 @@ const DevicesManagement: React.FC = () => {
       render: (version: string) => version ? <Tag color="purple">v{version}</Tag> : <Text type="secondary">N/A</Text>,
     },
     {
+      title: 'BP Master Version',
+      dataIndex: 'bpMasterVersion',
+      key: 'bpMasterVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="orange">v{version}</Tag> : <Text type="secondary">N/A</Text>,
+    },
+    {
+      title: 'BP IPA Version',
+      dataIndex: 'bpIpaVersion',
+      key: 'bpIpaVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="orange">v{version}</Tag> : <Text type="secondary">N/A</Text>,
+    },
+    {
+      title: 'BP Sub Version',
+      dataIndex: 'bpSubVersion',
+      key: 'bpSubVersion',
+      width: 150,
+      render: (version: string) => version ? <Tag color="orange">v{version}</Tag> : <Text type="secondary">N/A</Text>,
+    },
+    {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
