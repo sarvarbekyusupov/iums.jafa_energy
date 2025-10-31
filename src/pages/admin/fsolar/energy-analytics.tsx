@@ -12,26 +12,74 @@ import {
   message,
   Alert,
   Radio,
+  Spin,
+  Table,
+  Tabs,
+  Progress,
 } from 'antd';
 import {
   ReloadOutlined,
   ThunderboltOutlined,
   BarChartOutlined,
   LineChartOutlined,
+  CloudServerOutlined,
+  HomeOutlined,
+  SunOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
-import { fsolarDeviceService, toFsolarDate, TIME_DIMENSION } from '../../../service/fsolar';
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
 import dayjs, { Dayjs } from 'dayjs';
 
 const { Title, Text } = Typography;
 
+interface EnergyRecord {
+  deviceSn: string;
+  dataTime: string;
+  timeStamp: number;
+  gridInput: string;
+  feedOutput: string;
+  generateEnergy: string;
+  batCharEnergy: string;
+  batDisEnergy: string;
+  offGridEnergy: string;
+  gridTiedEnergy: string;
+  offGridTiedEnergy: string;
+  pv1Energy: string | null;
+  pv2Energy: string | null;
+  [key: string]: any;
+}
+
+const COLORS = {
+  gridInput: '#1890ff',
+  feedOutput: '#52c41a',
+  battery: '#faad14',
+  load: '#f5222d',
+  pv: '#722ed1',
+};
+
 const EnergyAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
-  const [energyData, setEnergyData] = useState<any>(null);
+  const [energyRecords, setEnergyRecords] = useState<EnergyRecord[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [timeDimension, setTimeDimension] = useState<1 | 2 | 3>(TIME_DIMENSION.DAY);
+  const [timeDimension, setTimeDimension] = useState<'day' | 'month' | 'year'>('day');
 
   // Fetch devices
   const fetchDevices = async () => {
@@ -47,22 +95,38 @@ const EnergyAnalytics: React.FC = () => {
   };
 
   // Fetch energy data
-  const fetchEnergyData = async (deviceSn: string, date: Dayjs, dimension: 1 | 2 | 3) => {
+  const fetchEnergyData = async () => {
+    if (!selectedDevice) return;
+
     try {
       setLoading(true);
-      const result = await fsolarDeviceService.getDeviceEnergy({
-        deviceSn,
-        date: toFsolarDate(date.toDate()),
-        timeDimension: dimension,
-      });
-      setEnergyData(result);
+      let dateStr = '';
+      switch (timeDimension) {
+        case 'day':
+          dateStr = selectedDate.format('YYYY-MM-DD');
+          break;
+        case 'month':
+          dateStr = selectedDate.format('YYYY-MM');
+          break;
+        case 'year':
+          dateStr = selectedDate.format('YYYY');
+          break;
+      }
 
-      if (!result.energyData || result.energyData.length === 0) {
+      const response: any = await fsolarDeviceService.getDeviceEnergy({
+        deviceSn: selectedDevice,
+        date: dateStr,
+        timeDimension: timeDimension === 'day' ? 1 : timeDimension === 'month' ? 2 : 3,
+      } as any);
+
+      setEnergyRecords(response.records || []);
+
+      if (!response.records || response.records.length === 0) {
         message.info('No energy data available for the selected period');
       }
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch energy data');
-      setEnergyData(null);
+      setEnergyRecords([]);
     } finally {
       setLoading(false);
     }
@@ -74,48 +138,118 @@ const EnergyAnalytics: React.FC = () => {
 
   useEffect(() => {
     if (selectedDevice) {
-      fetchEnergyData(selectedDevice, selectedDate, timeDimension);
+      fetchEnergyData();
     }
   }, [selectedDevice, selectedDate, timeDimension]);
 
-  const handleRefresh = () => {
-    if (selectedDevice) {
-      fetchEnergyData(selectedDevice, selectedDate, timeDimension);
-    }
-  };
+  // Calculate totals from all records
+  const totals = React.useMemo(() => {
+    if (energyRecords.length === 0) return null;
 
-  const getTotalProduction = (): number => {
-    if (!energyData?.energyData) return 0;
-    return energyData.energyData.reduce(
-      (sum: number, item: any) => sum + (parseFloat(item.production) || 0),
-      0
+    return energyRecords.reduce(
+      (acc, record) => ({
+        gridInput: acc.gridInput + parseFloat(record.gridInput || '0'),
+        feedOutput: acc.feedOutput + parseFloat(record.feedOutput || '0'),
+        generateEnergy: acc.generateEnergy + parseFloat(record.generateEnergy || '0'),
+        batCharEnergy: acc.batCharEnergy + parseFloat(record.batCharEnergy || '0'),
+        batDisEnergy: acc.batDisEnergy + parseFloat(record.batDisEnergy || '0'),
+        offGridEnergy: acc.offGridEnergy + parseFloat(record.offGridEnergy || '0'),
+        gridTiedEnergy: acc.gridTiedEnergy + parseFloat(record.gridTiedEnergy || '0'),
+        totalLoad: acc.totalLoad + parseFloat(record.offGridTiedEnergy || '0'),
+      }),
+      {
+        gridInput: 0,
+        feedOutput: 0,
+        generateEnergy: 0,
+        batCharEnergy: 0,
+        batDisEnergy: 0,
+        offGridEnergy: 0,
+        gridTiedEnergy: 0,
+        totalLoad: 0,
+      }
     );
-  };
+  }, [energyRecords]);
 
-  const getTotalConsumption = (): number => {
-    if (!energyData?.energyData) return 0;
-    return energyData.energyData.reduce(
-      (sum: number, item: any) => sum + (parseFloat(item.consumption) || 0),
-      0
-    );
-  };
+  // Prepare chart data
+  const chartData = React.useMemo(() => {
+    return energyRecords.map((record) => ({
+      date: record.dataTime,
+      'Grid Input': parseFloat(record.gridInput || '0'),
+      'Grid Export': parseFloat(record.feedOutput || '0'),
+      'Battery Charge': parseFloat(record.batCharEnergy || '0'),
+      'Battery Discharge': parseFloat(record.batDisEnergy || '0'),
+      'Load Consumption': parseFloat(record.offGridTiedEnergy || '0'),
+      'Generation': parseFloat(record.generateEnergy || '0'),
+    }));
+  }, [energyRecords]);
 
-  const getDimensionLabel = (): string => {
-    switch (timeDimension) {
-      case TIME_DIMENSION.DAY:
-        return 'Daily';
-      case TIME_DIMENSION.MONTH:
-        return 'Monthly';
-      case TIME_DIMENSION.YEAR:
-        return 'Yearly';
-      default:
-        return 'Daily';
-    }
-  };
+  // Energy balance pie chart data (for latest record)
+  const latestRecord = energyRecords[energyRecords.length - 1];
+  const pieData = latestRecord
+    ? [
+        { name: 'Grid Input', value: parseFloat(latestRecord.gridInput || '0'), color: COLORS.gridInput },
+        { name: 'Battery Discharge', value: parseFloat(latestRecord.batDisEnergy || '0'), color: COLORS.battery },
+        { name: 'Generation', value: parseFloat(latestRecord.generateEnergy || '0'), color: COLORS.pv },
+      ].filter((item) => item.value > 0)
+    : [];
+
+  const columns = [
+    {
+      title: 'Date/Time',
+      dataIndex: 'dataTime',
+      key: 'dataTime',
+      fixed: 'left' as const,
+      width: 150,
+    },
+    {
+      title: 'Grid Input (kWh)',
+      dataIndex: 'gridInput',
+      key: 'gridInput',
+      render: (val: string) => <Text style={{ color: COLORS.gridInput }}>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Grid Export (kWh)',
+      dataIndex: 'feedOutput',
+      key: 'feedOutput',
+      render: (val: string) => <Text style={{ color: COLORS.feedOutput }}>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Battery Charge (kWh)',
+      dataIndex: 'batCharEnergy',
+      key: 'batCharEnergy',
+      render: (val: string) => <Text style={{ color: COLORS.battery }}>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Battery Discharge (kWh)',
+      dataIndex: 'batDisEnergy',
+      key: 'batDisEnergy',
+      render: (val: string) => <Text style={{ color: COLORS.battery }}>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Backup Load (kWh)',
+      dataIndex: 'offGridEnergy',
+      key: 'offGridEnergy',
+      render: (val: string) => <Text>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Total Load (kWh)',
+      dataIndex: 'offGridTiedEnergy',
+      key: 'offGridTiedEnergy',
+      render: (val: string) => <Text strong>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+    {
+      title: 'Generation (kWh)',
+      dataIndex: 'generateEnergy',
+      key: 'generateEnergy',
+      render: (val: string) => <Text style={{ color: COLORS.pv }}>{parseFloat(val || '0').toFixed(2)}</Text>,
+    },
+  ];
 
   return (
     <div>
-      <Title level={2}>Energy Analytics</Title>
+      <Title level={2}>
+        <ThunderboltOutlined /> Energy Analytics & Balance
+      </Title>
 
       {/* Controls */}
       <Card style={{ marginBottom: 16 }}>
@@ -139,13 +273,13 @@ const EnergyAnalytics: React.FC = () => {
             onChange={(e) => setTimeDimension(e.target.value)}
             buttonStyle="solid"
           >
-            <Radio.Button value={TIME_DIMENSION.DAY}>
+            <Radio.Button value="day">
               <LineChartOutlined /> Daily
             </Radio.Button>
-            <Radio.Button value={TIME_DIMENSION.MONTH}>
+            <Radio.Button value="month">
               <BarChartOutlined /> Monthly
             </Radio.Button>
-            <Radio.Button value={TIME_DIMENSION.YEAR}>
+            <Radio.Button value="year">
               <BarChartOutlined /> Yearly
             </Radio.Button>
           </Radio.Group>
@@ -153,128 +287,270 @@ const EnergyAnalytics: React.FC = () => {
           <DatePicker
             value={selectedDate}
             onChange={(date) => date && setSelectedDate(date)}
-            picker={timeDimension === TIME_DIMENSION.YEAR ? 'year' : timeDimension === TIME_DIMENSION.MONTH ? 'month' : 'date'}
+            picker={timeDimension === 'year' ? 'year' : timeDimension === 'month' ? 'month' : 'date'}
           />
 
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={fetchEnergyData} loading={loading}>
             Refresh
           </Button>
+
+          <Text type="secondary">Records: {energyRecords.length}</Text>
         </Space>
       </Card>
 
-      {/* Summary Statistics */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title={`Total Production (${getDimensionLabel()})`}
-              value={getTotalProduction()}
-              precision={2}
-              suffix="kWh"
-              prefix={<ThunderboltOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title={`Total Consumption (${getDimensionLabel()})`}
-              value={getTotalConsumption()}
-              precision={2}
-              suffix="kWh"
-              prefix={<ThunderboltOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Net Energy"
-              value={getTotalProduction() - getTotalConsumption()}
-              precision={2}
-              suffix="kWh"
-              prefix={<ThunderboltOutlined />}
-              valueStyle={{
-                color: getTotalProduction() - getTotalConsumption() >= 0 ? '#52c41a' : '#f5222d',
-              }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Spin spinning={loading}>
+        {totals ? (
+          <>
+            {/* Summary Statistics */}
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Grid Input"
+                    value={totals.gridInput}
+                    precision={2}
+                    suffix="kWh"
+                    prefix={<CloudServerOutlined />}
+                    valueStyle={{ color: COLORS.gridInput }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Grid Export"
+                    value={totals.feedOutput}
+                    precision={2}
+                    suffix="kWh"
+                    prefix={<ThunderboltOutlined />}
+                    valueStyle={{ color: COLORS.feedOutput }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Battery Charged"
+                    value={totals.batCharEnergy}
+                    precision={2}
+                    suffix="kWh"
+                    prefix={<ThunderboltOutlined />}
+                    valueStyle={{ color: COLORS.battery }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Total Load"
+                    value={totals.totalLoad}
+                    precision={2}
+                    suffix="kWh"
+                    prefix={<HomeOutlined />}
+                    valueStyle={{ color: COLORS.load }}
+                  />
+                </Card>
+              </Col>
+            </Row>
 
-      {/* Energy Data Display */}
-      {energyData && energyData.energyData && energyData.energyData.length > 0 ? (
-        <Card title="Energy Details">
+            {/* Second row of stats */}
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Battery Discharged"
+                    value={totals.batDisEnergy}
+                    precision={2}
+                    suffix="kWh"
+                    valueStyle={{ color: COLORS.battery }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Backup Load"
+                    value={totals.offGridEnergy}
+                    precision={2}
+                    suffix="kWh"
+                    valueStyle={{ color: '#ff4d4f' }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Generation"
+                    value={totals.generateEnergy}
+                    precision={2}
+                    suffix="kWh"
+                    prefix={<SunOutlined />}
+                    valueStyle={{ color: COLORS.pv }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Net Grid Energy"
+                    value={totals.gridInput - totals.feedOutput}
+                    precision={2}
+                    suffix="kWh"
+                    valueStyle={{
+                      color: totals.gridInput - totals.feedOutput > 0 ? COLORS.gridInput : COLORS.feedOutput,
+                    }}
+                  />
+                  <Progress
+                    percent={
+                      totals.gridInput + totals.feedOutput > 0
+                        ? ((totals.feedOutput / (totals.gridInput + totals.feedOutput)) * 100)
+                        : 0
+                    }
+                    size="small"
+                    format={(percent) => `${percent?.toFixed(0)}% export`}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            <Tabs
+              defaultActiveKey="charts"
+              items={[
+                {
+                  key: 'charts',
+                  label: (
+                    <span>
+                      <LineChartOutlined /> Charts
+                    </span>
+                  ),
+                  children: (
+                    <>
+                      {/* Energy Flow Chart */}
+                      <Card title="Energy Flow Over Time" style={{ marginBottom: 16 }}>
+                        <ResponsiveContainer width="100%" height={350}>
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} />
+                            <YAxis label={{ value: 'Energy (kWh)', angle: -90, position: 'insideLeft' }} />
+                            <Tooltip />
+                            <Legend />
+                            <Line type="monotone" dataKey="Grid Input" stroke={COLORS.gridInput} strokeWidth={2} />
+                            <Line type="monotone" dataKey="Grid Export" stroke={COLORS.feedOutput} strokeWidth={2} />
+                            <Line type="monotone" dataKey="Load Consumption" stroke={COLORS.load} strokeWidth={2} />
+                            <Line type="monotone" dataKey="Generation" stroke={COLORS.pv} strokeWidth={2} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </Card>
+
+                      {/* Battery Energy */}
+                      <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={12}>
+                          <Card title="Battery Energy Flow">
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} />
+                                <YAxis label={{ value: 'Energy (kWh)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="Battery Charge" fill="#95de64" />
+                                <Bar dataKey="Battery Discharge" fill="#ffc53d" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </Card>
+                        </Col>
+                        <Col span={12}>
+                          <Card title="Grid Energy Balance">
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} />
+                                <YAxis label={{ value: 'Energy (kWh)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="Grid Input" fill={COLORS.gridInput} />
+                                <Bar dataKey="Grid Export" fill={COLORS.feedOutput} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </Card>
+                        </Col>
+                      </Row>
+
+                      {/* Energy Sources Pie Chart */}
+                      {pieData.length > 0 && (
+                        <Card title="Latest Energy Sources Distribution">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={true}
+                                label={(entry: any) => `${entry.name}: ${entry.value.toFixed(2)} kWh`}
+                                outerRadius={100}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {pieData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </Card>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  key: 'table',
+                  label: (
+                    <span>
+                      <TableOutlined /> Data Table
+                    </span>
+                  ),
+                  children: (
+                    <Card title="Detailed Energy Records">
+                      <Table
+                        columns={columns}
+                        dataSource={energyRecords}
+                        rowKey={(record) => `${record.deviceSn}-${record.timeStamp}`}
+                        scroll={{ x: 1200 }}
+                        size="small"
+                        pagination={{
+                          pageSize: 20,
+                          showTotal: (total) => `Total ${total} records`,
+                        }}
+                      />
+                    </Card>
+                  ),
+                },
+              ]}
+            />
+          </>
+        ) : (
           <Alert
-            message="Energy Data Available"
-            description={`Found ${energyData.energyData.length} data points for ${energyData.deviceSn} on ${energyData.date}`}
-            type="success"
+            message="No Energy Data"
+            description={
+              <>
+                <p>No energy data available for the selected device and time period.</p>
+                <p>
+                  This could be because:
+                  <ul>
+                    <li>The device hasn't recorded any energy data yet</li>
+                    <li>The selected date is in the future</li>
+                    <li>The device was offline during this period</li>
+                  </ul>
+                </p>
+                <p>Try selecting today's date or a different device.</p>
+              </>
+            }
+            type="info"
             showIcon
-            style={{ marginBottom: 16 }}
           />
-
-          {/* Simple table view */}
-          <div style={{ maxHeight: 400, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th style={{ padding: 12, borderBottom: '1px solid #d9d9d9' }}>Timestamp</th>
-                  <th style={{ padding: 12, borderBottom: '1px solid #d9d9d9' }}>Production (kWh)</th>
-                  <th style={{ padding: 12, borderBottom: '1px solid #d9d9d9' }}>Consumption (kWh)</th>
-                  <th style={{ padding: 12, borderBottom: '1px solid #d9d9d9' }}>Net (kWh)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {energyData.energyData.map((item: any, index: number) => {
-                  const production = parseFloat(item.production) || 0;
-                  const consumption = parseFloat(item.consumption) || 0;
-                  const net = production - consumption;
-
-                  return (
-                    <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                      <td style={{ padding: 12 }}>{item.timestamp}</td>
-                      <td style={{ padding: 12, color: '#52c41a' }}>{production.toFixed(2)}</td>
-                      <td style={{ padding: 12, color: '#1890ff' }}>{consumption.toFixed(2)}</td>
-                      <td style={{ padding: 12, color: net >= 0 ? '#52c41a' : '#f5222d' }}>
-                        {net.toFixed(2)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Alert
-          message="No Energy Data"
-          description={
-            <>
-              <p>No energy data available for the selected device and time period.</p>
-              <p>
-                This could be because:
-                <ul>
-                  <li>The device hasn't recorded any energy data yet</li>
-                  <li>The selected date is in the future</li>
-                  <li>There was no solar production during this period</li>
-                </ul>
-              </p>
-              <p>Try selecting a different date or device.</p>
-            </>
-          }
-          type="info"
-          showIcon
-        />
-      )}
-
-      <Card style={{ marginTop: 16 }} type="inner">
-        <Text type="secondary">
-          <strong>Note:</strong> Energy analytics shows production and consumption data.
-          Charts and advanced visualizations can be added here using libraries like Recharts or Chart.js.
-        </Text>
-      </Card>
+        )}
+      </Spin>
     </div>
   );
 };
