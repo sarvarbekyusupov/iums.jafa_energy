@@ -22,6 +22,7 @@ import {
   DeleteOutlined,
   EyeOutlined,
   SettingOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarDeviceService } from '../../../service/fsolar';
@@ -296,7 +297,7 @@ const DevicesManagement: React.FC = () => {
 
       {/* Device Details Modal */}
       <Modal
-        title="Device Details"
+        title={<><InfoCircleOutlined /> Device Details & Specifications</>}
         open={detailModalVisible}
         onCancel={() => {
           setDetailModalVisible(false);
@@ -307,50 +308,144 @@ const DevicesManagement: React.FC = () => {
             Close
           </Button>,
         ]}
-        width={600}
+        width={800}
       >
         {selectedDevice && (
           <div>
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Text strong>Device SN:</Text>
-                <div>{selectedDevice.deviceSn}</div>
-              </Col>
-              <Col span={12}>
-                <Text strong>Device Name:</Text>
-                <div>{selectedDevice.deviceName}</div>
-              </Col>
-              <Col span={12}>
-                <Text strong>Device Type:</Text>
-                <div>{selectedDevice.deviceType}</div>
-              </Col>
-              <Col span={12}>
-                <Text strong>Status:</Text>
-                <div>
-                  <Tag color={selectedDevice.status === 'online' ? 'green' : 'red'}>
-                    {selectedDevice.status?.toUpperCase()}
-                  </Tag>
-                </div>
-              </Col>
-              {selectedDevice.model && (
+            {/* Device Identification */}
+            <Card title="Device Identification" size="small" style={{ marginBottom: 16 }}>
+              <Row gutter={[16, 8]}>
                 <Col span={12}>
-                  <Text strong>Model:</Text>
-                  <div>{selectedDevice.model}</div>
+                  <Text type="secondary">Device Serial Number:</Text>
+                  <div><Text strong copyable>{selectedDevice.deviceSn}</Text></div>
                 </Col>
-              )}
-              {selectedDevice.manufacturer && (
                 <Col span={12}>
-                  <Text strong>Manufacturer:</Text>
-                  <div>{selectedDevice.manufacturer}</div>
+                  <Text type="secondary">Device Type:</Text>
+                  <div>
+                    <Tag color="blue">
+                      {selectedDevice.deviceType === 'INV' ? 'Inverter' : selectedDevice.deviceType}
+                    </Tag>
+                  </div>
                 </Col>
-              )}
-              {selectedDevice.installDate && (
                 <Col span={12}>
-                  <Text strong>Install Date:</Text>
-                  <div>{selectedDevice.installDate}</div>
+                  <Text type="secondary">Device Model:</Text>
+                  <div><Text strong>{selectedDevice.deviceModel || 'N/A'}</Text></div>
                 </Col>
-              )}
-            </Row>
+                <Col span={12}>
+                  <Text type="secondary">Status:</Text>
+                  <div>
+                    <Tag color={
+                      selectedDevice.status === 'AL' ? 'red' :
+                      selectedDevice.status === 'ON' ? 'green' :
+                      selectedDevice.status === 'OF' ? 'default' : 'blue'
+                    }>
+                      {selectedDevice.status === 'AL' ? 'ALARM' :
+                       selectedDevice.status === 'ON' ? 'ONLINE' :
+                       selectedDevice.status === 'OF' ? 'OFFLINE' :
+                       selectedDevice.status?.toUpperCase()}
+                    </Tag>
+                  </div>
+                </Col>
+                {selectedDevice.deviceName && (
+                  <Col span={12}>
+                    <Text type="secondary">Device Name:</Text>
+                    <div>{selectedDevice.deviceName}</div>
+                  </Col>
+                )}
+                {selectedDevice.ratedPower && (
+                  <Col span={12}>
+                    <Text type="secondary">Rated Power:</Text>
+                    <div>{selectedDevice.ratedPower} kW</div>
+                  </Col>
+                )}
+              </Row>
+            </Card>
+
+            {/* Collector/Gateway */}
+            {selectedDevice.collectorSn && (
+              <Card title="Collector/Gateway" size="small" style={{ marginBottom: 16 }}>
+                <Row gutter={[16, 8]}>
+                  <Col span={24}>
+                    <Text type="secondary">Collector Serial Number:</Text>
+                    <div><Text copyable>{selectedDevice.collectorSn}</Text></div>
+                  </Col>
+                </Row>
+              </Card>
+            )}
+
+            {/* Firmware Versions */}
+            <Card title="Firmware & Software Versions" size="small" style={{ marginBottom: 16 }}>
+              <Row gutter={[16, 8]}>
+                {selectedDevice.moduleVersion && (
+                  <Col span={12}>
+                    <Text type="secondary">Collector Version:</Text>
+                    <div><Tag color="purple">v{selectedDevice.moduleVersion}</Tag></div>
+                  </Col>
+                )}
+                {selectedDevice.controlVersion && (
+                  <Col span={12}>
+                    <Text type="secondary">Master Control Version:</Text>
+                    <div><Tag color="cyan">v{selectedDevice.controlVersion}</Tag></div>
+                  </Col>
+                )}
+                {selectedDevice.controlVersion2 && (
+                  <Col span={12}>
+                    <Text type="secondary">Slave Control Version:</Text>
+                    <div><Tag color="cyan">v{selectedDevice.controlVersion2}</Tag></div>
+                  </Col>
+                )}
+                {selectedDevice.iapVersion && (
+                  <Col span={12}>
+                    <Text type="secondary">IAP Version:</Text>
+                    <div><Tag color="geekblue">v{selectedDevice.iapVersion}</Tag></div>
+                  </Col>
+                )}
+                {selectedDevice.displayVersion && (
+                  <Col span={12}>
+                    <Text type="secondary">Display Version:</Text>
+                    <div><Tag>v{selectedDevice.displayVersion}</Tag></div>
+                  </Col>
+                )}
+                {selectedDevice.firmwareVersion && (
+                  <Col span={12}>
+                    <Text type="secondary">Firmware Version:</Text>
+                    <div><Tag>v{selectedDevice.firmwareVersion}</Tag></div>
+                  </Col>
+                )}
+              </Row>
+            </Card>
+
+            {/* Additional Info */}
+            {(selectedDevice.type || selectedDevice.subType || selectedDevice.manufacturer || selectedDevice.installDate) && (
+              <Card title="Additional Information" size="small">
+                <Row gutter={[16, 8]}>
+                  {selectedDevice.type && (
+                    <Col span={12}>
+                      <Text type="secondary">Type Code:</Text>
+                      <div>{selectedDevice.type}</div>
+                    </Col>
+                  )}
+                  {selectedDevice.subType && (
+                    <Col span={12}>
+                      <Text type="secondary">SubType Code:</Text>
+                      <div>{selectedDevice.subType}</div>
+                    </Col>
+                  )}
+                  {selectedDevice.manufacturer && (
+                    <Col span={12}>
+                      <Text type="secondary">Manufacturer:</Text>
+                      <div>{selectedDevice.manufacturer}</div>
+                    </Col>
+                  )}
+                  {selectedDevice.installDate && (
+                    <Col span={12}>
+                      <Text type="secondary">Install Date:</Text>
+                      <div>{selectedDevice.installDate}</div>
+                    </Col>
+                  )}
+                </Row>
+              </Card>
+            )}
           </div>
         )}
       </Modal>
