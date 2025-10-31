@@ -113,10 +113,11 @@ const EnergyAnalytics: React.FC = () => {
           break;
       }
 
+      // Call API directly with correct parameter names
       const response: any = await fsolarDeviceService.getDeviceEnergy({
         deviceSn: selectedDevice,
-        date: dateStr,
-        timeDimension: timeDimension === 'day' ? 1 : timeDimension === 'month' ? 2 : 3,
+        timeDimension: timeDimension,
+        dateStr: dateStr,
       } as any);
 
       setEnergyRecords(response.records || []);
