@@ -32,6 +32,7 @@ import FsolarRealTimeMonitoring from "../pages/admin/fsolar/real-time-monitoring
 import FsolarDevicesManagement from "../pages/admin/fsolar/devices-management";
 import FsolarDeviceSettings from "../pages/admin/fsolar/device-settings";
 import FsolarEnergyAnalytics from "../pages/admin/fsolar/energy-analytics";
+import FsolarHistoricalData from "../pages/admin/fsolar/historical-data";
 import FsolarTemplatesManagement from "../pages/admin/fsolar/templates-management";
 import FsolarTasksManagement from "../pages/admin/fsolar/tasks-management";
 import FsolarTaskMonitoring from "../pages/admin/fsolar/task-monitoring";
@@ -101,6 +102,7 @@ const router = createBrowserRouter(
         <Route path="fsolar/devices" element={<FsolarDevicesManagement />} />
         <Route path="fsolar/settings" element={<FsolarDeviceSettings />} />
         <Route path="fsolar/energy" element={<FsolarEnergyAnalytics />} />
+        <Route path="fsolar/history" element={<FsolarHistoricalData />} />
         <Route path="fsolar/templates" element={<FsolarTemplatesManagement />} />
         <Route path="fsolar/tasks" element={<FsolarTasksManagement />} />
         <Route path="fsolar/monitor" element={<FsolarTaskMonitoring />} />

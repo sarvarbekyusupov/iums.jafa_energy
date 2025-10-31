@@ -26,6 +26,7 @@ import {
   SettingOutlined as DeviceOutlined,
   AppstoreOutlined,
   DatabaseOutlined,
+  LineChartOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../helpers/hooks/useAuth";
@@ -195,6 +196,12 @@ const AdminLayout: React.FC = () => {
           icon: <BarChartOutlined />,
           label: "Energy Analytics",
           onClick: () => navigate("/admin/fsolar/energy"),
+        },
+        {
+          key: "/admin/fsolar/history",
+          icon: <LineChartOutlined />,
+          label: "Historical Data",
+          onClick: () => navigate("/admin/fsolar/history"),
         },
         {
           key: "/admin/fsolar/templates",
