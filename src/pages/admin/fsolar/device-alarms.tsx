@@ -71,8 +71,9 @@ const DeviceAlarms: React.FC = () => {
 
     try {
       setLoading(true);
-      const startTime = dateRange[0].valueOf();
-      const endTime = dateRange[1].valueOf();
+      // Format dates as 'YYYY-MM-DD HH:mm:ss' strings, not milliseconds
+      const startTime = dateRange[0].format('YYYY-MM-DD HH:mm:ss');
+      const endTime = dateRange[1].format('YYYY-MM-DD HH:mm:ss');
 
       const params: any = {
         startTime,
