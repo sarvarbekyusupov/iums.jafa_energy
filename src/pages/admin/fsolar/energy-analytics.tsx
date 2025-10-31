@@ -79,7 +79,7 @@ const EnergyAnalytics: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [energyRecords, setEnergyRecords] = useState<EnergyRecord[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [timeDimension, setTimeDimension] = useState<'day' | 'month' | 'year'>('day');
+  const [timeDimension, setTimeDimension] = useState<'day' | 'month' | 'year' | 'total'>('day');
 
   // Fetch devices
   const fetchDevices = async () => {
@@ -101,24 +101,32 @@ const EnergyAnalytics: React.FC = () => {
     try {
       setLoading(true);
       let dateStr = '';
-      switch (timeDimension) {
-        case 'day':
-          dateStr = selectedDate.format('YYYY-MM-DD');
-          break;
-        case 'month':
-          dateStr = selectedDate.format('YYYY-MM');
-          break;
-        case 'year':
-          dateStr = selectedDate.format('YYYY');
-          break;
+      if (timeDimension !== 'total') {
+        switch (timeDimension) {
+          case 'day':
+            dateStr = selectedDate.format('YYYY-MM-DD');
+            break;
+          case 'month':
+            dateStr = selectedDate.format('YYYY-MM');
+            break;
+          case 'year':
+            dateStr = selectedDate.format('YYYY');
+            break;
+        }
       }
 
       // Call API directly with correct parameter names
-      const response: any = await fsolarDeviceService.getDeviceEnergy({
+      const params: any = {
         deviceSn: selectedDevice,
         timeDimension: timeDimension,
-        dateStr: dateStr,
-      } as any);
+      };
+
+      // Only add dateStr for non-total dimensions
+      if (timeDimension !== 'total') {
+        params.dateStr = dateStr;
+      }
+
+      const response: any = await fsolarDeviceService.getDeviceEnergy(params);
 
       setEnergyRecords(response.records || []);
 
@@ -283,13 +291,18 @@ const EnergyAnalytics: React.FC = () => {
             <Radio.Button value="year">
               <BarChartOutlined /> Yearly
             </Radio.Button>
+            <Radio.Button value="total">
+              <ThunderboltOutlined /> Lifetime
+            </Radio.Button>
           </Radio.Group>
 
-          <DatePicker
-            value={selectedDate}
-            onChange={(date) => date && setSelectedDate(date)}
-            picker={timeDimension === 'year' ? 'year' : timeDimension === 'month' ? 'month' : 'date'}
-          />
+          {timeDimension !== 'total' && (
+            <DatePicker
+              value={selectedDate}
+              onChange={(date) => date && setSelectedDate(date)}
+              picker={timeDimension === 'year' ? 'year' : timeDimension === 'month' ? 'month' : 'date'}
+            />
+          )}
 
           <Button icon={<ReloadOutlined />} onClick={fetchEnergyData} loading={loading}>
             Refresh
