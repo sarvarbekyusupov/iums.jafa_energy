@@ -256,8 +256,8 @@ const DeviceAlarms: React.FC = () => {
       </Card>
 
       {/* Statistics */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={12} md={6} lg={6} xl={6}>
           <Card>
             <Statistic
               title="Total Events"
@@ -266,7 +266,7 @@ const DeviceAlarms: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6} lg={6} xl={6}>
           <Card>
             <Statistic
               title="Warnings"
@@ -276,7 +276,7 @@ const DeviceAlarms: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6} lg={6} xl={6}>
           <Card>
             <Statistic
               title="Faults"
@@ -286,7 +286,7 @@ const DeviceAlarms: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6} lg={6} xl={6}>
           <Card>
             <Statistic
               title="Unique Alarm Types"
