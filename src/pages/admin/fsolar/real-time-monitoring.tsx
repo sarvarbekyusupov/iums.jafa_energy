@@ -12,6 +12,7 @@ import {
   Alert,
   Descriptions,
   Tag,
+  message,
 } from 'antd';
 import {
   ThunderboltOutlined,
@@ -24,7 +25,6 @@ import {
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
-import { toFsolarDate } from '../../../service/fsolar';
 
 const { Title, Text } = Typography;
 
@@ -94,23 +94,20 @@ const RealTimeMonitoring: React.FC = () => {
   const fetchMetrics = async (deviceSn: string) => {
     try {
       setLoading(true);
-      const today = toFsolarDate(new Date());
 
-      const result = await fsolarDeviceService.getBatchDeviceHistory({
+      // Use queryType=0 to get latest real-time data
+      const result: any = await fsolarDeviceService.getBatchDeviceHistory({
         deviceSnList: deviceSn,
-        dateStr: today,
-        dataItemIds: '1,2,3,4,5,6,7,8,9,10',
-        queryType: 1,
-      });
+        queryType: 0,
+      } as any);
 
-      if (result.devices && result.devices.length > 0) {
-        const deviceData = result.devices[0];
-        if (deviceData.data && deviceData.data.length > 0) {
-          setMetrics(deviceData.data[0] as any);
-        }
+      // The API returns data in dataList array for queryType=0
+      if (result.dataList && result.dataList.length > 0) {
+        setMetrics(result.dataList[0]);
       }
     } catch (error: any) {
       console.error('Failed to fetch metrics', error);
+      message.error('Failed to fetch real-time data');
     } finally {
       setLoading(false);
     }
