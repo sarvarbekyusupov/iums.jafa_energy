@@ -13,12 +13,29 @@ import {
   message,
   Statistic,
   Empty,
+  Tabs,
 } from 'antd';
 import {
   ReloadOutlined,
   DownloadOutlined,
   ClockCircleOutlined,
+  LineChartOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
 import dayjs, { Dayjs } from 'dayjs';
@@ -133,6 +150,22 @@ const HistoricalData: React.FC = () => {
     const avgOutput = historyData.reduce((sum, r) => sum + parseFloat(r.acTotalOutActPower || '0'), 0) / historyData.length;
 
     return { avgSoc, maxPvPower, avgGridInput, avgOutput };
+  }, [historyData]);
+
+  // Prepare chart data
+  const chartData = React.useMemo(() => {
+    return historyData.map(record => ({
+      time: record.dataTimeStr,
+      'Battery SOC': parseFloat(record.emsSoc || '0'),
+      'PV Power': parseFloat(record.pvTotalPower || '0'),
+      'Grid Input': parseFloat(record.acTtlInpower || '0'),
+      'Output Power': parseFloat(record.acTotalOutActPower || '0'),
+      'Battery Power': parseFloat(record.emsPower || '0'),
+      'Battery Voltage': parseFloat(record.emsVoltage || '0'),
+      'Temperature': parseFloat(record.tempMax || '0'),
+      'PV1 Power': parseFloat(record.pvPower || '0'),
+      'PV2 Power': parseFloat(record.pv2Power || '0'),
+    }));
   }, [historyData]);
 
 
@@ -326,26 +359,124 @@ const HistoricalData: React.FC = () => {
 
       <Spin spinning={loading}>
         {historyData.length > 0 ? (
-          <>
-            {/* Data Table */}
-            <Card title="Detailed Records">
-              <Table
-                columns={columns}
-                dataSource={historyData}
-                rowKey={(record) => `${record.deviceDataTime}-${record.dataTimeStr}`}
-                pagination={{
-                  ...pagination,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total) => `Total ${total} records`,
-                  pageSizeOptions: ['10', '20', '50', '100'],
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 1800 }}
-                size="small"
-              />
-            </Card>
-          </>
+          <Tabs
+            defaultActiveKey="charts"
+            items={[
+              {
+                key: 'charts',
+                label: (
+                  <span>
+                    <LineChartOutlined /> Charts
+                  </span>
+                ),
+                children: (
+                  <>
+                    {/* Power Flow Chart */}
+                    <Card title="Power Flow Trends" style={{ marginBottom: 16 }}>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
+                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="PV Power" stroke="#faad14" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="Grid Input" stroke="#1890ff" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="Output Power" stroke="#cf1322" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="Battery Power" stroke="#52c41a" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Card>
+
+                    {/* Battery Metrics */}
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                      <Col span={12}>
+                        <Card title="Battery State of Charge (SOC)">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={chartData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
+                              <YAxis domain={[0, 100]} label={{ value: 'SOC (%)', angle: -90, position: 'insideLeft' }} />
+                              <Tooltip />
+                              <Area type="monotone" dataKey="Battery SOC" stroke="#52c41a" fill="#95de64" />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </Card>
+                      </Col>
+                      <Col span={12}>
+                        <Card title="Battery Voltage">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={chartData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
+                              <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft' }} />
+                              <Tooltip />
+                              <Line type="monotone" dataKey="Battery Voltage" stroke="#722ed1" strokeWidth={2} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </Card>
+                      </Col>
+                    </Row>
+
+                    {/* PV Performance */}
+                    <Card title="PV String Performance Comparison" style={{ marginBottom: 16 }}>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
+                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="PV1 Power" fill="#ffa940" />
+                          <Bar dataKey="PV2 Power" fill="#ff7a45" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+
+                    {/* Temperature Monitoring */}
+                    <Card title="Temperature Monitoring">
+                      <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
+                          <YAxis label={{ value: 'Temperature (°C)', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="Temperature" stroke="#f5222d" strokeWidth={2} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </>
+                ),
+              },
+              {
+                key: 'table',
+                label: (
+                  <span>
+                    <TableOutlined /> Data Table
+                  </span>
+                ),
+                children: (
+                  <Card title="Detailed Records">
+                    <Table
+                      columns={columns}
+                      dataSource={historyData}
+                      rowKey={(record) => `${record.deviceDataTime}-${record.dataTimeStr}`}
+                      pagination={{
+                        ...pagination,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                        showTotal: (total) => `Total ${total} records`,
+                        pageSizeOptions: ['10', '20', '50', '100'],
+                      }}
+                      onChange={handleTableChange}
+                      scroll={{ x: 1800 }}
+                      size="small"
+                    />
+                  </Card>
+                ),
+              },
+            ]}
+          />
         ) : (
           <Card>
             <Empty
