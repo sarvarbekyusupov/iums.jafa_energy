@@ -359,6 +359,9 @@ export interface TaskRuntimeDetailRequest {
 }
 
 export interface DeviceCommandStatus {
+  id: number;
+  taskId: number;
+  deviceId: number;
   deviceSn: string;
   commandId: number;
   commandStatus: 0 | 1 | 2; // 0=failed/timeout, 1=success, 2=waiting
@@ -366,7 +369,16 @@ export interface DeviceCommandStatus {
 }
 
 export interface TaskRuntimeDetail {
+  id: string;
+  taskName: string;
+  taskType: string;
+  templateId: string;
+  templateName?: string;
+  createTime: string;
+  modifyTime: string;
   taskStatus: 0 | 1; // 0=running, 1=done
+  runType: 0 | 1; // 0=normal, 1=resend
+  runTaskRecordId: number;
   successCount: number;
   failCount: number;
   remainTime: number;
