@@ -88,10 +88,10 @@ const TaskMonitoring: React.FC = () => {
       }
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || 'Failed to fetch task status';
-      console.error('Task monitoring error:', errorMsg, error?.response?.data);
 
-      // Don't show error message for "Server busy" - just retry
+      // Don't show error message or log for "Server busy" - just retry silently
       if (errorMsg !== 'Server busy') {
+        console.error('Task monitoring error:', errorMsg, error?.response?.data);
         message.error(errorMsg);
         if (intervalId) {
           clearInterval(intervalId);
@@ -99,6 +99,7 @@ const TaskMonitoring: React.FC = () => {
           setIsMonitoring(false);
         }
       }
+      // If "Server busy", silently retry - this is expected during initial processing
     } finally {
       setLoading(false);
     }
