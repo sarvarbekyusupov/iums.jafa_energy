@@ -268,18 +268,37 @@ export interface UpdateTemplateResponse {
 // Economic Task Types
 // ============================================
 
+export interface TaskDeviceDetailVO {
+  id: number;
+  taskId: number;
+  deviceId: number;
+  deviceSn: string;
+  alias: string;
+  commandId: number;
+  commandStatus: 0 | 1 | 2; // 0=failed/timeout, 1=success, 2=waiting
+}
+
 export interface EconomicTask {
   id: string;
   taskName: string;
   templateId: string;
+  templateName?: string;
   taskType: string;
   createTime: number;
   modifyTime: number;
+  taskStatus?: 0 | 1; // 0=running, 1=done
+  runType?: 0 | 1; // 0=normal, 1=resend
+  runTaskRecordId?: number;
+  successCount?: number;
+  failCount?: number;
+  detailListVOList?: TaskDeviceDetailVO[];
 }
 
 export interface ListEconomicTasksRequest extends PaginationParams {
   taskName?: string;
   taskStatus?: number;
+  taskType?: string;
+  templateId?: number;
 }
 
 export interface TaskTarget {
