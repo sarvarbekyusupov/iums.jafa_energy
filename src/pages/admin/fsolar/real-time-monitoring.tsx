@@ -13,6 +13,8 @@ import {
   Descriptions,
   Tag,
   message,
+  Badge,
+  Divider,
 } from 'antd';
 import {
   ThunderboltOutlined,
@@ -22,6 +24,12 @@ import {
   CloudOutlined,
   SunOutlined,
   ArrowDownOutlined,
+  ArrowUpOutlined,
+  ArrowRightOutlined,
+  BatteryOutlined,
+  HomeOutlined,
+  CheckCircleOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
@@ -32,41 +40,27 @@ interface DeviceMetrics {
   deviceSn: string;
   dataTimeStr: string;
   timeZone: string;
-
-  // Power
   pvPower: string;
   pvTotalPower: string;
   acTotalOutActPower: string;
   acTtlInpower: string;
   meterPower: string;
   emsPower: string;
-
-  // Battery
   emsSoc: string;
   emsVoltage: string;
   emsCurrent: string;
-
-  // Grid
   acRInVolt: string;
   acROutVolt: string;
   acRInCurr: string;
   acROutCurr: string;
   acRInFreq: string;
-
-  // PV
   pvVolt: string;
   pvInCurr: string;
   pv2Volt: string;
   pv2InCurr: string;
-
-  // Temperature
   tempMax: string;
   devTempMax: string;
-
-  // Energy
   ePvToday: string;
-
-  // Mode
   workMode: string;
 }
 
@@ -94,20 +88,19 @@ const RealTimeMonitoring: React.FC = () => {
   const fetchMetrics = async (deviceSn: string) => {
     try {
       setLoading(true);
-
-      // Use queryType=0 to get latest real-time data
       const result: any = await fsolarDeviceService.getBatchDeviceHistory({
         deviceSnList: deviceSn,
+        startTime: Math.floor(Date.now() / 1000),
+        endTime: Math.floor(Date.now() / 1000),
+        timeZone: 0,
         queryType: 0,
-      } as any);
+      });
 
-      // The API returns data in dataList array for queryType=0
-      if (result.dataList && result.dataList.length > 0) {
-        setMetrics(result.dataList[0]);
+      if (result && result.data && result.data.length > 0) {
+        setMetrics(result.data[0] as DeviceMetrics);
       }
     } catch (error: any) {
-      console.error('Failed to fetch metrics', error);
-      message.error('Failed to fetch real-time data');
+      message.error('Failed to fetch device metrics');
     } finally {
       setLoading(false);
     }
@@ -123,57 +116,25 @@ const RealTimeMonitoring: React.FC = () => {
     }
   }, [selectedDevice]);
 
-  // Auto-refresh every 10 seconds
   useEffect(() => {
-    if (autoRefresh && selectedDevice) {
-      const interval = setInterval(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (selectedDevice) {
         fetchMetrics(selectedDevice);
-      }, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, selectedDevice]);
+      }
+    }, 5000);
 
-  const getBatteryColor = (soc: number): string => {
-    if (soc >= 80) return '#52c41a';
-    if (soc >= 50) return '#1890ff';
-    if (soc >= 20) return '#faad14';
-    return '#f5222d';
-  };
-
-  const getTemperatureColor = (temp: number): string => {
-    if (temp >= 60) return '#f5222d';
-    if (temp >= 50) return '#faad14';
-    return '#52c41a';
-  };
+    return () => clearInterval(interval);
+  }, [selectedDevice, autoRefresh]);
 
   if (!metrics) {
     return (
       <div>
-        <Title level={2}>Real-time Monitoring</Title>
-        <Space style={{ marginBottom: 16 }}>
-          <Select
-            style={{ width: 300 }}
-            placeholder="Select device"
-            value={selectedDevice}
-            onChange={setSelectedDevice}
-            loading={loading}
-          >
-            {devices.map((device) => (
-              <Select.Option key={device.deviceSn} value={device.deviceSn}>
-                {device.deviceName || device.deviceSn}
-              </Select.Option>
-            ))}
-          </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => selectedDevice && fetchMetrics(selectedDevice)}>
-            Refresh
-          </Button>
-        </Space>
-        <Alert
-          message="No Data Available"
-          description="Waiting for real-time data from the selected device..."
-          type="info"
-          showIcon
-        />
+        <Title level={2}>Fsolar Real-time Monitoring</Title>
+        <Card loading={loading}>
+          <Text type="secondary">Loading device metrics...</Text>
+        </Card>
       </div>
     );
   }
@@ -181,20 +142,61 @@ const RealTimeMonitoring: React.FC = () => {
   const soc = parseFloat(metrics.emsSoc || '0');
   const temp = parseFloat(metrics.tempMax || '0');
   const devTemp = parseFloat(metrics.devTempMax || '0');
+  const pvPower = parseFloat(metrics.pvTotalPower || '0');
+  const batteryPower = parseFloat(metrics.emsPower || '0');
+  const gridPower = parseFloat(metrics.acTtlInpower || '0');
+  const loadPower = parseFloat(metrics.acTotalOutActPower || '0');
+
+  const getBatteryColor = (soc: number) => {
+    if (soc > 70) return '#52c41a';
+    if (soc > 30) return '#faad14';
+    return '#ff4d4f';
+  };
+
+  const getTemperatureColor = (temp: number) => {
+    if (temp > 70) return '#ff4d4f';
+    if (temp > 50) return '#faad14';
+    return '#52c41a';
+  };
+
+  const getSystemStatus = () => {
+    const issues = [];
+    if (soc < 20) issues.push('Low battery');
+    if (temp > 70 || devTemp > 70) issues.push('High temperature');
+    if (parseFloat(metrics.acRInFreq || '0') < 49 || parseFloat(metrics.acRInFreq || '0') > 51) {
+      issues.push('Grid frequency abnormal');
+    }
+
+    if (issues.length === 0) {
+      return { status: 'success', text: 'All Systems Normal', icon: <CheckCircleOutlined /> };
+    }
+    return { status: 'warning', text: `${issues.length} Issue(s)`, icon: <WarningOutlined />, issues };
+  };
+
+  const systemStatus = getSystemStatus();
 
   return (
     <div>
-      <Title level={2}>Real-time Monitoring</Title>
+      {/* Header */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Title level={2} style={{ margin: 0 }}>
+            <DashboardOutlined /> Real-time Monitoring
+          </Title>
+        </Col>
+        <Col>
+          <Badge status={systemStatus.status as any} text={systemStatus.text} />
+        </Col>
+      </Row>
 
-      {/* Device Selector */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space>
+      {/* Controls */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
           <Select
             style={{ width: 300 }}
-            placeholder="Select device"
             value={selectedDevice}
             onChange={setSelectedDevice}
-            loading={loading}
+            placeholder="Select device"
           >
             {devices.map((device) => (
               <Select.Option key={device.deviceSn} value={device.deviceSn}>
@@ -213,24 +215,152 @@ const RealTimeMonitoring: React.FC = () => {
             type={autoRefresh ? 'primary' : 'default'}
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
-            Auto-refresh: {autoRefresh ? 'ON' : 'OFF'}
+            Auto: {autoRefresh ? 'ON' : 'OFF'}
           </Button>
           <Text type="secondary">
-            Last updated: {metrics.dataTimeStr} ({metrics.timeZone})
+            {metrics.dataTimeStr} ({metrics.timeZone})
           </Text>
         </Space>
       </Card>
 
-      {/* Power Overview */}
+      {/* System Alert */}
+      {systemStatus.status === 'warning' && systemStatus.issues && (
+        <Alert
+          message="System Alert"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {systemStatus.issues.map((issue, idx) => (
+                <li key={idx}>{issue}</li>
+              ))}
+            </ul>
+          }
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* Energy Flow Diagram */}
+      <Card title={<><ArrowRightOutlined /> Energy Flow Overview</>} style={{ marginBottom: 16 }}>
+        <Row gutter={[24, 24]} align="middle">
+          {/* PV */}
+          <Col span={6}>
+            <Card
+              size="small"
+              style={{
+                textAlign: 'center',
+                background: pvPower > 0 ? '#fffbe6' : '#f5f5f5',
+                border: pvPower > 0 ? '2px solid #faad14' : '1px solid #d9d9d9',
+              }}
+            >
+              <SunOutlined style={{ fontSize: 32, color: pvPower > 0 ? '#faad14' : '#999' }} />
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Solar PV</Text>
+                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
+                  {pvPower.toFixed(1)} W
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          {/* Arrow */}
+          <Col span={2} style={{ textAlign: 'center' }}>
+            <ArrowRightOutlined
+              style={{ fontSize: 32, color: pvPower > 0 ? '#faad14' : '#d9d9d9' }}
+            />
+          </Col>
+
+          {/* Battery */}
+          <Col span={6}>
+            <Card
+              size="small"
+              style={{
+                textAlign: 'center',
+                background: getBatteryColor(soc) + '20',
+                border: `2px solid ${getBatteryColor(soc)}`,
+              }}
+            >
+              <BatteryOutlined style={{ fontSize: 32, color: getBatteryColor(soc) }} />
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Battery</Text>
+                <div style={{ fontSize: 24, fontWeight: 'bold', color: getBatteryColor(soc) }}>
+                  {soc.toFixed(0)}%
+                </div>
+                <div style={{ fontSize: 12 }}>
+                  {batteryPower > 0 ? <ArrowUpOutlined /> : batteryPower < 0 ? <ArrowDownOutlined /> : ''}{' '}
+                  {Math.abs(batteryPower).toFixed(1)} W
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          {/* Arrow */}
+          <Col span={2} style={{ textAlign: 'center' }}>
+            <ArrowRightOutlined
+              style={{ fontSize: 32, color: loadPower > 0 ? '#52c41a' : '#d9d9d9' }}
+            />
+          </Col>
+
+          {/* Load */}
+          <Col span={6}>
+            <Card
+              size="small"
+              style={{
+                textAlign: 'center',
+                background: loadPower > 0 ? '#f6ffed' : '#f5f5f5',
+                border: loadPower > 0 ? '2px solid #52c41a' : '1px solid #d9d9d9',
+              }}
+            >
+              <HomeOutlined style={{ fontSize: 32, color: loadPower > 0 ? '#52c41a' : '#999' }} />
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Load</Text>
+                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                  {loadPower.toFixed(1)} W
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        <Divider />
+
+        {/* Grid Connection */}
+        <Row justify="center">
+          <Col span={8}>
+            <Card
+              size="small"
+              style={{
+                textAlign: 'center',
+                background: gridPower !== 0 ? '#e6f7ff' : '#f5f5f5',
+                border: gridPower !== 0 ? '2px solid #1890ff' : '1px solid #d9d9d9',
+              }}
+            >
+              <CloudOutlined style={{ fontSize: 28, color: gridPower !== 0 ? '#1890ff' : '#999' }} />
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Grid</Text>
+                <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>
+                  {gridPower > 0 ? '← ' : gridPower < 0 ? '→ ' : ''}
+                  {Math.abs(gridPower).toFixed(1)} W
+                </div>
+                <div style={{ fontSize: 12 }}>
+                  {gridPower > 0 ? 'Importing' : gridPower < 0 ? 'Exporting' : 'Idle'}
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Key Metrics Row */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card>
             <Statistic
-              title="PV Power"
-              value={parseFloat(metrics.pvTotalPower || '0')}
-              precision={1}
-              suffix="W"
-              prefix={<SunOutlined style={{ color: '#faad14' }} />}
+              title="Today's Solar Energy"
+              value={parseFloat(metrics.ePvToday || '0')}
+              precision={2}
+              suffix="kWh"
+              prefix={<SunOutlined />}
               valueStyle={{ color: '#faad14' }}
             />
           </Card>
@@ -238,160 +368,155 @@ const RealTimeMonitoring: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="AC Output Power"
-              value={parseFloat(metrics.acTotalOutActPower || '0')}
-              precision={0}
-              suffix="W"
-              prefix={<ThunderboltOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
+              title="Battery Voltage"
+              value={parseFloat(metrics.emsVoltage || '0')}
+              precision={1}
+              suffix="V"
+              prefix={<BatteryOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="AC Input Power"
-              value={parseFloat(metrics.acTtlInpower || '0')}
-              precision={0}
-              suffix="W"
-              prefix={<ArrowDownOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff' }}
+              title="Battery Current"
+              value={parseFloat(metrics.emsCurrent || '0')}
+              precision={1}
+              suffix="A"
+              prefix={<ThunderboltOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="EMS Power"
-              value={parseFloat(metrics.emsPower || '0')}
-              precision={0}
-              suffix="W"
-              prefix={<DashboardOutlined />}
+              title="System Temperature"
+              value={temp}
+              precision={1}
+              suffix="°C"
+              prefix={<FireOutlined />}
+              valueStyle={{ color: getTemperatureColor(temp) }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* Battery Status */}
-      <Card title={<><ThunderboltOutlined /> Battery Status</>} style={{ marginBottom: 16 }}>
+      {/* Detailed Grid Status */}
+      <Card title={<><CloudOutlined /> Grid Details</>} style={{ marginBottom: 16 }}>
         <Row gutter={16}>
-          <Col span={8}>
-            <div style={{ textAlign: 'center' }}>
-              <Progress
-                type="circle"
-                percent={soc}
-                strokeColor={getBatteryColor(soc)}
-                format={(percent) => `${percent}%`}
-                size={120}
-              />
-              <div style={{ marginTop: 16 }}>
-                <Text strong>State of Charge</Text>
-              </div>
-            </div>
+          <Col span={12}>
+            <Card size="small" title="Input (From Grid)" type="inner">
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Statistic title="Voltage" value={metrics.acRInVolt} suffix="V" />
+                </Col>
+                <Col span={8}>
+                  <Statistic title="Current" value={metrics.acRInCurr} suffix="A" />
+                </Col>
+                <Col span={8}>
+                  <Statistic title="Frequency" value={metrics.acRInFreq} suffix="Hz" />
+                </Col>
+              </Row>
+            </Card>
           </Col>
-          <Col span={8}>
-            <Statistic
-              title="Voltage"
-              value={parseFloat(metrics.emsVoltage || '0')}
-              precision={1}
-              suffix="V"
-              valueStyle={{ fontSize: 32 }}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="Current"
-              value={parseFloat(metrics.emsCurrent || '0')}
-              precision={1}
-              suffix="A"
-              valueStyle={{ fontSize: 32 }}
-            />
+          <Col span={12}>
+            <Card size="small" title="Output (To Load)" type="inner">
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Statistic title="Voltage" value={metrics.acROutVolt} suffix="V" />
+                </Col>
+                <Col span={12}>
+                  <Statistic title="Current" value={metrics.acROutCurr} suffix="A" />
+                </Col>
+              </Row>
+            </Card>
           </Col>
         </Row>
       </Card>
 
-      {/* Grid Status */}
-      <Card title={<><CloudOutlined /> Grid Status</>} style={{ marginBottom: 16 }}>
+      {/* PV Strings */}
+      <Card title={<><SunOutlined /> PV Strings Performance</>} style={{ marginBottom: 16 }}>
         <Row gutter={16}>
           <Col span={12}>
-            <Descriptions title="Input (Grid)" bordered size="small" column={2}>
-              <Descriptions.Item label="Voltage">{metrics.acRInVolt} V</Descriptions.Item>
-              <Descriptions.Item label="Current">{metrics.acRInCurr} A</Descriptions.Item>
-              <Descriptions.Item label="Frequency" span={2}>{metrics.acRInFreq} Hz</Descriptions.Item>
-            </Descriptions>
+            <Card size="small" title="String 1" type="inner">
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Statistic title="Voltage" value={metrics.pvVolt} suffix="V" />
+                </Col>
+                <Col span={8}>
+                  <Statistic title="Current" value={metrics.pvInCurr} suffix="A" />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Power"
+                    value={(
+                      parseFloat(metrics.pvVolt || '0') * parseFloat(metrics.pvInCurr || '0')
+                    ).toFixed(1)}
+                    suffix="W"
+                  />
+                </Col>
+              </Row>
+            </Card>
           </Col>
           <Col span={12}>
-            <Descriptions title="Output (Load)" bordered size="small" column={2}>
-              <Descriptions.Item label="Voltage">{metrics.acROutVolt} V</Descriptions.Item>
-              <Descriptions.Item label="Current">{metrics.acROutCurr} A</Descriptions.Item>
-            </Descriptions>
+            <Card size="small" title="String 2" type="inner">
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Statistic title="Voltage" value={metrics.pv2Volt} suffix="V" />
+                </Col>
+                <Col span={8}>
+                  <Statistic title="Current" value={metrics.pv2InCurr} suffix="A" />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Power"
+                    value={(
+                      parseFloat(metrics.pv2Volt || '0') * parseFloat(metrics.pv2InCurr || '0')
+                    ).toFixed(1)}
+                    suffix="W"
+                  />
+                </Col>
+              </Row>
+            </Card>
           </Col>
         </Row>
       </Card>
 
-      {/* PV Status */}
-      <Card title={<><SunOutlined /> PV Strings</>} style={{ marginBottom: 16 }}>
-        <Row gutter={16}>
-          <Col span={12}>
-            <Descriptions title="PV String 1" bordered size="small">
-              <Descriptions.Item label="Voltage">{metrics.pvVolt} V</Descriptions.Item>
-              <Descriptions.Item label="Current">{metrics.pvInCurr} A</Descriptions.Item>
-              <Descriptions.Item label="Power">
-                {(parseFloat(metrics.pvVolt || '0') * parseFloat(metrics.pvInCurr || '0')).toFixed(1)} W
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-          <Col span={12}>
-            <Descriptions title="PV String 2" bordered size="small">
-              <Descriptions.Item label="Voltage">{metrics.pv2Volt} V</Descriptions.Item>
-              <Descriptions.Item label="Current">{metrics.pv2InCurr} A</Descriptions.Item>
-              <Descriptions.Item label="Power">
-                {(parseFloat(metrics.pv2Volt || '0') * parseFloat(metrics.pv2InCurr || '0')).toFixed(1)} W
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Temperature & Energy */}
+      {/* System Info */}
       <Row gutter={16}>
         <Col span={12}>
-          <Card title={<><FireOutlined /> Temperature</>}>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Statistic
-                  title="Max Temperature"
-                  value={temp}
-                  precision={1}
-                  suffix="°C"
-                  valueStyle={{ color: getTemperatureColor(temp) }}
+          <Card title="System Status">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <div>
+                <Text strong>Work Mode: </Text>
+                <Tag color="blue" style={{ fontSize: 14 }}>
+                  {metrics.workMode}
+                </Tag>
+              </div>
+              <div>
+                <Text strong>Device Temperature: </Text>
+                <Text style={{ color: getTemperatureColor(devTemp), fontSize: 16, fontWeight: 'bold' }}>
+                  {devTemp.toFixed(1)}°C
+                </Text>
+              </div>
+              <div>
+                <Text strong>Battery SOC: </Text>
+                <Progress
+                  percent={soc}
+                  strokeColor={getBatteryColor(soc)}
+                  status={soc > 30 ? 'active' : 'exception'}
                 />
-              </Col>
-              <Col span={12}>
-                <Statistic
-                  title="Device Max Temp"
-                  value={devTemp}
-                  precision={1}
-                  suffix="°C"
-                  valueStyle={{ color: getTemperatureColor(devTemp) }}
-                />
-              </Col>
-            </Row>
+              </div>
+            </Space>
           </Card>
         </Col>
         <Col span={12}>
-          <Card title={<><ThunderboltOutlined /> Energy & Mode</>}>
-            <Statistic
-              title="Today's PV Energy"
-              value={parseFloat(metrics.ePvToday || '0')}
-              precision={2}
-              suffix="kWh"
-              style={{ marginBottom: 16 }}
-            />
-            <div>
-              <Text strong>Work Mode: </Text>
-              <Tag color="blue">{metrics.workMode}</Tag>
-            </div>
+          <Card title="Quick Stats">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Meter Power">{metrics.meterPower} W</Descriptions.Item>
+              <Descriptions.Item label="PV Power">{metrics.pvPower} W</Descriptions.Item>
+              <Descriptions.Item label="Device SN">{metrics.deviceSn}</Descriptions.Item>
+            </Descriptions>
           </Card>
         </Col>
       </Row>
