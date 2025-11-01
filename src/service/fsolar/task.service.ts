@@ -84,14 +84,14 @@ class FsolarTaskService {
   /**
    * 4.4 Delete Economic Task
    * Delete an economic mode task
-   * DELETE /eco-task/:id
+   * GET /eco-task/delete/:id
    */
   async deleteTask(id: number): Promise<void> {
     if (!id || id <= 0) {
       throw new Error('Invalid task ID');
     }
 
-    await apiClient.delete<FsolarResponse<{}>>(`${FSOLAR_BASE_URL}/eco-task/${id}`);
+    await apiClient.get<FsolarResponse<{}>>(`${FSOLAR_BASE_URL}/eco-task/delete/${id}`);
   }
 
   /**
