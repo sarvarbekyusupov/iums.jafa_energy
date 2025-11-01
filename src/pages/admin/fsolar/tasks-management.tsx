@@ -15,6 +15,8 @@ import {
   Col,
   Statistic,
   Tag,
+  Tooltip,
+  Badge,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -22,6 +24,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlayCircleOutlined,
+  MobileOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarTaskService, fsolarTemplateService, fsolarDeviceService } from '../../../service/fsolar';
@@ -45,6 +48,9 @@ const TasksManagement: React.FC = () => {
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedTask, setSelectedTask] = useState<EconomicTask | null>(null);
   const [form] = Form.useForm();
+  const [deviceModalVisible, setDeviceModalVisible] = useState(false);
+  const [taskDevices, setTaskDevices] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
 
   // Fetch data
   const fetchTasks = async (page: number = 1, pageSize: number = 20) => {
@@ -166,6 +172,21 @@ const TasksManagement: React.FC = () => {
     }
   };
 
+  // Handle view devices
+  const handleViewDevices = async (taskId: string) => {
+    try {
+      setLoadingDevices(true);
+      setDeviceModalVisible(true);
+      const deviceList = await fsolarTaskService.getTaskDetail(parseInt(taskId));
+      setTaskDevices(deviceList);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to fetch task devices');
+      setDeviceModalVisible(false);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
   // Columns
   const columns: ColumnsType<EconomicTask> = [
     {
@@ -191,6 +212,22 @@ const TasksManagement: React.FC = () => {
       key: 'taskType',
       width: 120,
       render: (type: string) => <Tag>{type}</Tag>,
+    },
+    {
+      title: 'Devices',
+      key: 'devices',
+      width: 120,
+      render: (_, record) => (
+        <Tooltip title="View devices">
+          <Button
+            type="link"
+            icon={<MobileOutlined />}
+            onClick={() => handleViewDevices(record.id)}
+          >
+            View
+          </Button>
+        </Tooltip>
+      ),
     },
     {
       title: 'Created',
@@ -345,6 +382,48 @@ const TasksManagement: React.FC = () => {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Device List Modal */}
+      <Modal
+        title={
+          <Space>
+            <MobileOutlined />
+            <span>Task Devices</span>
+            <Badge count={taskDevices.length} showZero style={{ backgroundColor: '#52c41a' }} />
+          </Space>
+        }
+        open={deviceModalVisible}
+        onCancel={() => {
+          setDeviceModalVisible(false);
+          setTaskDevices([]);
+        }}
+        footer={[
+          <Button key="close" onClick={() => setDeviceModalVisible(false)}>
+            Close
+          </Button>,
+        ]}
+        width={700}
+      >
+        <Table
+          columns={[
+            {
+              title: 'Device SN',
+              dataIndex: 'deviceSn',
+              key: 'deviceSn',
+            },
+            {
+              title: 'Device ID',
+              dataIndex: 'deviceId',
+              key: 'deviceId',
+            },
+          ]}
+          dataSource={taskDevices}
+          rowKey="id"
+          loading={loadingDevices}
+          pagination={false}
+          size="small"
+        />
       </Modal>
     </div>
   );
