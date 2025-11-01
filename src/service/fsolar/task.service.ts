@@ -57,7 +57,7 @@ class FsolarTaskService {
   /**
    * 4.3 Update Economic Task
    * Update an existing economic task
-   * PUT /eco-task/:id
+   * POST /eco-task/update
    */
   async updateTask(
     id: number,
@@ -69,9 +69,14 @@ class FsolarTaskService {
 
     this.validateTaskRequest(request);
 
-    const response = await apiClient.put<FsolarResponse<UpdateEconomicTaskResponse>>(
-      `${FSOLAR_BASE_URL}/eco-task/${id}`,
-      request
+    const requestBody = {
+      id: id.toString(),
+      ...request,
+    };
+
+    const response = await apiClient.post<FsolarResponse<UpdateEconomicTaskResponse>>(
+      `${FSOLAR_BASE_URL}/eco-task/update`,
+      requestBody
     );
     return response.data.data;
   }
