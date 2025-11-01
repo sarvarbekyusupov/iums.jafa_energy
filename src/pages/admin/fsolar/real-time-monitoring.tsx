@@ -26,10 +26,10 @@ import {
   ArrowDownOutlined,
   ArrowUpOutlined,
   ArrowRightOutlined,
-  BatteryOutlined,
   HomeOutlined,
   CheckCircleOutlined,
   WarningOutlined,
+  ThunderboltFilled,
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
@@ -280,7 +280,7 @@ const RealTimeMonitoring: React.FC = () => {
                 border: `2px solid ${getBatteryColor(soc)}`,
               }}
             >
-              <BatteryOutlined style={{ fontSize: 32, color: getBatteryColor(soc) }} />
+              <ThunderboltFilled style={{ fontSize: 32, color: getBatteryColor(soc) }} />
               <div style={{ marginTop: 8 }}>
                 <Text strong>Battery</Text>
                 <div style={{ fontSize: 24, fontWeight: 'bold', color: getBatteryColor(soc) }}>
@@ -372,7 +372,7 @@ const RealTimeMonitoring: React.FC = () => {
               value={parseFloat(metrics.emsVoltage || '0')}
               precision={1}
               suffix="V"
-              prefix={<BatteryOutlined />}
+              prefix={<ThunderboltFilled />}
             />
           </Card>
         </Col>
