@@ -155,8 +155,8 @@ const TasksManagement: React.FC = () => {
       // Navigate to monitoring page with the run record ID
       navigate('/admin/fsolar/monitor', {
         state: {
-          taskId: parseInt(taskId),
-          runTaskRecordId: parseInt(result.runTaskRecordId),
+          taskId: taskId,
+          runTaskRecordId: result.runTaskRecordId,
         },
       });
     } catch (error: any) {

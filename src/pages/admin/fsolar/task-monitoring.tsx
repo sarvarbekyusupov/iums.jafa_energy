@@ -31,8 +31,8 @@ const TaskMonitoring: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<TaskRuntimeDetail | null>(null);
-  const [taskId, setTaskId] = useState<number | null>(null);
-  const [runTaskRecordId, setRunTaskRecordId] = useState<number | null>(null);
+  const [taskId, setTaskId] = useState<string | number | null>(null);
+  const [runTaskRecordId, setRunTaskRecordId] = useState<string | number | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
@@ -52,7 +52,7 @@ const TaskMonitoring: React.FC = () => {
     };
   }, []);
 
-  const startMonitoring = (tId: number, recordId: number) => {
+  const startMonitoring = (tId: string | number, recordId: string | number) => {
     setIsMonitoring(true);
     fetchStatus(tId, recordId);
 
@@ -63,7 +63,7 @@ const TaskMonitoring: React.FC = () => {
     setIntervalId(id);
   };
 
-  const fetchStatus = async (tId: number, recordId: number) => {
+  const fetchStatus = async (tId: string | number, recordId: string | number) => {
     try {
       setLoading(true);
       const result = await fsolarMonitorService.getTaskRuntimeDetail({
