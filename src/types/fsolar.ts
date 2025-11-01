@@ -206,22 +206,32 @@ export interface SetDeviceSettingResponse {
 // ============================================
 
 export interface StrategyTimeSlot {
-  type: 0 | 1; // 0=disabled, 1=enabled
-  startTime?: string;
-  endTime?: string;
-  mode?: number;
-  power?: number;
+  startTime?: string;              // HH:mm format
+  stopTime?: string;                // HH:mm format
+  startDay?: string;                // mm:dd format
+  stopDay?: string;                 // mm:dd format
+  daysOfEffectiveWeek?: string[];   // ["MONDAY", "TUESDAY", ...]
+  strategy?: number;                // 1=Charge, 2=Discharge
+  power?: number;                   // Watts
+  soc?: number;                     // Battery SOC %
+  backupReserve?: string;           // Reserved capacity %
 }
 
 export interface EconomicStrategyTemplate {
   id: string;
   templateName: string;
-  strategy1: StrategyTimeSlot;
-  strategy2: StrategyTimeSlot;
-  strategy3: StrategyTimeSlot;
-  strategy4: StrategyTimeSlot;
-  createTime: number;
-  modifyTime: number;
+  strategy1?: StrategyTimeSlot;
+  strategy2?: StrategyTimeSlot;
+  strategy3?: StrategyTimeSlot;
+  strategy4?: StrategyTimeSlot;
+  strategy5?: StrategyTimeSlot;
+  strategy6?: StrategyTimeSlot;
+  strategy7?: StrategyTimeSlot;
+  strategy8?: StrategyTimeSlot;
+  strategy9?: StrategyTimeSlot;
+  strategy10?: StrategyTimeSlot;
+  createTime?: number;
+  modifyTime?: number;
 }
 
 export interface ListTemplatesRequest extends PaginationParams {
@@ -230,10 +240,16 @@ export interface ListTemplatesRequest extends PaginationParams {
 
 export interface AddTemplateRequest {
   templateName: string;
-  strategy1: StrategyTimeSlot;
-  strategy2: StrategyTimeSlot;
-  strategy3: StrategyTimeSlot;
-  strategy4: StrategyTimeSlot;
+  strategy1?: StrategyTimeSlot;
+  strategy2?: StrategyTimeSlot;
+  strategy3?: StrategyTimeSlot;
+  strategy4?: StrategyTimeSlot;
+  strategy5?: StrategyTimeSlot;
+  strategy6?: StrategyTimeSlot;
+  strategy7?: StrategyTimeSlot;
+  strategy8?: StrategyTimeSlot;
+  strategy9?: StrategyTimeSlot;
+  strategy10?: StrategyTimeSlot;
 }
 
 export interface AddTemplateResponse {

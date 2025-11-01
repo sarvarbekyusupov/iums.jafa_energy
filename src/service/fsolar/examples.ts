@@ -206,10 +206,8 @@ export async function createTemplateExample() {
   try {
     const template = await fsolarTemplateService.addTemplate({
       templateName: 'Morning Peak Strategy',
-      strategy1: fsolarTemplateService.createActiveSlot('06:00', '09:00', 1, 5000),
-      strategy2: fsolarTemplateService.createActiveSlot('12:00', '14:00', 2, 3000),
-      strategy3: fsolarTemplateService.createEmptySlot(),
-      strategy4: fsolarTemplateService.createEmptySlot(),
+      strategy1: { startTime: '06:00', stopTime: '09:00', strategy: 1, power: 5000 },
+      strategy2: { startTime: '12:00', stopTime: '14:00', strategy: 2, power: 3000 },
     });
     console.log('Created template:', template);
     return template;
@@ -240,10 +238,7 @@ export async function updateTemplateExample(templateId: number) {
   try {
     const updated = await fsolarTemplateService.updateTemplate(templateId, {
       templateName: 'Updated Morning Peak Strategy',
-      strategy1: fsolarTemplateService.createActiveSlot('07:00', '10:00', 1, 6000),
-      strategy2: fsolarTemplateService.createEmptySlot(),
-      strategy3: fsolarTemplateService.createEmptySlot(),
-      strategy4: fsolarTemplateService.createEmptySlot(),
+      strategy1: { startTime: '07:00', stopTime: '10:00', strategy: 1, power: 6000 },
     });
     console.log('Updated template:', updated);
     return updated;
@@ -548,10 +543,7 @@ export async function completeWorkflowExample(deviceIds: number[]) {
     console.log('Step 1: Creating strategy template...');
     const template = await fsolarTemplateService.addTemplate({
       templateName: 'Auto Test Strategy',
-      strategy1: fsolarTemplateService.createActiveSlot('08:00', '12:00', 1, 5000),
-      strategy2: fsolarTemplateService.createEmptySlot(),
-      strategy3: fsolarTemplateService.createEmptySlot(),
-      strategy4: fsolarTemplateService.createEmptySlot(),
+      strategy1: { startTime: '08:00', stopTime: '12:00', strategy: 1, power: 5000 },
     });
     console.log(`✓ Template created: ${template.templateName} (ID: ${template.id})`);
 

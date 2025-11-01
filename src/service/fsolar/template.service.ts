@@ -8,7 +8,6 @@ import type {
   AddTemplateResponse,
   UpdateTemplateRequest,
   UpdateTemplateResponse,
-  StrategyTimeSlot,
 } from '../../types/fsolar';
 import { validatePagination } from './utils';
 
@@ -116,130 +115,14 @@ class FsolarTemplateService {
       throw new Error('Template name is required');
     }
 
-    // Validate all 4 strategy slots are present
-    if (!request.strategy1 || !request.strategy2 || !request.strategy3 || !request.strategy4) {
-      throw new Error('All 4 strategy slots must be provided');
+    // At least one strategy must be provided
+    const hasStrategy = Object.keys(request).some(key =>
+      key.startsWith('strategy') && request[key as keyof typeof request]
+    );
+
+    if (!hasStrategy) {
+      throw new Error('At least one strategy must be provided');
     }
-
-    // Validate each active strategy
-    const strategies = [
-      request.strategy1,
-      request.strategy2,
-      request.strategy3,
-      request.strategy4,
-    ];
-
-    strategies.forEach((strategy, index) => {
-      if (strategy.type === 1) {
-        this.validateActiveStrategy(strategy, index + 1);
-      }
-    });
-
-    // Check for time overlaps
-    this.checkTimeOverlaps(strategies);
-  }
-
-  /**
-   * Validate active strategy slot
-   */
-  private validateActiveStrategy(strategy: StrategyTimeSlot, slotNumber: number): void {
-    if (!strategy.startTime || !strategy.endTime) {
-      throw new Error(`Strategy ${slotNumber}: Start time and end time are required`);
-    }
-
-    if (!this.isValidTimeFormat(strategy.startTime)) {
-      throw new Error(`Strategy ${slotNumber}: Invalid start time format (use HH:MM)`);
-    }
-
-    if (!this.isValidTimeFormat(strategy.endTime)) {
-      throw new Error(`Strategy ${slotNumber}: Invalid end time format (use HH:MM)`);
-    }
-
-    if (strategy.mode === undefined) {
-      throw new Error(`Strategy ${slotNumber}: Mode is required`);
-    }
-
-    if (strategy.power === undefined || strategy.power < 0) {
-      throw new Error(`Strategy ${slotNumber}: Valid power value is required`);
-    }
-  }
-
-  /**
-   * Validate time format (HH:MM)
-   */
-  private isValidTimeFormat(time: string): boolean {
-    const regex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
-    return regex.test(time);
-  }
-
-  /**
-   * Check for time overlaps between strategies
-   */
-  private checkTimeOverlaps(strategies: StrategyTimeSlot[]): void {
-    const activeStrategies = strategies.filter(s => s.type === 1);
-
-    for (let i = 0; i < activeStrategies.length; i++) {
-      for (let j = i + 1; j < activeStrategies.length; j++) {
-        const strategy1 = activeStrategies[i];
-        const strategy2 = activeStrategies[j];
-
-        if (this.timeRangesOverlap(
-          strategy1.startTime!,
-          strategy1.endTime!,
-          strategy2.startTime!,
-          strategy2.endTime!
-        )) {
-          throw new Error('Strategy time ranges cannot overlap');
-        }
-      }
-    }
-  }
-
-  /**
-   * Check if two time ranges overlap
-   */
-  private timeRangesOverlap(
-    start1: string,
-    end1: string,
-    start2: string,
-    end2: string
-  ): boolean {
-    const getMinutes = (time: string): number => {
-      const [hours, minutes] = time.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-
-    const s1 = getMinutes(start1);
-    const e1 = getMinutes(end1);
-    const s2 = getMinutes(start2);
-    const e2 = getMinutes(end2);
-
-    return (s1 < e2 && e1 > s2);
-  }
-
-  /**
-   * Create empty strategy slot
-   */
-  createEmptySlot(): StrategyTimeSlot {
-    return { type: 0 };
-  }
-
-  /**
-   * Create active strategy slot
-   */
-  createActiveSlot(
-    startTime: string,
-    endTime: string,
-    mode: number,
-    power: number
-  ): StrategyTimeSlot {
-    return {
-      type: 1,
-      startTime,
-      endTime,
-      mode,
-      power,
-    };
   }
 
   /**

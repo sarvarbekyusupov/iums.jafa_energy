@@ -74,27 +74,36 @@ const TemplatesManagement: React.FC = () => {
     try {
       setLoading(true);
 
-      // Build strategy slots
-      const buildSlot = (slotData: any): StrategyTimeSlot => {
-        if (!slotData || !slotData.enabled) {
-          return { type: 0 };
-        }
-        return {
-          type: 1,
-          startTime: slotData.startTime.format('HH:mm'),
-          endTime: slotData.endTime.format('HH:mm'),
-          mode: slotData.mode,
-          power: slotData.power,
-        };
+      // Build strategy slot with all fields
+      const buildSlot = (slotData: any): StrategyTimeSlot | undefined => {
+        if (!slotData) return undefined;
+
+        const slot: StrategyTimeSlot = {};
+
+        if (slotData.startTime) slot.startTime = slotData.startTime.format('HH:mm');
+        if (slotData.stopTime) slot.stopTime = slotData.stopTime.format('HH:mm');
+        if (slotData.startDay) slot.startDay = slotData.startDay.format('MM:DD');
+        if (slotData.stopDay) slot.stopDay = slotData.stopDay.format('MM:DD');
+        if (slotData.daysOfEffectiveWeek) slot.daysOfEffectiveWeek = slotData.daysOfEffectiveWeek;
+        if (slotData.strategy) slot.strategy = slotData.strategy;
+        if (slotData.power !== undefined) slot.power = slotData.power;
+        if (slotData.soc !== undefined) slot.soc = slotData.soc;
+        if (slotData.backupReserve) slot.backupReserve = slotData.backupReserve;
+
+        return Object.keys(slot).length > 0 ? slot : undefined;
       };
 
-      const templateData = {
+      const templateData: any = {
         templateName: values.templateName,
-        strategy1: buildSlot(values.strategy1),
-        strategy2: buildSlot(values.strategy2),
-        strategy3: buildSlot(values.strategy3),
-        strategy4: buildSlot(values.strategy4),
       };
+
+      // Add all 10 strategies
+      for (let i = 1; i <= 10; i++) {
+        const strategy = buildSlot(values[`strategy${i}`]);
+        if (strategy) {
+          templateData[`strategy${i}`] = strategy;
+        }
+      }
 
       if (modalMode === 'add') {
         await fsolarTemplateService.addTemplate(templateData);
@@ -134,24 +143,34 @@ const TemplatesManagement: React.FC = () => {
       setLoading(true);
       const details = await fsolarTemplateService.getTemplate(parseInt(template.id));
 
-      const parseSlot = (slot: StrategyTimeSlot) => {
-        if (slot.type === 0) return { enabled: false };
-        return {
-          enabled: true,
-          startTime: dayjs(slot.startTime, 'HH:mm'),
-          endTime: dayjs(slot.endTime, 'HH:mm'),
-          mode: slot.mode,
-          power: slot.power,
-        };
+      const parseSlot = (slot?: StrategyTimeSlot) => {
+        if (!slot) return undefined;
+        const parsed: any = {};
+        if (slot.startTime) parsed.startTime = dayjs(slot.startTime, 'HH:mm');
+        if (slot.stopTime) parsed.stopTime = dayjs(slot.stopTime, 'HH:mm');
+        if (slot.startDay) parsed.startDay = dayjs(slot.startDay, 'MM:DD');
+        if (slot.stopDay) parsed.stopDay = dayjs(slot.stopDay, 'MM:DD');
+        if (slot.daysOfEffectiveWeek) parsed.daysOfEffectiveWeek = slot.daysOfEffectiveWeek;
+        if (slot.strategy) parsed.strategy = slot.strategy;
+        if (slot.power !== undefined) parsed.power = slot.power;
+        if (slot.soc !== undefined) parsed.soc = slot.soc;
+        if (slot.backupReserve) parsed.backupReserve = slot.backupReserve;
+        return Object.keys(parsed).length > 0 ? parsed : undefined;
       };
 
-      form.setFieldsValue({
+      const formValues: any = {
         templateName: details.templateName,
-        strategy1: parseSlot(details.strategy1),
-        strategy2: parseSlot(details.strategy2),
-        strategy3: parseSlot(details.strategy3),
-        strategy4: parseSlot(details.strategy4),
-      });
+      };
+
+      // Parse all 10 strategies
+      for (let i = 1; i <= 10; i++) {
+        const strategy = details[`strategy${i}` as keyof EconomicStrategyTemplate];
+        if (strategy) {
+          formValues[`strategy${i}`] = parseSlot(strategy as StrategyTimeSlot);
+        }
+      }
+
+      form.setFieldsValue(formValues);
 
       setSelectedTemplate(details);
       setModalMode('edit');
@@ -378,16 +397,22 @@ const TemplatesManagement: React.FC = () => {
         {modalMode === 'view' && selectedTemplate ? (
           <div>
             <Title level={4}>{selectedTemplate.templateName}</Title>
-            {[1, 2, 3, 4].map((num) => {
-              const slot = selectedTemplate[`strategy${num}` as keyof EconomicStrategyTemplate] as StrategyTimeSlot;
-              if (slot.type === 0) return null;
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+              const slot = selectedTemplate[`strategy${num}` as keyof EconomicStrategyTemplate] as StrategyTimeSlot | undefined;
+              if (!slot) return null;
               return (
                 <Card key={num} title={`Strategy ${num}`} size="small" style={{ marginBottom: 16 }}>
                   <Row gutter={16}>
-                    <Col span={6}><Text strong>Start:</Text> {slot.startTime}</Col>
-                    <Col span={6}><Text strong>End:</Text> {slot.endTime}</Col>
-                    <Col span={6}><Text strong>Mode:</Text> {slot.mode}</Col>
-                    <Col span={6}><Text strong>Power:</Text> {slot.power}W</Col>
+                    {slot.startTime && <Col span={6}><Text strong>Start:</Text> {slot.startTime}</Col>}
+                    {slot.stopTime && <Col span={6}><Text strong>Stop:</Text> {slot.stopTime}</Col>}
+                    {slot.strategy && <Col span={6}><Text strong>Strategy:</Text> {slot.strategy === 1 ? 'Charge' : slot.strategy === 2 ? 'Discharge' : slot.strategy}</Col>}
+                    {slot.power !== undefined && <Col span={6}><Text strong>Power:</Text> {slot.power}W</Col>}
+                    {slot.soc !== undefined && <Col span={6}><Text strong>SOC:</Text> {slot.soc}%</Col>}
+                    {slot.daysOfEffectiveWeek && (
+                      <Col span={24} style={{ marginTop: 8 }}>
+                        <Text strong>Days:</Text> {slot.daysOfEffectiveWeek.join(', ')}
+                      </Col>
+                    )}
                   </Row>
                 </Card>
               );
