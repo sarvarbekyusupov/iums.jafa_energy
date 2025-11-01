@@ -150,7 +150,7 @@ class FsolarTaskService {
       throw new Error('Task type is required');
     }
 
-    if (!request.deviceIdList || request.deviceIdList.length === 0) {
+    if (!request.targetList || request.targetList.length === 0) {
       throw new Error('At least one device must be assigned to the task');
     }
   }

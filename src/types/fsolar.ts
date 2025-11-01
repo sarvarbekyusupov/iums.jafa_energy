@@ -282,11 +282,15 @@ export interface ListEconomicTasksRequest extends PaginationParams {
   taskStatus?: number;
 }
 
+export interface TaskTarget {
+  deviceId: string;
+}
+
 export interface AddEconomicTaskRequest {
   taskName: string;
   templateId: number;
   taskType: string;
-  deviceIdList: number[];
+  targetList: TaskTarget[];
 }
 
 export interface AddEconomicTaskResponse {

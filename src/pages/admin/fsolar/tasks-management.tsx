@@ -100,7 +100,7 @@ const TasksManagement: React.FC = () => {
         taskName: values.taskName,
         templateId: values.templateId,
         taskType: 'device',
-        deviceIdList: values.deviceIdList,
+        targetList: values.deviceIdList.map((deviceId: string) => ({ deviceId })),
       };
 
       if (modalMode === 'add') {

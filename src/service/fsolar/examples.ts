@@ -291,7 +291,7 @@ export async function createTaskExample(templateId: number, deviceIds: number[])
       taskName: 'Evening Peak Task',
       templateId,
       taskType: 'device',
-      deviceIdList: deviceIds,
+      targetList: deviceIds.map(deviceId => ({ deviceId: deviceId.toString() })),
     });
     console.log('Created task:', task);
     return task;
@@ -553,7 +553,7 @@ export async function completeWorkflowExample(deviceIds: number[]) {
       taskName: 'Auto Test Task',
       templateId: parseInt(template.id),
       taskType: 'device',
-      deviceIdList: deviceIds,
+      targetList: deviceIds.map(deviceId => ({ deviceId: deviceId.toString() })),
     });
     console.log(`✓ Task created: ${task.taskName} (ID: ${task.id})`);
 
