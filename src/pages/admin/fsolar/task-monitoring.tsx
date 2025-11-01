@@ -54,7 +54,11 @@ const TaskMonitoring: React.FC = () => {
 
   const startMonitoring = (tId: string | number, recordId: string | number) => {
     setIsMonitoring(true);
-    fetchStatus(tId, recordId);
+
+    // Wait 2 seconds before first poll to let server process the task
+    setTimeout(() => {
+      fetchStatus(tId, recordId);
+    }, 2000);
 
     const id = setInterval(async () => {
       fetchStatus(tId, recordId);
@@ -80,11 +84,17 @@ const TaskMonitoring: React.FC = () => {
         message.success('Task completed!');
       }
     } catch (error: any) {
-      message.error(error?.response?.data?.message || 'Failed to fetch task status');
-      if (intervalId) {
-        clearInterval(intervalId);
-        setIntervalId(null);
-        setIsMonitoring(false);
+      const errorMsg = error?.response?.data?.message || 'Failed to fetch task status';
+      console.error('Task monitoring error:', errorMsg, error?.response?.data);
+
+      // Don't show error message for "Server busy" - just retry
+      if (errorMsg !== 'Server busy') {
+        message.error(errorMsg);
+        if (intervalId) {
+          clearInterval(intervalId);
+          setIntervalId(null);
+          setIsMonitoring(false);
+        }
       }
     } finally {
       setLoading(false);
