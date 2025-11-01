@@ -88,9 +88,12 @@ const TaskMonitoring: React.FC = () => {
       }
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || 'Failed to fetch task status';
+      const statusCode = error?.response?.data?.statusCode;
 
-      // Don't show error message or log for "Server busy" - just retry silently
-      if (errorMsg !== 'Server busy') {
+      // Silently retry "Server busy" errors - this is expected while Fsolar processes the task
+      const isServerBusy = errorMsg === 'Server busy' || statusCode === 400;
+
+      if (!isServerBusy) {
         console.error('Task monitoring error:', errorMsg, error?.response?.data);
         message.error(errorMsg);
         if (intervalId) {
@@ -99,7 +102,6 @@ const TaskMonitoring: React.FC = () => {
           setIsMonitoring(false);
         }
       }
-      // If "Server busy", silently retry - this is expected during initial processing
     } finally {
       setLoading(false);
     }
