@@ -12,12 +12,15 @@ import {
   Space,
   message,
   Alert,
+  Spin,
 } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
   ReloadOutlined,
+  SyncOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarMonitorService } from '../../../service/fsolar';
@@ -168,6 +171,38 @@ const TaskMonitoring: React.FC = () => {
   }
 
   const summary = status ? fsolarMonitorService.getTaskSummary(status) : null;
+
+  // Show loading state while waiting for initial data
+  if (!status && isMonitoring) {
+    return (
+      <div>
+        <Title level={2}>Task Execution Monitoring</Title>
+        <Card>
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Spin size="large" indicator={<SyncOutlined spin style={{ fontSize: 48 }} />} />
+            <div style={{ marginTop: 24 }}>
+              <Title level={4}>
+                <RocketOutlined style={{ marginRight: 8 }} />
+                Task Execution Started
+              </Title>
+              <Text type="secondary" style={{ fontSize: 16 }}>
+                Waiting for Fsolar API to process the task...
+              </Text>
+              <div style={{ marginTop: 16 }}>
+                <Alert
+                  message="Please Wait"
+                  description="The task has been sent to the devices. It may take 2-10 seconds for the monitoring data to become available. This page will automatically update."
+                  type="info"
+                  showIcon
+                  icon={<ClockCircleOutlined />}
+                />
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div>
