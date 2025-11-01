@@ -354,8 +354,8 @@ export interface TaskDeviceDetail {
 // ============================================
 
 export interface TaskRuntimeDetailRequest {
-  taskId?: number;
-  runTaskRecordId: number;
+  taskId?: number | string;
+  runTaskRecordId: number | string;
 }
 
 export interface DeviceCommandStatus {

@@ -122,13 +122,19 @@ class FsolarMonitorService {
    * POST /eco-task/running-detail
    */
   async getTaskRuntimeDetail(request: TaskRuntimeDetailRequest): Promise<TaskRuntimeDetail> {
-    if (!request.runTaskRecordId || request.runTaskRecordId <= 0) {
+    if (!request.runTaskRecordId) {
       throw new Error('Invalid run task record ID');
     }
 
+    // Convert IDs to strings for API
+    const requestBody = {
+      taskId: request.taskId ? String(request.taskId) : undefined,
+      runTaskRecordId: String(request.runTaskRecordId),
+    };
+
     const response = await apiClient.post<FsolarResponse<TaskRuntimeDetail>>(
       `${FSOLAR_BASE_URL}/eco-task/running-detail`,
-      request
+      requestBody
     );
     return response.data.data;
   }
