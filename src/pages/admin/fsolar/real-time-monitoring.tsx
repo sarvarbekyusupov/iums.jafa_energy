@@ -282,7 +282,7 @@ const RealTimeMonitoring: React.FC = () => {
                 percent={soc}
                 strokeColor={getBatteryColor(soc)}
                 format={(percent) => `${percent}%`}
-                width={120}
+                size={120}
               />
               <div style={{ marginTop: 16 }}>
                 <Text strong>State of Charge</Text>
