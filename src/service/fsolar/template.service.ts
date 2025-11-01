@@ -53,7 +53,7 @@ class FsolarTemplateService {
   /**
    * 3.3 Get Template Details
    * Retrieve detailed information about a template
-   * GET /eco-strategy-template/:id
+   * GET /eco-strategy-template/detail/:id
    */
   async getTemplate(id: number): Promise<EconomicStrategyTemplate> {
     if (!id || id <= 0) {
@@ -61,7 +61,7 @@ class FsolarTemplateService {
     }
 
     const response = await apiClient.get<FsolarResponse<EconomicStrategyTemplate>>(
-      `${FSOLAR_BASE_URL}/eco-strategy-template/${id}`
+      `${FSOLAR_BASE_URL}/eco-strategy-template/detail/${id}`
     );
     return response.data.data;
   }
