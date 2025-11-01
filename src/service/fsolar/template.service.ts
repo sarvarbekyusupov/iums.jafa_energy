@@ -69,7 +69,7 @@ class FsolarTemplateService {
   /**
    * 3.4 Update Strategy Template
    * Update an existing strategy template
-   * PUT /eco-strategy-template/:id
+   * POST /eco-strategy-template/update
    */
   async updateTemplate(
     id: number,
@@ -81,9 +81,14 @@ class FsolarTemplateService {
 
     this.validateTemplateRequest(request);
 
-    const response = await apiClient.put<FsolarResponse<UpdateTemplateResponse>>(
-      `${FSOLAR_BASE_URL}/eco-strategy-template/${id}`,
-      request
+    const requestBody = {
+      id: id.toString(),
+      ...request,
+    };
+
+    const response = await apiClient.post<FsolarResponse<UpdateTemplateResponse>>(
+      `${FSOLAR_BASE_URL}/eco-strategy-template/update`,
+      requestBody
     );
     return response.data.data;
   }
