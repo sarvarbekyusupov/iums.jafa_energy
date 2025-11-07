@@ -18,6 +18,10 @@ import {
   Modal,
   InputNumber,
   Switch,
+  Badge,
+  Statistic,
+  Tooltip,
+  Progress,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -25,6 +29,19 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined,
   EditOutlined,
+  SafetyOutlined,
+  ThunderboltFilled,
+  DashboardOutlined,
+  ControlOutlined,
+  ExperimentOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InfoCircleOutlined,
+  WarningOutlined,
+  DatabaseOutlined,
+  CloudServerOutlined,
+  BellOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
 import type { Device } from '../../../types/fsolar';
@@ -138,52 +155,155 @@ const DeviceSettings: React.FC = () => {
     );
   }
 
+  // Get quick stats
+  const getEnabledCount = () => {
+    let count = 0;
+    if (settings.zeroExportFunction === '1') count++;
+    if (settings.remoteOnOffEnable === '1') count++;
+    if (settings.buzzerEnable === '1') count++;
+    if (settings.highVoltageRideThroughFunctionEnable === '1') count++;
+    if (settings.lowVoltageRideThroughFunctionEnable === '1') count++;
+    return count;
+  };
+
+  const getActiveRulesCount = () => {
+    let count = 0;
+    for (let i = 1; i <= 10; i++) {
+      const rule = settings[`ecoRule${i}`];
+      if (rule && rule.ruleMode === '1') count++;
+    }
+    return count;
+  };
+
   return (
     <div>
-      <Title level={2}>Device Settings & Configuration</Title>
+      {/* Header */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
+        <Col>
+          <Title level={2} style={{ margin: 0 }}>
+            <ControlOutlined /> Device Settings & Configuration
+          </Title>
+        </Col>
+      </Row>
 
-      {/* Device Selector */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space>
-          <Select
-            style={{ width: 300 }}
-            placeholder="Select device"
-            value={selectedDevice}
-            onChange={setSelectedDevice}
-            loading={loading}
-          >
-            {devices.map((device) => (
-              <Select.Option key={device.deviceSn} value={device.deviceSn}>
-                {device.deviceName || device.deviceSn}
-              </Select.Option>
-            ))}
-          </Select>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => selectedDevice && fetchSettings(selectedDevice)}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-          <Text type="secondary">Device SN: {settings.deviceSn}</Text>
-        </Space>
+      {/* Device Selector & Quick Stats */}
+      <Card
+        style={{ marginBottom: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}
+      >
+        <Row gutter={16} align="middle">
+          <Col flex="auto">
+            <Space size="large">
+              <div>
+                <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginBottom: 4 }}>
+                  Selected Device
+                </div>
+                <Select
+                  size="large"
+                  style={{ width: 350 }}
+                  placeholder="Select device"
+                  value={selectedDevice}
+                  onChange={setSelectedDevice}
+                  loading={loading}
+                >
+                  {devices.map((device) => (
+                    <Select.Option key={device.deviceSn} value={device.deviceSn}>
+                      <Space>
+                        <ThunderboltFilled />
+                        {device.deviceName || device.deviceSn}
+                      </Space>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </div>
+              <Divider type="vertical" style={{ borderColor: 'rgba(255,255,255,0.3)', height: 50 }} />
+              <div>
+                <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Device SN</div>
+                <div style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginTop: 4 }}>
+                  {settings.deviceSn}
+                </div>
+              </div>
+            </Space>
+          </Col>
+          <Col>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => selectedDevice && fetchSettings(selectedDevice)}
+              loading={loading}
+              size="large"
+            >
+              Refresh
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
-      <Tabs defaultActiveKey="grid">
+      {/* Quick Overview Stats */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ background: '#f0f5ff', border: '1px solid #adc6ff' }}>
+            <Statistic
+              title="Operation Mode"
+              value={settings.operatedMode === '0' ? 'General' : settings.operatedMode === '1' ? 'Backup' : 'Eco Mode'}
+              prefix={<DashboardOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ fontSize: 18, color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ background: '#f6ffed', border: '1px solid #b7eb8f' }}>
+            <Statistic
+              title="Active Features"
+              value={getEnabledCount()}
+              suffix="/ 5"
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ fontSize: 18, color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ background: '#fff7e6', border: '1px solid #ffd591' }}>
+            <Statistic
+              title="Economic Rules"
+              value={getActiveRulesCount()}
+              suffix="/ 10"
+              prefix={<ClockCircleOutlined style={{ color: '#fa8c16' }} />}
+              valueStyle={{ fontSize: 18, color: '#fa8c16' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ background: '#fff1f0', border: '1px solid #ffccc7' }}>
+            <Statistic
+              title="Grid Standard"
+              value={settings.gridStandardCode || 'N/A'}
+              prefix={<SafetyOutlined style={{ color: '#ff4d4f' }} />}
+              valueStyle={{ fontSize: 18, color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Tabs defaultActiveKey="grid" size="large">
         {/* Grid Settings */}
         <TabPane
           tab={
-            <span>
-              <ThunderboltOutlined />
-              Grid Settings
-            </span>
+            <Space>
+              <ThunderboltFilled />
+              <span>Grid Settings</span>
+            </Space>
           }
           key="grid"
         >
           <Card
-            title="Grid Configuration"
+            title={
+              <Space>
+                <ControlOutlined />
+                <span>Grid Configuration</span>
+              </Space>
+            }
             extra={
               <Button
+                type="primary"
                 icon={<EditOutlined />}
                 onClick={() =>
                   handleEdit('grid', {
@@ -193,79 +313,201 @@ const DeviceSettings: React.FC = () => {
                   })
                 }
               >
-                Edit
+                Edit Settings
               </Button>
             }
+            style={{ marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
           >
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="AC Output Rated Voltage">
-                {settings.acOutputRatedVoltage} V
-              </Descriptions.Item>
-              <Descriptions.Item label="AC Output Rated Frequency">
-                {settings.acOutputRatedFrequency} Hz
-              </Descriptions.Item>
-              <Descriptions.Item label="Grid Standard Code">
-                {settings.gridStandardCode}
-              </Descriptions.Item>
-              <Descriptions.Item label="On-Grid Power Limit">
-                {settings.onGridPowerLimit}%
-              </Descriptions.Item>
-              <Descriptions.Item label="On-Grid Power Slope">
-                {settings.onGridPowerSlope}
-              </Descriptions.Item>
-              <Descriptions.Item label="Power Factor">
-                {settings.powerFactor}
-              </Descriptions.Item>
-            </Descriptions>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f0f5ff', borderRadius: 8, border: '1px solid #d6e4ff' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>AC Output Voltage</Text>
+                  <div style={{ marginTop: 8, fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    {settings.acOutputRatedVoltage} <span style={{ fontSize: 14 }}>V</span>
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f0f5ff', borderRadius: 8, border: '1px solid #d6e4ff' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>AC Output Frequency</Text>
+                  <div style={{ marginTop: 8, fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    {settings.acOutputRatedFrequency} <span style={{ fontSize: 14 }}>Hz</span>
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f0f5ff', borderRadius: 8, border: '1px solid #d6e4ff' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Grid Standard</Text>
+                  <div style={{ marginTop: 8, fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    {settings.gridStandardCode}
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Power Limit</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Progress
+                      type="dashboard"
+                      percent={parseInt(settings.onGridPowerLimit || '0')}
+                      size={80}
+                      strokeColor="#52c41a"
+                    />
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Power Slope</Text>
+                  <div style={{ marginTop: 8, fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                    {settings.onGridPowerSlope}
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <div style={{ padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Power Factor</Text>
+                  <div style={{ marginTop: 8, fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                    {settings.powerFactor}
+                  </div>
+                </div>
+              </Col>
+            </Row>
           </Card>
 
-          <Divider />
-
-          <Card title="Voltage Protection Settings">
+          <Card
+            title={
+              <Space>
+                <SafetyOutlined />
+                <span>Voltage Protection Settings</span>
+              </Space>
+            }
+            style={{ marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+          >
             <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Text strong>Stage 1 Over-Voltage</Text>
-                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
-                  <Descriptions.Item label="Trip Value">
-                    {settings.overVoltageStage1TripValue} V
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Trip Time">
-                    {settings.overVoltageStage1TripTime} s
-                  </Descriptions.Item>
-                </Descriptions>
+              <Col xs={24} md={12}>
+                <Card
+                  size="small"
+                  title={
+                    <Space>
+                      <WarningOutlined style={{ color: '#ff4d4f' }} />
+                      <Text strong>Stage 1 Over-Voltage</Text>
+                    </Space>
+                  }
+                  style={{ background: '#fff1f0', border: '1px solid #ffccc7' }}
+                >
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Value"
+                        value={settings.overVoltageStage1TripValue}
+                        suffix="V"
+                        valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Time"
+                        value={settings.overVoltageStage1TripTime}
+                        suffix="s"
+                        valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
               </Col>
-              <Col span={12}>
-                <Text strong>Stage 2 Over-Voltage</Text>
-                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
-                  <Descriptions.Item label="Trip Value">
-                    {settings.overVoltageStage2TripValue} V
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Trip Time">
-                    {settings.overVoltageStage2TripTime} s
-                  </Descriptions.Item>
-                </Descriptions>
+              <Col xs={24} md={12}>
+                <Card
+                  size="small"
+                  title={
+                    <Space>
+                      <WarningOutlined style={{ color: '#ff4d4f' }} />
+                      <Text strong>Stage 2 Over-Voltage</Text>
+                    </Space>
+                  }
+                  style={{ background: '#fff1f0', border: '1px solid #ffccc7' }}
+                >
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Value"
+                        value={settings.overVoltageStage2TripValue}
+                        suffix="V"
+                        valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Time"
+                        value={settings.overVoltageStage2TripTime}
+                        suffix="s"
+                        valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
               </Col>
-              <Col span={12}>
-                <Text strong>Stage 1 Under-Voltage</Text>
-                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
-                  <Descriptions.Item label="Trip Value">
-                    {settings.underVoltageStage1TripValue} V
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Trip Time">
-                    {settings.underVoltageStage1TripTime} s
-                  </Descriptions.Item>
-                </Descriptions>
+              <Col xs={24} md={12}>
+                <Card
+                  size="small"
+                  title={
+                    <Space>
+                      <WarningOutlined style={{ color: '#faad14' }} />
+                      <Text strong>Stage 1 Under-Voltage</Text>
+                    </Space>
+                  }
+                  style={{ background: '#fffbe6', border: '1px solid #ffe58f' }}
+                >
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Value"
+                        value={settings.underVoltageStage1TripValue}
+                        suffix="V"
+                        valueStyle={{ color: '#faad14', fontSize: 20 }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Time"
+                        value={settings.underVoltageStage1TripTime}
+                        suffix="s"
+                        valueStyle={{ color: '#faad14', fontSize: 20 }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
               </Col>
-              <Col span={12}>
-                <Text strong>Stage 2 Under-Voltage</Text>
-                <Descriptions bordered column={1} size="small" style={{ marginTop: 8 }}>
-                  <Descriptions.Item label="Trip Value">
-                    {settings.underVoltageStage2TripValue} V
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Trip Time">
-                    {settings.underVoltageStage2TripTime} s
-                  </Descriptions.Item>
-                </Descriptions>
+              <Col xs={24} md={12}>
+                <Card
+                  size="small"
+                  title={
+                    <Space>
+                      <WarningOutlined style={{ color: '#faad14' }} />
+                      <Text strong>Stage 2 Under-Voltage</Text>
+                    </Space>
+                  }
+                  style={{ background: '#fffbe6', border: '1px solid #ffe58f' }}
+                >
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Value"
+                        value={settings.underVoltageStage2TripValue}
+                        suffix="V"
+                        valueStyle={{ color: '#faad14', fontSize: 20 }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Trip Time"
+                        value={settings.underVoltageStage2TripTime}
+                        suffix="s"
+                        valueStyle={{ color: '#faad14', fontSize: 20 }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
               </Col>
             </Row>
           </Card>

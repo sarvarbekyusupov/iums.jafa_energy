@@ -38,6 +38,24 @@ import FsolarTasksManagement from "../pages/admin/fsolar/tasks-management";
 import FsolarTaskMonitoring from "../pages/admin/fsolar/task-monitoring";
 import FsolarRunRecords from "../pages/admin/fsolar/run-records";
 import FsolarDeviceAlarms from "../pages/admin/fsolar/device-alarms";
+// SolisCloud pages
+import SolisCloudDashboard from "../pages/admin/soliscloud/dashboard";
+import SolisCloudStations from "../pages/admin/soliscloud/stations";
+import StationDetailPage from "../pages/admin/soliscloud/station-detail";
+import StationChartsPage from "../pages/admin/soliscloud/station-charts";
+import SolisCloudInverters from "../pages/admin/soliscloud/inverters";
+import InverterDetailPage from "../pages/admin/soliscloud/inverter-detail";
+import InverterChartsPage from "../pages/admin/soliscloud/inverter-charts";
+import SolisCloudAlarms from "../pages/admin/soliscloud/alarms";
+import SolisCloudCollectors from "../pages/admin/soliscloud/collectors";
+import CollectorDetailPage from "../pages/admin/soliscloud/collector-detail";
+import CollectorDiagnosticsPage from "../pages/admin/soliscloud/collector-diagnostics";
+import EPMListPage from "../pages/admin/soliscloud/epm-list";
+import EPMDetailPage from "../pages/admin/soliscloud/epm-detail";
+import EPMChartsPage from "../pages/admin/soliscloud/epm-charts";
+import WeatherListPage from "../pages/admin/soliscloud/weather-list";
+import WeatherDetailPage from "../pages/admin/soliscloud/weather-detail";
+import SolisCloudAPITest from "../pages/admin/soliscloud/api-test";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -109,6 +127,25 @@ const router = createBrowserRouter(
         <Route path="fsolar/monitor" element={<FsolarTaskMonitoring />} />
         <Route path="fsolar/records" element={<FsolarRunRecords />} />
         <Route path="fsolar/alarms" element={<FsolarDeviceAlarms />} />
+        {/* SolisCloud routes */}
+        <Route path="soliscloud" element={<Navigate to="/admin/soliscloud/dashboard" replace />} />
+        <Route path="soliscloud/dashboard" element={<SolisCloudDashboard />} />
+        <Route path="soliscloud/stations" element={<SolisCloudStations />} />
+        <Route path="soliscloud/stations/:id" element={<StationDetailPage />} />
+        <Route path="soliscloud/stations/:id/charts" element={<StationChartsPage />} />
+        <Route path="soliscloud/inverters" element={<SolisCloudInverters />} />
+        <Route path="soliscloud/inverters/:id" element={<InverterDetailPage />} />
+        <Route path="soliscloud/inverters/:id/charts" element={<InverterChartsPage />} />
+        <Route path="soliscloud/alarms" element={<SolisCloudAlarms />} />
+        <Route path="soliscloud/collectors" element={<SolisCloudCollectors />} />
+        <Route path="soliscloud/collectors/:id" element={<CollectorDetailPage />} />
+        <Route path="soliscloud/collectors/:sn/diagnostics" element={<CollectorDiagnosticsPage />} />
+        <Route path="soliscloud/epm" element={<EPMListPage />} />
+        <Route path="soliscloud/epm/:id" element={<EPMDetailPage />} />
+        <Route path="soliscloud/epm/:id/charts" element={<EPMChartsPage />} />
+        <Route path="soliscloud/weather" element={<WeatherListPage />} />
+        <Route path="soliscloud/weather/:sn" element={<WeatherDetailPage />} />
+        <Route path="soliscloud/api-test" element={<SolisCloudAPITest />} />
       </Route>
     </Route>
   )

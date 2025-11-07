@@ -74,13 +74,19 @@ const RealTimeMonitoring: React.FC = () => {
   // Fetch devices
   const fetchDevices = async () => {
     try {
+      console.log('📋 Fetching device list...');
       const result = await fsolarDeviceService.getAllDevices();
+      console.log('📋 Got devices:', result);
+      console.log('📋 Device count:', result.length);
       setDevices(result);
       if (result.length > 0 && !selectedDevice) {
+        console.log('📋 Auto-selecting first device:', result[0].deviceSn);
         setSelectedDevice(result[0].deviceSn);
+      } else {
+        console.log('📋 No auto-selection (already selected or no devices)');
       }
     } catch (error) {
-      console.error('Failed to fetch devices', error);
+      console.error('❌ Failed to fetch devices', error);
     }
   };
 
@@ -88,47 +94,65 @@ const RealTimeMonitoring: React.FC = () => {
   const fetchMetrics = async (deviceSn: string) => {
     try {
       setLoading(true);
-      const result: any = await fsolarDeviceService.getBatchDeviceHistory({
-        deviceSnList: deviceSn,
-        startTime: Math.floor(Date.now() / 1000),
-        endTime: Math.floor(Date.now() / 1000),
-        timeZone: 0,
-        queryType: 0,
-      });
+      console.log('🔍 Fetching metrics for device:', deviceSn);
 
-      if (result && result.data && result.data.length > 0) {
-        setMetrics(result.data[0] as DeviceMetrics);
+      // Use getDeviceBasicInfo for real-time data
+      const result: any = await fsolarDeviceService.getDeviceBasicInfo(deviceSn);
+
+      console.log('📦 API Response:', result);
+      console.log('📦 Result type:', typeof result);
+
+      // The basic info API returns the device metrics directly
+      if (result) {
+        console.log('✅ Got device data:', result);
+        setMetrics(result as DeviceMetrics);
+        console.log('✅ Metrics set successfully!');
+      } else {
+        console.warn('⚠️ No data in result');
       }
     } catch (error: any) {
+      console.error('❌ Fetch metrics error:', error);
+      console.error('❌ Error response:', error?.response?.data);
       message.error('Failed to fetch device metrics');
     } finally {
       setLoading(false);
+      console.log('🏁 Fetch metrics completed');
     }
   };
 
   useEffect(() => {
+    console.log('🚀 Component mounted, fetching devices...');
     fetchDevices();
   }, []);
 
   useEffect(() => {
+    console.log('📍 Selected device changed:', selectedDevice);
     if (selectedDevice) {
       fetchMetrics(selectedDevice);
     }
   }, [selectedDevice]);
 
   useEffect(() => {
+    console.log('🔄 Auto-refresh changed:', autoRefresh);
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
+      console.log('⏱️ Auto-refresh triggered');
       if (selectedDevice) {
         fetchMetrics(selectedDevice);
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🛑 Clearing auto-refresh interval');
+      clearInterval(interval);
+    };
   }, [selectedDevice, autoRefresh]);
 
+  console.log('🎨 Rendering component, metrics:', metrics ? 'EXISTS' : 'NULL', 'loading:', loading);
+
   if (!metrics) {
+    console.log('⏳ Showing loading screen because metrics is null');
     return (
       <div>
         <Title level={2}>Fsolar Real-time Monitoring</Title>
@@ -138,6 +162,8 @@ const RealTimeMonitoring: React.FC = () => {
       </div>
     );
   }
+
+  console.log('✅ Rendering full dashboard with metrics');
 
   const soc = parseFloat(metrics.emsSoc || '0');
   const temp = parseFloat(metrics.tempMax || '0');

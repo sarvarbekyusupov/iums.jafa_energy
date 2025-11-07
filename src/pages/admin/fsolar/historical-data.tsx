@@ -14,6 +14,8 @@ import {
   Statistic,
   Empty,
   Tabs,
+  Badge,
+  Divider,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -21,6 +23,11 @@ import {
   ClockCircleOutlined,
   LineChartOutlined,
   TableOutlined,
+  ThunderboltFilled,
+  SunOutlined,
+  FireOutlined,
+  DashboardOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import {
   LineChart,
@@ -32,7 +39,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
 } from 'recharts';
@@ -83,7 +90,7 @@ const HistoricalData: React.FC = () => {
   const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 50,
+    pageSize: 288, // 24 hours * 12 records per hour (5-min intervals)
     total: 0,
   });
 
@@ -106,17 +113,26 @@ const HistoricalData: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateStr = selectedDate.format('YYYY-MM-DD HH:mm:ss');
+      const dateStr = selectedDate.format('YYYY-MM-DD') + ' 00:00:00';
       const response: any = await fsolarDeviceService.getDeviceHistory(
         selectedDevice,
         { dateStr, pageNum: page, pageSize: pagination.pageSize } as any
       );
 
-      setHistoryData(response.dataList || []);
+      // Filter to show only data for the selected date (24 hours: 00:00 to 23:59)
+      const selectedDateStr = selectedDate.format('YYYY-MM-DD');
+
+      const filteredData = (response.dataList || []).filter((record: HistoryRecord) => {
+        // Extract just the date part from deviceDataTime (format: "2025-11-02 02:56:07")
+        const recordDateStr = record.deviceDataTime.split(' ')[0];
+        return recordDateStr === selectedDateStr;
+      });
+
+      setHistoryData(filteredData);
       setPagination({
         current: parseInt(response.currentPage),
         pageSize: parseInt(response.pageSize),
-        total: parseInt(response.total),
+        total: filteredData.length,
       });
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch historical data');
@@ -152,20 +168,60 @@ const HistoricalData: React.FC = () => {
     return { avgSoc, maxPvPower, avgGridInput, avgOutput };
   }, [historyData]);
 
-  // Prepare chart data
+  // Prepare chart data - aggregate by hour and fill all 24 hours
   const chartData = React.useMemo(() => {
-    return historyData.map(record => ({
-      time: record.dataTimeStr,
-      'Battery SOC': parseFloat(record.emsSoc || '0'),
-      'PV Power': parseFloat(record.pvTotalPower || '0'),
-      'Grid Input': parseFloat(record.acTtlInpower || '0'),
-      'Output Power': parseFloat(record.acTotalOutActPower || '0'),
-      'Battery Power': parseFloat(record.emsPower || '0'),
-      'Battery Voltage': parseFloat(record.emsVoltage || '0'),
-      'Temperature': parseFloat(record.tempMax || '0'),
-      'PV1 Power': parseFloat(record.pvPower || '0'),
-      'PV2 Power': parseFloat(record.pv2Power || '0'),
-    }));
+    // Group data by hour
+    const hourlyData: { [key: string]: HistoryRecord[] } = {};
+
+    historyData.forEach(record => {
+      // Extract hour from time string (format: "HH:MM:SS")
+      const hour = record.dataTimeStr.split(':')[0];
+      const hourKey = `${hour}:00`;
+
+      if (!hourlyData[hourKey]) {
+        hourlyData[hourKey] = [];
+      }
+      hourlyData[hourKey].push(record);
+    });
+
+    // Generate all 24 hours with data or null
+    const allHours = [];
+    for (let h = 0; h < 24; h++) {
+      const hourKey = `${h.toString().padStart(2, '0')}:00`;
+      const records = hourlyData[hourKey];
+
+      if (records && records.length > 0) {
+        const count = records.length;
+        allHours.push({
+          time: hourKey,
+          'Battery SOC': records.reduce((sum, r) => sum + parseFloat(r.emsSoc || '0'), 0) / count,
+          'PV Power': records.reduce((sum, r) => sum + parseFloat(r.pvTotalPower || '0'), 0) / count,
+          'Grid Input': records.reduce((sum, r) => sum + parseFloat(r.acTtlInpower || '0'), 0) / count,
+          'Output Power': records.reduce((sum, r) => sum + parseFloat(r.acTotalOutActPower || '0'), 0) / count,
+          'Battery Power': records.reduce((sum, r) => sum + parseFloat(r.emsPower || '0'), 0) / count,
+          'Battery Voltage': records.reduce((sum, r) => sum + parseFloat(r.emsVoltage || '0'), 0) / count,
+          'Temperature': records.reduce((sum, r) => sum + parseFloat(r.tempMax || '0'), 0) / count,
+          'PV1 Power': records.reduce((sum, r) => sum + parseFloat(r.pvPower || '0'), 0) / count,
+          'PV2 Power': records.reduce((sum, r) => sum + parseFloat(r.pv2Power || '0'), 0) / count,
+        });
+      } else {
+        // No data for this hour - add null values
+        allHours.push({
+          time: hourKey,
+          'Battery SOC': null,
+          'PV Power': null,
+          'Grid Input': null,
+          'Output Power': null,
+          'Battery Power': null,
+          'Battery Voltage': null,
+          'Temperature': null,
+          'PV1 Power': null,
+          'PV2 Power': null,
+        });
+      }
+    }
+
+    return allHours;
   }, [historyData]);
 
 
@@ -271,87 +327,194 @@ const HistoricalData: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>
-        <ClockCircleOutlined /> Historical Data & Trends
-      </Title>
-
-      {/* Controls */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Select
-            style={{ width: 300 }}
-            placeholder="Select device"
-            value={selectedDevice}
-            onChange={setSelectedDevice}
-          >
-            {devices.map((device) => (
-              <Select.Option key={device.deviceSn} value={device.deviceSn}>
-                {device.deviceName || device.deviceSn}
-              </Select.Option>
-            ))}
-          </Select>
-          <DatePicker
-            value={selectedDate}
-            onChange={(date) => date && setSelectedDate(date)}
-            format="YYYY-MM-DD"
-          />
-          <Button icon={<ReloadOutlined />} onClick={() => fetchHistoryData(1)} loading={loading}>
-            Refresh
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExport}
-            disabled={historyData.length === 0}
-          >
-            Export CSV
-          </Button>
-          <Text type="secondary">
-            Data Interval: 5 minutes | Total: {pagination.total} records
-          </Text>
-        </Space>
+      {/* Modern Header */}
+      <Card
+        style={{
+          marginBottom: 24,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          border: 'none',
+        }}
+      >
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <ClockCircleOutlined style={{ fontSize: 32, color: '#fff' }} />
+              <div>
+                <Title level={2} style={{ margin: 0, color: '#fff' }}>
+                  Historical Data & Trends
+                </Title>
+                <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
+                  View historical device metrics and performance trends
+                </Text>
+              </div>
+            </Space>
+          </Col>
+          <Col>
+            <Badge count={pagination.total} showZero overflowCount={999999} style={{ backgroundColor: '#52c41a' }} />
+          </Col>
+        </Row>
       </Card>
 
-      {/* Statistics */}
+      {/* Controls Card with Gradient */}
+      <Card
+        style={{
+          marginBottom: 16,
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          border: 'none',
+        }}
+      >
+        <Row gutter={16} align="middle">
+          <Col xs={24} sm={12} md={6}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#fff' }}>
+                Select Device
+              </Text>
+              <Select
+                style={{ width: '100%' }}
+                placeholder="Select device"
+                value={selectedDevice}
+                onChange={setSelectedDevice}
+                size="large"
+              >
+                {devices.map((device) => (
+                  <Select.Option key={device.deviceSn} value={device.deviceSn}>
+                    {device.deviceName || device.deviceSn}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#fff' }}>
+                Select Date
+              </Text>
+              <DatePicker
+                value={selectedDate}
+                onChange={(date) => date && setSelectedDate(date)}
+                format="YYYY-MM-DD"
+                style={{ width: '100%' }}
+                size="large"
+              />
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#fff' }}>
+                Actions
+              </Text>
+              <Space>
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchHistoryData(1)}
+                  loading={loading}
+                  size="large"
+                >
+                  Refresh
+                </Button>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleExport}
+                  disabled={historyData.length === 0}
+                  size="large"
+                >
+                  Export
+                </Button>
+              </Space>
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#fff' }}>
+                Data Info
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 16 }}>
+                📊 Interval: 5 min
+                <br />
+                📈 Records: {pagination.total}
+              </Text>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Statistics - Gradient Cards */}
       {stats && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={6}>
-            <Card>
+          <Col xs={24} sm={12} lg={6}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+                border: 'none',
+              }}
+            >
               <Statistic
-                title="Average Battery SOC"
+                title={<span style={{ color: 'rgba(255,255,255,0.85)' }}>Average Battery SOC</span>}
                 value={stats.avgSoc.toFixed(1)}
-                suffix="%"
-                valueStyle={{ color: '#3f8600' }}
+                suffix={<span style={{ fontSize: 16 }}>%</span>}
+                prefix={<ThunderboltFilled />}
+                valueStyle={{ color: '#fff', fontSize: 28 }}
               />
+              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
+                Mean state of charge
+              </div>
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={24} sm={12} lg={6}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #fa8c16 0%, #faad14 100%)',
+                border: 'none',
+              }}
+            >
               <Statistic
-                title="Peak PV Power"
+                title={<span style={{ color: 'rgba(255,255,255,0.85)' }}>Peak PV Power</span>}
                 value={stats.maxPvPower.toFixed(0)}
-                suffix="W"
-                valueStyle={{ color: '#faad14' }}
+                suffix={<span style={{ fontSize: 16 }}>W</span>}
+                prefix={<SunOutlined />}
+                valueStyle={{ color: '#fff', fontSize: 28 }}
               />
+              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
+                Maximum solar generation
+              </div>
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={24} sm={12} lg={6}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
+                border: 'none',
+              }}
+            >
               <Statistic
-                title="Avg Grid Input"
+                title={<span style={{ color: 'rgba(255,255,255,0.85)' }}>Avg Grid Input</span>}
                 value={stats.avgGridInput.toFixed(0)}
-                suffix="W"
-                valueStyle={{ color: '#1890ff' }}
+                suffix={<span style={{ fontSize: 16 }}>W</span>}
+                prefix={<DashboardOutlined />}
+                valueStyle={{ color: '#fff', fontSize: 28 }}
               />
+              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
+                Average grid import
+              </div>
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={24} sm={12} lg={6}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #f5222d 0%, #ff4d4f 100%)',
+                border: 'none',
+              }}
+            >
               <Statistic
-                title="Avg Output Power"
+                title={<span style={{ color: 'rgba(255,255,255,0.85)' }}>Avg Output Power</span>}
                 value={stats.avgOutput.toFixed(0)}
-                suffix="W"
-                valueStyle={{ color: '#cf1322' }}
+                suffix={<span style={{ fontSize: 16 }}>W</span>}
+                prefix={<FireOutlined />}
+                valueStyle={{ color: '#fff', fontSize: 28 }}
               />
+              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
+                Average load consumption
+              </div>
             </Card>
           </Col>
         </Row>
@@ -372,46 +535,107 @@ const HistoricalData: React.FC = () => {
                 children: (
                   <>
                     {/* Power Flow Chart */}
-                    <Card title="Power Flow Trends" style={{ marginBottom: 16 }}>
+                    <Card
+                      title={
+                        <Space>
+                          <RiseOutlined style={{ color: '#722ed1' }} />
+                          <span>Power Flow Trends</span>
+                        </Space>
+                      }
+                      style={{ marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                    >
                       <ResponsiveContainer width="100%" height={350}>
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
-                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft' }} />
-                          <Tooltip />
-                          <Legend />
-                          <Line type="monotone" dataKey="PV Power" stroke="#faad14" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="Grid Input" stroke="#1890ff" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="Output Power" stroke="#cf1322" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="Battery Power" stroke="#52c41a" strokeWidth={2} dot={false} />
+                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                          <defs>
+                            <linearGradient id="colorPV" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#faad14" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#faad14" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorGrid" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#1890ff" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} interval={0} />
+                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }} />
+                          <RechartsTooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #d9d9d9',
+                              borderRadius: 8,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            }}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: 20 }} />
+                          <Line type="monotone" dataKey="PV Power" stroke="#faad14" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                          <Line type="monotone" dataKey="Grid Input" stroke="#1890ff" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                          <Line type="monotone" dataKey="Output Power" stroke="#cf1322" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                          <Line type="monotone" dataKey="Battery Power" stroke="#52c41a" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                         </LineChart>
                       </ResponsiveContainer>
                     </Card>
 
                     {/* Battery Metrics */}
                     <Row gutter={16} style={{ marginBottom: 16 }}>
-                      <Col span={12}>
-                        <Card title="Battery State of Charge (SOC)">
+                      <Col xs={24} lg={12}>
+                        <Card
+                          title={
+                            <Space>
+                              <ThunderboltFilled style={{ color: '#52c41a' }} />
+                              <span>Battery State of Charge (SOC)</span>
+                            </Space>
+                          }
+                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                        >
                           <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={chartData}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
-                              <YAxis domain={[0, 100]} label={{ value: 'SOC (%)', angle: -90, position: 'insideLeft' }} />
-                              <Tooltip />
-                              <Area type="monotone" dataKey="Battery SOC" stroke="#52c41a" fill="#95de64" />
+                            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                              <defs>
+                                <linearGradient id="colorSOC" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
+                                  <stop offset="95%" stopColor="#52c41a" stopOpacity={0.1}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} interval={0} />
+                              <YAxis domain={[0, 100]} label={{ value: 'SOC (%)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }} />
+                              <RechartsTooltip
+                                contentStyle={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                  border: '1px solid #d9d9d9',
+                                  borderRadius: 8,
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                }}
+                              />
+                              <Area type="monotone" dataKey="Battery SOC" stroke="#52c41a" strokeWidth={2} fill="url(#colorSOC)" />
                             </AreaChart>
                           </ResponsiveContainer>
                         </Card>
                       </Col>
-                      <Col span={12}>
-                        <Card title="Battery Voltage">
+                      <Col xs={24} lg={12}>
+                        <Card
+                          title={
+                            <Space>
+                              <ThunderboltFilled style={{ color: '#722ed1' }} />
+                              <span>Battery Voltage</span>
+                            </Space>
+                          }
+                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                        >
                           <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={chartData}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
-                              <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft' }} />
-                              <Tooltip />
-                              <Line type="monotone" dataKey="Battery Voltage" stroke="#722ed1" strokeWidth={2} />
+                            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                              <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} interval={0} />
+                              <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }} />
+                              <RechartsTooltip
+                                contentStyle={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                  border: '1px solid #d9d9d9',
+                                  borderRadius: 8,
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                }}
+                              />
+                              <Line type="monotone" dataKey="Battery Voltage" stroke="#722ed1" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                             </LineChart>
                           </ResponsiveContainer>
                         </Card>
@@ -419,29 +643,65 @@ const HistoricalData: React.FC = () => {
                     </Row>
 
                     {/* PV Performance */}
-                    <Card title="PV String Performance Comparison" style={{ marginBottom: 16 }}>
+                    <Card
+                      title={
+                        <Space>
+                          <SunOutlined style={{ color: '#fa8c16' }} />
+                          <span>PV String Performance Comparison</span>
+                        </Space>
+                      }
+                      style={{ marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                    >
                       <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
-                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft' }} />
-                          <Tooltip />
-                          <Legend />
-                          <Bar dataKey="PV1 Power" fill="#ffa940" />
-                          <Bar dataKey="PV2 Power" fill="#ff7a45" />
+                        <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} interval={0} />
+                          <YAxis label={{ value: 'Power (W)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }} />
+                          <RechartsTooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #d9d9d9',
+                              borderRadius: 8,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            }}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: 20 }} />
+                          <Bar dataKey="PV1 Power" fill="#ffa940" radius={[8, 8, 0, 0]} />
+                          <Bar dataKey="PV2 Power" fill="#ff7a45" radius={[8, 8, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </Card>
 
                     {/* Temperature Monitoring */}
-                    <Card title="Temperature Monitoring">
+                    <Card
+                      title={
+                        <Space>
+                          <FireOutlined style={{ color: '#f5222d' }} />
+                          <span>Temperature Monitoring</span>
+                        </Space>
+                      }
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                    >
                       <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} />
-                          <YAxis label={{ value: 'Temperature (°C)', angle: -90, position: 'insideLeft' }} />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="Temperature" stroke="#f5222d" strokeWidth={2} />
+                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                          <defs>
+                            <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f5222d" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#f5222d" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="time" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} interval={0} />
+                          <YAxis label={{ value: 'Temperature (°C)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }} />
+                          <RechartsTooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #d9d9d9',
+                              borderRadius: 8,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            }}
+                          />
+                          <Line type="monotone" dataKey="Temperature" stroke="#f5222d" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </Card>
@@ -456,7 +716,16 @@ const HistoricalData: React.FC = () => {
                   </span>
                 ),
                 children: (
-                  <Card title="Detailed Records">
+                  <Card
+                    title={
+                      <Space>
+                        <TableOutlined style={{ color: '#1890ff' }} />
+                        <span>Detailed Historical Records</span>
+                        <Badge count={pagination.total} showZero overflowCount={999999} style={{ backgroundColor: '#52c41a' }} />
+                      </Space>
+                    }
+                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                  >
                     <Table
                       columns={columns}
                       dataSource={historyData}
@@ -471,6 +740,7 @@ const HistoricalData: React.FC = () => {
                       onChange={handleTableChange}
                       scroll={{ x: 1800 }}
                       size="small"
+                      bordered
                     />
                   </Card>
                 ),

@@ -27,6 +27,8 @@ import {
   AppstoreOutlined,
   DatabaseOutlined,
   LineChartOutlined,
+  CloudOutlined,
+  WifiOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../helpers/hooks/useAuth";
@@ -50,6 +52,9 @@ const AdminLayout: React.FC = () => {
     } else if (path.startsWith("/admin/fsolar")) {
       // If we're on Fsolar pages, open the Fsolar submenu
       setOpenKeys(["fsolar"]);
+    } else if (path.startsWith("/admin/soliscloud")) {
+      // If we're on SolisCloud pages, open the SolisCloud submenu
+      setOpenKeys(["soliscloud"]);
     } else {
       // Otherwise, open the General Dashboard
       setOpenKeys(["general-dashboard"]);
@@ -232,6 +237,61 @@ const AdminLayout: React.FC = () => {
           icon: <BellOutlined />,
           label: "Device Alarms",
           onClick: () => navigate("/admin/fsolar/alarms"),
+        },
+      ],
+    },
+    {
+      key: "soliscloud",
+      icon: <CloudServerOutlined />,
+      label: "SolisCloud",
+      children: [
+        {
+          key: "/admin/soliscloud/dashboard",
+          icon: <DashboardOutlined />,
+          label: "Dashboard",
+          onClick: () => navigate("/admin/soliscloud/dashboard"),
+        },
+        {
+          key: "/admin/soliscloud/stations",
+          icon: <HomeOutlined />,
+          label: "Stations",
+          onClick: () => navigate("/admin/soliscloud/stations"),
+        },
+        {
+          key: "/admin/soliscloud/inverters",
+          icon: <ThunderboltOutlined />,
+          label: "Inverters",
+          onClick: () => navigate("/admin/soliscloud/inverters"),
+        },
+        {
+          key: "/admin/soliscloud/alarms",
+          icon: <BellOutlined />,
+          label: "Alarms",
+          onClick: () => navigate("/admin/soliscloud/alarms"),
+        },
+        {
+          key: "/admin/soliscloud/collectors",
+          icon: <WifiOutlined />,
+          label: "Collectors",
+          onClick: () => navigate("/admin/soliscloud/collectors"),
+        },
+        {
+          key: "/admin/soliscloud/epm",
+          icon: <LineChartOutlined />,
+          label: "EPM",
+          onClick: () => navigate("/admin/soliscloud/epm"),
+        },
+        {
+          key: "/admin/soliscloud/weather",
+          icon: <CloudOutlined />,
+          label: "Weather",
+          onClick: () => navigate("/admin/soliscloud/weather"),
+        },
+        {
+          key: "/admin/soliscloud/api-test",
+          icon: <SettingOutlined />,
+          label: "API Test",
+          onClick: () => navigate("/admin/soliscloud/api-test"),
         },
       ],
     },
