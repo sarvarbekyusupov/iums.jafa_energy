@@ -49,7 +49,7 @@ const WeatherListPage: React.FC = () => {
         pageSize: pagination.pageSize,
       });
 
-      setData(response.records || []);
+      setData(response.records as any || []);
       setPagination({
         ...pagination,
         total: response.total || 0,

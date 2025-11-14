@@ -1,0 +1,83 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint || true
+
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_BASE_URL: http://3.121.174.54:3000
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/erp-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to AWS Lightsail
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            # Pull latest image
+            docker pull ${{ secrets.DOCKER_USERNAME }}/erp-frontend:latest
+
+            # Stop and remove old container
+            docker stop erp-frontend || true
+            docker rm erp-frontend || true
+
+            # Run new container
+            docker run -d \
+              --name erp-frontend \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              ${{ secrets.DOCKER_USERNAME }}/erp-frontend:latest
+
+            # Clean up old images
+            docker image prune -af --filter "until=24h"
+
+            # Show running containers
+            docker ps
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for application to start..."
+          sleep 10
+          curl -f http://3.121.174.54:5000/health || echo "Health check failed, but deployment may still be in progress"

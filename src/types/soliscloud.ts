@@ -39,6 +39,8 @@ export interface Inverter {
   etoday: number;
   etotal: number;
   batteryCapacitySoc: number;
+  model?: string;
+  power?: number;
 }
 
 export interface InverterListResponse {
@@ -169,6 +171,8 @@ export interface Station {
   eToday: number;
   eTotal: number;
   pac: number;
+  cityStr?: string;
+  countryStr?: string;
 }
 
 export interface StationDetail extends Station {

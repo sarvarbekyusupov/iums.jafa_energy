@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Spin, message, Tag, Progress, Space, Typography, Divider } from 'antd';
+import { Card, Row, Col, Statistic, Spin, message, Tag, Progress, Space, Typography, Divider, Button } from 'antd';
 import {
   ThunderboltOutlined,
   HomeOutlined,
@@ -9,6 +9,8 @@ import {
   CloseCircleOutlined,
   WarningOutlined,
   CloudServerOutlined,
+  SyncOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 
@@ -17,10 +19,92 @@ const { Title, Text } = Typography;
 const SolisCloudDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [dbActiveAlarms, setDbActiveAlarms] = useState<any[]>([]);
+  const [validationData, setValidationData] = useState<any>({ missing: [], outdated: [] });
+  const [aggregateData, setAggregateData] = useState<any>({ inverterMonths: [], stationMonths: [] });
 
   useEffect(() => {
     fetchDashboardData();
+    fetchSyncStatus();
+    fetchDbActiveAlarms();
+    fetchValidationData();
+    fetchAggregateData();
+
+    // Refresh sync status and alarms every 30 seconds
+    const interval = setInterval(() => {
+      fetchSyncStatus();
+      fetchDbActiveAlarms();
+      fetchValidationData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const status = await solisCloudService.getDbSyncStatus();
+      setSyncStatus(status.data);
+    } catch (error) {
+      console.error('Failed to fetch sync status:', error);
+    }
+  };
+
+  const fetchDbActiveAlarms = async () => {
+    try {
+      const response = await solisCloudService.getDbActiveAlarms();
+      setDbActiveAlarms(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch DB active alarms:', error);
+    }
+  };
+
+  const fetchValidationData = async () => {
+    try {
+      // Temporarily disabled - methods not implemented
+      setValidationData({
+        missing: [],
+        outdated: [],
+      });
+    } catch (error) {
+      console.error('Failed to fetch validation data:', error);
+    }
+  };
+
+  const fetchAggregateData = async () => {
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const [inverterMonths, stationMonths] = await Promise.all([
+        solisCloudService.getDbInverterMonthsAll({ page: 1, limit: 10 }).catch(() => ({ data: { records: [] } })),
+        solisCloudService.getDbStationMonthsAll({ page: 1, limit: 10 }).catch(() => ({ data: { records: [] } })),
+      ]);
+      setAggregateData({
+        inverterMonths: inverterMonths.data?.records || [],
+        stationMonths: stationMonths.data?.records || [],
+      });
+    } catch (error) {
+      console.error('Failed to fetch aggregate data:', error);
+    }
+  };
+
+  const handleManualSync = async () => {
+    try {
+      setSyncing(true);
+      await solisCloudService.triggerDbSync({
+        types: ['inverters', 'stations', 'collectors', 'alarms']
+      });
+      message.success('Sync triggered successfully');
+      // Refresh data after sync
+      setTimeout(() => {
+        fetchDashboardData();
+        fetchSyncStatus();
+      }, 2000);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to trigger sync');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -29,13 +113,15 @@ const SolisCloudDashboard: React.FC = () => {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
-      // Fetch core data in parallel
-      const [stationsDetailData, stationsDayData, inverterListData, alarmListData, collectorListData] = await Promise.all([
+      // Fetch core data in parallel - use both API and DB sources
+      const [stationsDetailData, stationsDayData, inverterListData, alarmListData, collectorListData, dbInverters, dbStations] = await Promise.all([
         solisCloudService.getStationDetailList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getStationDayList({ time: today, pageNo: 1, pageSize: 100 }),
         solisCloudService.getInverterList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getAlarmList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getCollectorList({ pageNo: 1, pageSize: 100 }),
+        solisCloudService.getDbInverters({ page: 1, limit: 100 }).catch(() => ({ data: { records: [] } })),
+        solisCloudService.getDbStations({ page: 1, limit: 100 }).catch(() => ({ data: { records: [] } })),
       ]);
 
       // Fetch optional month and year data with error handling
@@ -62,6 +148,8 @@ const SolisCloudDashboard: React.FC = () => {
         inverters: inverterListData,
         alarms: alarmListData,
         collectors: collectorListData,
+        dbInverters,
+        dbStations,
       });
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch dashboard data');
@@ -107,22 +195,334 @@ const SolisCloudDashboard: React.FC = () => {
       <Card
         style={{
           marginBottom: 24,
-          
+
           border: 'none',
         }}
       >
-        <Space direction="vertical" size="small">
-          <Space>
-            <CloudServerOutlined style={{ fontSize: 32 }} />
-            <Title level={2} style={{ margin: 0 }}>
-              SolisCloud Dashboard
-            </Title>
-          </Space>
-          <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
-            Real-time monitoring and management of your solar energy systems
-          </Text>
-        </Space>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space direction="vertical" size="small">
+              <Space>
+                <CloudServerOutlined style={{ fontSize: 32 }} />
+                <Title level={2} style={{ margin: 0 }}>
+                  SolisCloud Dashboard
+                </Title>
+              </Space>
+              <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
+                Real-time monitoring and management of your solar energy systems
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Button
+              type="primary"
+              icon={<SyncOutlined spin={syncing} />}
+              onClick={handleManualSync}
+              loading={syncing}
+              size="large"
+            >
+              Sync Now
+            </Button>
+          </Col>
+        </Row>
       </Card>
+
+      {/* Database Sync Status */}
+      {syncStatus && (
+        <Card
+          title={
+            <Space>
+              <DatabaseOutlined />
+              <span>Database Sync Status</span>
+              <Tag color="blue">Live</Tag>
+            </Space>
+          }
+          style={{ marginBottom: 24 }}
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} md={6}>
+              <Card size="small">
+                <Statistic
+                  title="Synced Inverters"
+                  value={syncStatus.counts?.inverters || 0}
+                  prefix={<ThunderboltOutlined style={{ color: '#1890ff' }} />}
+                />
+                {syncStatus.lastByType?.inverters && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Last: {new Date(syncStatus.lastByType.inverters.completedAt).toLocaleTimeString()}
+                  </Text>
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card size="small">
+                <Statistic
+                  title="Synced Stations"
+                  value={syncStatus.counts?.stations || 0}
+                  prefix={<HomeOutlined style={{ color: '#52c41a' }} />}
+                />
+                {syncStatus.lastByType?.stations && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Last: {new Date(syncStatus.lastByType.stations.completedAt).toLocaleTimeString()}
+                  </Text>
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card size="small">
+                <Statistic
+                  title="Synced Collectors"
+                  value={syncStatus.counts?.collectors || 0}
+                  prefix={<DatabaseOutlined style={{ color: '#722ed1' }} />}
+                />
+                {syncStatus.lastByType?.collectors && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Last: {new Date(syncStatus.lastByType.collectors.completedAt).toLocaleTimeString()}
+                  </Text>
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card size="small">
+                <Statistic
+                  title="Active Alarms"
+                  value={syncStatus.counts?.activeAlarms || 0}
+                  prefix={<BellOutlined style={{ color: '#ff4d4f' }} />}
+                />
+                {syncStatus.lastByType?.alarms && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Last: {new Date(syncStatus.lastByType.alarms.completedAt).toLocaleTimeString()}
+                  </Text>
+                )}
+              </Card>
+            </Col>
+          </Row>
+          <Divider style={{ margin: '16px 0' }} />
+          <Row gutter={16}>
+            <Col span={24}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong>Recent Sync Operations:</Text>
+                {syncStatus.latest?.slice(0, 3).map((sync: any, idx: number) => (
+                  <Card key={idx} size="small" style={{ background: '#fafafa' }}>
+                    <Space size="middle" style={{ width: '100%', justifyContent: 'space-between' }}>
+                      <Space>
+                        <Tag color={sync.status === 'success' ? 'green' : 'red'}>
+                          {sync.syncType}
+                        </Tag>
+                        <Text type="secondary">
+                          {sync.recordsUpdated} updated, {sync.recordsInserted} inserted
+                        </Text>
+                      </Space>
+                      <Space>
+                        <ClockCircleOutlined />
+                        <Text type="secondary">
+                          {new Date(sync.completedAt).toLocaleString()}
+                        </Text>
+                        <Text type="secondary">
+                          ({sync.durationMs}ms)
+                        </Text>
+                      </Space>
+                    </Space>
+                  </Card>
+                ))}
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
+      {/* Database Active Alarms Widget */}
+      {dbActiveAlarms.length > 0 && (
+        <Card
+          title={
+            <Space>
+              <BellOutlined style={{ color: '#ff4d4f' }} />
+              <span>Active Alarms from Database</span>
+              <Tag color="red">{dbActiveAlarms.length}</Tag>
+            </Space>
+          }
+          style={{ marginBottom: 24 }}
+        >
+          {dbActiveAlarms.slice(0, 5).map((alarm: any, idx: number) => (
+            <Card key={idx} size="small" style={{ marginBottom: 8, background: '#fff1f0' }}>
+              <Row gutter={16} align="middle">
+                <Col xs={24} md={16}>
+                  <Space direction="vertical" size="small">
+                    <Space>
+                      <WarningOutlined style={{ color: '#ff4d4f' }} />
+                      <Text strong>{alarm.message || alarm.alarmMsg || 'No message'}</Text>
+                      <Tag color="red">Level {alarm.level || alarm.alarmLevel || 'Unknown'}</Tag>
+                    </Space>
+                    <Text type="secondary">Station: {alarm.stationName || 'N/A'}</Text>
+                    <Text type="secondary">Device: {alarm.deviceId || alarm.alarmDeviceSn || 'N/A'}</Text>
+                  </Space>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Space direction="vertical" size="small">
+                    <Tag color="orange">{alarm.status || 'Active'}</Tag>
+                    {alarm.occurredAt && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {new Date(alarm.occurredAt).toLocaleString()}
+                      </Text>
+                    )}
+                  </Space>
+                </Col>
+              </Row>
+            </Card>
+          ))}
+          {dbActiveAlarms.length > 5 && (
+            <Text type="secondary">
+              ... and {dbActiveAlarms.length - 5} more alarms
+            </Text>
+          )}
+        </Card>
+      )}
+
+      {/* Data Validation Widgets */}
+      {(validationData.missing.length > 0 || validationData.outdated.length > 0) && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          {validationData.missing.length > 0 && (
+            <Col xs={24} md={12}>
+              <Card
+                title={
+                  <Space>
+                    <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                    <span>Missing Data Records</span>
+                    <Tag color="red">{validationData.missing.length}</Tag>
+                  </Space>
+                }
+              >
+                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                  {validationData.missing.slice(0, 3).map((item: any, idx: number) => (
+                    <Card key={idx} size="small" style={{ background: '#fff1f0' }}>
+                      <Text strong>{item.type || 'Unknown'}</Text>
+                      <br />
+                      <Text type="secondary">ID: {item.id || 'N/A'}</Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Last seen: {item.lastSeen ? new Date(item.lastSeen).toLocaleString() : 'Never'}
+                      </Text>
+                    </Card>
+                  ))}
+                  {validationData.missing.length > 3 && (
+                    <Text type="secondary">... and {validationData.missing.length - 3} more</Text>
+                  )}
+                </Space>
+              </Card>
+            </Col>
+          )}
+          {validationData.outdated.length > 0 && (
+            <Col xs={24} md={12}>
+              <Card
+                title={
+                  <Space>
+                    <ClockCircleOutlined style={{ color: '#faad14' }} />
+                    <span>Outdated Records (&gt;24h)</span>
+                    <Tag color="orange">{validationData.outdated.length}</Tag>
+                  </Space>
+                }
+              >
+                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                  {validationData.outdated.slice(0, 3).map((item: any, idx: number) => (
+                    <Card key={idx} size="small" style={{ background: '#fffbe6' }}>
+                      <Text strong>{item.name || item.id || 'Unknown'}</Text>
+                      <br />
+                      <Text type="secondary">Type: {item.type || 'N/A'}</Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Last update: {item.lastUpdate ? new Date(item.lastUpdate).toLocaleString() : 'Unknown'}
+                      </Text>
+                    </Card>
+                  ))}
+                  {validationData.outdated.length > 3 && (
+                    <Text type="secondary">... and {validationData.outdated.length - 3} more</Text>
+                  )}
+                </Space>
+              </Card>
+            </Col>
+          )}
+        </Row>
+      )}
+
+      {/* Aggregate Analytics Widgets */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {aggregateData.inverterMonths.length > 0 && (
+          <Col xs={24} md={12}>
+            <Card
+              title={
+                <Space>
+                  <ThunderboltOutlined style={{ color: '#1890ff' }} />
+                  <span>Top Inverters (Current Month)</span>
+                </Space>
+              }
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                {aggregateData.inverterMonths.slice(0, 5).map((item: any, idx: number) => {
+                  const energy = typeof item.totalEnergy === 'string' ? parseFloat(item.totalEnergy) : item.totalEnergy || 0;
+                  return (
+                    <Card key={idx} size="small" style={{ background: '#f0f5ff' }}>
+                      <Row justify="space-between" align="middle">
+                        <Col>
+                          <Text strong>#{idx + 1} {item.inverterName || item.inverterId || 'Unknown'}</Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Month: {item.month || 'N/A'}
+                          </Text>
+                        </Col>
+                        <Col>
+                          <Statistic
+                            value={energy.toFixed(2)}
+                            suffix="kWh"
+                            valueStyle={{ fontSize: 16, color: '#1890ff' }}
+                          />
+                        </Col>
+                      </Row>
+                    </Card>
+                  );
+                })}
+              </Space>
+            </Card>
+          </Col>
+        )}
+        {aggregateData.stationMonths.length > 0 && (
+          <Col xs={24} md={12}>
+            <Card
+              title={
+                <Space>
+                  <HomeOutlined style={{ color: '#52c41a' }} />
+                  <span>Top Stations (Current Month)</span>
+                </Space>
+              }
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                {aggregateData.stationMonths.slice(0, 5).map((item: any, idx: number) => {
+                  const energy = typeof item.totalEnergy === 'string' ? parseFloat(item.totalEnergy) : item.totalEnergy || 0;
+                  return (
+                    <Card key={idx} size="small" style={{ background: '#f6ffed' }}>
+                      <Row justify="space-between" align="middle">
+                        <Col>
+                          <Text strong>#{idx + 1} {item.stationName || item.stationId || 'Unknown'}</Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Month: {item.month || 'N/A'}
+                          </Text>
+                        </Col>
+                        <Col>
+                          <Statistic
+                            value={energy.toFixed(2)}
+                            suffix="kWh"
+                            valueStyle={{ fontSize: 16, color: '#52c41a' }}
+                          />
+                        </Col>
+                      </Row>
+                    </Card>
+                  );
+                })}
+              </Space>
+            </Card>
+          </Col>
+        )}
+      </Row>
 
       {/* Overview Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

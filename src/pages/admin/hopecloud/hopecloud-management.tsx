@@ -502,7 +502,7 @@ const HopeCloudManagement: React.FC = () => {
       // Handle different response structures
       const moduleData = response.data || response;
 
-      setSelectedCommModuleDetails(moduleData);
+      setSelectedCommModuleDetails(moduleData as any);
       setCommModuleDetailsVisible(true);
     } catch (error: any) {
       console.error('[COMM_MODULE_DETAILS] Error:', error);
