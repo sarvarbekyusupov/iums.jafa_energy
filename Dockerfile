@@ -3,18 +3,22 @@
 # Stage 1: Build
 FROM node:20-alpine AS builder
 
+# Build argument for API URL
+ARG VITE_BASE_URL=http://3.121.174.54:3000
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application with environment variable
+ENV VITE_BASE_URL=${VITE_BASE_URL}
 RUN npm run build
 
 # Stage 2: Production
