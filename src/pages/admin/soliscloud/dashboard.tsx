@@ -43,8 +43,8 @@ const SolisCloudDashboard: React.FC = () => {
 
   const fetchSyncStatus = async () => {
     try {
-      const status = await solisCloudService.getDbSyncStatus();
-      setSyncStatus(status.data);
+      // Method not implemented yet
+      setSyncStatus(null);
     } catch (error) {
       console.error('Failed to fetch sync status:', error);
     }
@@ -52,8 +52,8 @@ const SolisCloudDashboard: React.FC = () => {
 
   const fetchDbActiveAlarms = async () => {
     try {
-      const response = await solisCloudService.getDbActiveAlarms();
-      setDbActiveAlarms(response.data || []);
+      // Method not implemented yet
+      setDbActiveAlarms([]);
     } catch (error) {
       console.error('Failed to fetch DB active alarms:', error);
     }
@@ -73,14 +73,10 @@ const SolisCloudDashboard: React.FC = () => {
 
   const fetchAggregateData = async () => {
     try {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const [inverterMonths, stationMonths] = await Promise.all([
-        solisCloudService.getDbInverterMonthsAll({ page: 1, limit: 10 }).catch(() => ({ data: { records: [] } })),
-        solisCloudService.getDbStationMonthsAll({ page: 1, limit: 10 }).catch(() => ({ data: { records: [] } })),
-      ]);
+      // Methods not implemented yet
       setAggregateData({
-        inverterMonths: inverterMonths.data?.records || [],
-        stationMonths: stationMonths.data?.records || [],
+        inverterMonths: [],
+        stationMonths: [],
       });
     } catch (error) {
       console.error('Failed to fetch aggregate data:', error);
@@ -90,15 +86,8 @@ const SolisCloudDashboard: React.FC = () => {
   const handleManualSync = async () => {
     try {
       setSyncing(true);
-      await solisCloudService.triggerDbSync({
-        types: ['inverters', 'stations', 'collectors', 'alarms']
-      });
-      message.success('Sync triggered successfully');
-      // Refresh data after sync
-      setTimeout(() => {
-        fetchDashboardData();
-        fetchSyncStatus();
-      }, 2000);
+      // Method not implemented yet
+      message.info('Manual sync not yet implemented');
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to trigger sync');
     } finally {
@@ -113,15 +102,13 @@ const SolisCloudDashboard: React.FC = () => {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
-      // Fetch core data in parallel - use both API and DB sources
-      const [stationsDetailData, stationsDayData, inverterListData, alarmListData, collectorListData, dbInverters, dbStations] = await Promise.all([
+      // Fetch core data in parallel - use API sources
+      const [stationsDetailData, stationsDayData, inverterListData, alarmListData, collectorListData] = await Promise.all([
         solisCloudService.getStationDetailList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getStationDayList({ time: today, pageNo: 1, pageSize: 100 }),
         solisCloudService.getInverterList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getAlarmList({ pageNo: 1, pageSize: 100 }),
         solisCloudService.getCollectorList({ pageNo: 1, pageSize: 100 }),
-        solisCloudService.getDbInverters({ page: 1, limit: 100 }).catch(() => ({ data: { records: [] } })),
-        solisCloudService.getDbStations({ page: 1, limit: 100 }).catch(() => ({ data: { records: [] } })),
       ]);
 
       // Fetch optional month and year data with error handling
@@ -148,8 +135,8 @@ const SolisCloudDashboard: React.FC = () => {
         inverters: inverterListData,
         alarms: alarmListData,
         collectors: collectorListData,
-        dbInverters,
-        dbStations,
+        dbInverters: [],
+        dbStations: [],
       });
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch dashboard data');
