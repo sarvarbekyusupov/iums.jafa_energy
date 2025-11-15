@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Progress, Modal, Form, InputNumber, Select } from 'antd';
+import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Progress, Modal, Form, InputNumber, Select, Switch, Tooltip } from 'antd';
 import {
   HomeOutlined,
   CheckCircleOutlined,
@@ -10,6 +10,8 @@ import {
   SearchOutlined,
   ThunderboltOutlined,
   PlusOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { Station } from '../../../types/soliscloud';
@@ -26,10 +28,11 @@ const SolisCloudStations: React.FC = () => {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [form] = Form.useForm();
+  const [useDbSource, setUseDbSource] = useState(false);
 
   useEffect(() => {
     fetchStations();
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination.current, pagination.pageSize, useDbSource]);
 
   useEffect(() => {
     filterStations();
@@ -38,16 +41,31 @@ const SolisCloudStations: React.FC = () => {
   const fetchStations = async () => {
     try {
       setLoading(true);
-      const response = await solisCloudService.getStationList({
-        pageNo: pagination.current,
-        pageSize: pagination.pageSize,
-      });
 
-      setStations(response.records || []);
-      setFilteredStations(response.records || []);
-      setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      if (useDbSource) {
+        // Fetch from database
+        const response = await solisCloudService.getDbStations({
+          page: pagination.current,
+          limit: pagination.pageSize,
+        });
+
+        const records = response.data?.records || [];
+        setStations(records);
+        setFilteredStations(records);
+        setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
+      } else {
+        // Fetch from API
+        const response = await solisCloudService.getStationList({
+          pageNo: pagination.current,
+          pageSize: pagination.pageSize,
+        });
+
+        setStations(response.records || []);
+        setFilteredStations(response.records || []);
+        setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      }
     } catch (error: any) {
-      message.error(error?.response?.data?.msg || 'Failed to fetch stations');
+      message.error(error?.response?.data?.msg || error?.response?.data?.message || 'Failed to fetch stations');
     } finally {
       setLoading(false);
     }
@@ -200,9 +218,16 @@ const SolisCloudStations: React.FC = () => {
   const normalStations = stations.filter(s => s.state === 1).length;
   const offlineStations = stations.filter(s => s.state === 2).length;
   const alarmStations = stations.filter(s => s.state === 3).length;
-  const totalCapacity = stations.reduce((sum, s) => sum + (s.capacity || 0), 0);
-  const totalPower = stations.reduce((sum, s) => sum + (s.pac || 0), 0);
-  const totalEnergyToday = stations.reduce((sum, s) => sum + (s.eToday || 0), 0);
+
+  // Handle both string and number values from API/DB
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
+
+  const totalCapacity = stations.reduce((sum, s) => sum + parseValue(s.capacity), 0);
+  const totalPower = stations.reduce((sum, s) => sum + parseValue(s.pac), 0);
+  const totalEnergyToday = stations.reduce((sum, s) => sum + parseValue(s.eToday), 0);
 
   return (
     <div>
@@ -210,21 +235,44 @@ const SolisCloudStations: React.FC = () => {
       <Card
         style={{
           marginBottom: 24,
-          
+
           border: 'none',
         }}
       >
-        <Space direction="vertical" size="small">
-          <Space>
-            <HomeOutlined style={{ fontSize: 32 }} />
-            <Title level={2} style={{ margin: 0 }}>
-              Solar Stations
-            </Title>
-          </Space>
-          <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
-            Monitor and manage your solar power stations
-          </Text>
-        </Space>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space direction="vertical" size="small">
+              <Space>
+                <HomeOutlined style={{ fontSize: 32 }} />
+                <Title level={2} style={{ margin: 0 }}>
+                  Solar Stations
+                </Title>
+              </Space>
+              <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
+                Monitor and manage your solar power stations
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space size="large">
+              <Tooltip title={useDbSource ? "Switch to Real-time API Data" : "Switch to Database (Synced) Data"}>
+                <Space>
+                  <CloudOutlined style={{ color: useDbSource ? '#bfbfbf' : '#52c41a' }} />
+                  <Switch
+                    checked={useDbSource}
+                    onChange={setUseDbSource}
+                    checkedChildren={<DatabaseOutlined />}
+                    unCheckedChildren={<CloudOutlined />}
+                  />
+                  <DatabaseOutlined style={{ color: useDbSource ? '#52c41a' : '#bfbfbf' }} />
+                </Space>
+              </Tooltip>
+              <Tag color={useDbSource ? 'blue' : 'green'}>
+                {useDbSource ? 'Database' : 'Real-time API'}
+              </Tag>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {/* Statistics */}

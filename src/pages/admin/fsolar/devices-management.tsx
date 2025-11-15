@@ -18,6 +18,7 @@ import {
   Badge,
   Tooltip,
   Divider,
+  Switch,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -32,15 +33,19 @@ import {
   WarningOutlined,
   DatabaseOutlined,
   CloudServerOutlined,
+  CloudOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarDeviceService } from '../../../service/fsolar';
+import fsolarService from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 
 const { Title, Text } = Typography;
 
 const DevicesManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -59,16 +64,33 @@ const DevicesManagement: React.FC = () => {
   const fetchDevices = async (page: number = 1, pageSize: number = 20) => {
     try {
       setLoading(true);
-      const result = await fsolarDeviceService.getDeviceList({
-        pageNum: page,
-        pageSize,
-      });
-      setDevices(result.dataList);
-      setPagination({
-        current: parseInt(result.currentPage),
-        pageSize: parseInt(result.pageSize),
-        total: parseInt(result.total),
-      });
+
+      if (useDbSource) {
+        // Use database API
+        const result = await fsolarService.getDbDevices({
+          page,
+          limit: pageSize,
+        });
+        const dbDevices = Array.isArray(result.data) ? result.data : [];
+        setDevices(dbDevices);
+        setPagination({
+          current: parseInt(result.pagination?.page) || page,
+          pageSize: parseInt(result.pagination?.limit) || pageSize,
+          total: parseInt(result.pagination?.total) || 0,
+        });
+      } else {
+        // Use real-time API
+        const result = await fsolarDeviceService.getDeviceList({
+          pageNum: page,
+          pageSize,
+        });
+        setDevices(result.dataList);
+        setPagination({
+          current: parseInt(result.currentPage),
+          pageSize: parseInt(result.pageSize),
+          total: parseInt(result.total),
+        });
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch devices');
     } finally {
@@ -78,7 +100,7 @@ const DevicesManagement: React.FC = () => {
 
   useEffect(() => {
     fetchDevices();
-  }, []);
+  }, [useDbSource]);
 
   // Filter devices based on search and status
   useEffect(() => {
@@ -312,10 +334,10 @@ const DevicesManagement: React.FC = () => {
     },
   ];
 
-  // Calculate statistics
-  const onlineCount = devices.filter(d => d.status === 'ON').length;
-  const offlineCount = devices.filter(d => d.status === 'OF').length;
-  const alarmCount = devices.filter(d => d.status === 'AL').length;
+  // Calculate statistics (handle both API and DB status formats)
+  const onlineCount = Array.isArray(devices) ? devices.filter(d => d.status === 'ON' || d.status === 'online').length : 0;
+  const offlineCount = Array.isArray(devices) ? devices.filter(d => d.status === 'OF' || d.status === 'offline').length : 0;
+  const alarmCount = Array.isArray(devices) ? devices.filter(d => d.status === 'AL' || d.status === 'alarm').length : 0;
   const onlinePercentage = pagination.total > 0 ? ((onlineCount / pagination.total) * 100).toFixed(1) : '0';
 
   return (
@@ -435,6 +457,18 @@ const DevicesManagement: React.FC = () => {
         }
         extra={
           <Space>
+            <Space>
+              <Switch
+                checked={useDbSource}
+                onChange={setUseDbSource}
+                checkedChildren={<DatabaseOutlined />}
+                unCheckedChildren={<CloudOutlined />}
+              />
+              <Tag color={useDbSource ? 'blue' : 'green'}>
+                {useDbSource ? 'Database' : 'Real-time API'}
+              </Tag>
+            </Space>
+            <Divider type="vertical" />
             <Button
               icon={<ReloadOutlined />}
               onClick={() => fetchDevices(pagination.current, pagination.pageSize)}

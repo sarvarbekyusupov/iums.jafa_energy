@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Progress, Spin, Divider } from 'antd';
+import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Progress, Spin, Divider, Switch } from 'antd';
 import {
   ThunderboltOutlined,
   CheckCircleOutlined,
@@ -13,6 +13,8 @@ import {
   FireOutlined,
   BulbOutlined,
   LineChartOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { InverterDetail } from '../../../types/soliscloud';
@@ -24,20 +26,31 @@ const InverterDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<InverterDetail | null>(null);
+  const [useDbSource, setUseDbSource] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchDetail();
     }
-  }, [id]);
+  }, [id, useDbSource]);
+
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
 
   const fetchDetail = async () => {
     if (!id) return;
 
     try {
       setLoading(true);
-      const response = await solisCloudService.getInverterDetail({ id });
-      setDetail(response);
+      if (useDbSource) {
+        const response = await solisCloudService.getDbInverter(id);
+        setDetail(response.data || response);
+      } else {
+        const response = await solisCloudService.getInverterDetail({ id });
+        setDetail(response);
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch inverter details');
     } finally {
@@ -106,6 +119,17 @@ const InverterDetailPage: React.FC = () => {
               </Title>
             </Space>
             <Space>
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'green'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
               <Button
                 icon={<LineChartOutlined />}
                 onClick={() => navigate(`/admin/soliscloud/inverters/${id}/charts`)}
@@ -152,7 +176,7 @@ const InverterDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Current Power"
-              value={detail.pac ? detail.pac.toFixed(2) : '0.00'}
+              value={parseValue(detail.pac).toFixed(2)}
               suffix="kW"
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
               valueStyle={{ color: '#faad14' }}
@@ -163,7 +187,7 @@ const InverterDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Today's Energy"
-              value={detail.eToday ? detail.eToday.toFixed(2) : '0.00'}
+              value={parseValue(detail.eToday).toFixed(2)}
               suffix="kWh"
               prefix={<ThunderboltOutlined style={{ color: '#52c41a' }} />}
               valueStyle={{ color: '#52c41a' }}
@@ -174,7 +198,7 @@ const InverterDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Total Energy"
-              value={detail.eTotal ? detail.eTotal.toFixed(2) : '0.00'}
+              value={parseValue(detail.eTotal).toFixed(2)}
               suffix="kWh"
               prefix={<DashboardOutlined style={{ color: '#1890ff' }} />}
               valueStyle={{ color: '#1890ff' }}
@@ -202,7 +226,7 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="AC Power"
-                value={detail.pac ? detail.pac.toFixed(2) : '0.00'}
+                value={parseValue(detail.pac).toFixed(2)}
                 suffix="kW"
                 valueStyle={{ fontSize: 18 }}
               />
@@ -212,7 +236,7 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="DC Power"
-                value={detail.pdc ? detail.pdc.toFixed(2) : '0.00'}
+                value={parseValue(detail.pdc).toFixed(2)}
                 suffix="kW"
                 valueStyle={{ fontSize: 18 }}
               />
@@ -222,9 +246,11 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Efficiency"
-                value={detail.pac && detail.pdc && detail.pdc > 0
-                  ? ((detail.pac / detail.pdc) * 100).toFixed(1)
-                  : '0.0'}
+                value={(() => {
+                  const pac = parseValue(detail.pac);
+                  const pdc = parseValue(detail.pdc);
+                  return pdc > 0 ? ((pac / pdc) * 100).toFixed(1) : '0.0';
+                })()}
                 suffix="%"
                 valueStyle={{ fontSize: 18, color: '#52c41a' }}
               />
@@ -232,11 +258,11 @@ const InverterDetailPage: React.FC = () => {
           </Col>
         </Row>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="Today's Energy">{detail.eToday ? `${detail.eToday.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="This Month">{detail.eMonth ? `${detail.eMonth.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="This Year">{detail.eYear ? `${detail.eYear.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Total Energy">{detail.eTotal ? `${detail.eTotal.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Family Load Today">{detail.familyLoadPower ? `${detail.familyLoadPower.toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Today's Energy">{parseValue(detail.eToday) > 0 ? `${parseValue(detail.eToday).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="This Month">{parseValue(detail.eMonth) > 0 ? `${parseValue(detail.eMonth).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="This Year">{parseValue(detail.eYear) > 0 ? `${parseValue(detail.eYear).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Total Energy">{parseValue(detail.eTotal) > 0 ? `${parseValue(detail.eTotal).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Family Load Today">{parseValue(detail.familyLoadPower) > 0 ? `${parseValue(detail.familyLoadPower).toFixed(2)} kW` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Power Factor">{detail.powerFactor !== undefined ? detail.powerFactor : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
@@ -245,8 +271,8 @@ const InverterDetailPage: React.FC = () => {
       <Card title={<Space><BulbOutlined />DC Input (PV Strings)</Space>} style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           {[1, 2, 3, 4].map(num => {
-            const voltage = detail[`uPv${num}` as keyof InverterDetail] as number | undefined;
-            const current = detail[`iPv${num}` as keyof InverterDetail] as number | undefined;
+            const voltage = parseValue(detail[`uPv${num}` as keyof InverterDetail]);
+            const current = parseValue(detail[`iPv${num}` as keyof InverterDetail]);
             const power = voltage && current ? (voltage * current / 1000).toFixed(2) : '0.00';
 
             return (
@@ -259,11 +285,11 @@ const InverterDetailPage: React.FC = () => {
                   <Space direction="vertical" size="small" style={{ width: '100%' }}>
                     <div>
                       <Text type="secondary">Voltage:</Text>{' '}
-                      <Text strong>{voltage ? `${voltage.toFixed(1)} V` : '-'}</Text>
+                      <Text strong>{voltage > 0 ? `${voltage.toFixed(1)} V` : '-'}</Text>
                     </div>
                     <div>
                       <Text type="secondary">Current:</Text>{' '}
-                      <Text strong>{current ? `${current.toFixed(2)} A` : '-'}</Text>
+                      <Text strong>{current > 0 ? `${current.toFixed(2)} A` : '-'}</Text>
                     </div>
                     <Divider style={{ margin: '8px 0' }} />
                     <div>
@@ -284,23 +310,23 @@ const InverterDetailPage: React.FC = () => {
           <Col xs={24} md={12}>
             <Card size="small" title="Phase A" style={{ background: '#fff7e6' }}>
               <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Voltage">{detail.uAc1 ? `${detail.uAc1.toFixed(1)} V` : '-'}</Descriptions.Item>
-                <Descriptions.Item label="Current">{detail.iAc1 ? `${detail.iAc1.toFixed(2)} A` : '-'}</Descriptions.Item>
+                <Descriptions.Item label="Voltage">{parseValue(detail.uAc1) > 0 ? `${parseValue(detail.uAc1).toFixed(1)} V` : '-'}</Descriptions.Item>
+                <Descriptions.Item label="Current">{parseValue(detail.iAc1) > 0 ? `${parseValue(detail.iAc1).toFixed(2)} A` : '-'}</Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
           <Col xs={24} md={12}>
             <Card size="small" title="Phase B" style={{ background: '#f0f5ff' }}>
               <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Voltage">{detail.uAc2 ? `${detail.uAc2.toFixed(1)} V` : '-'}</Descriptions.Item>
-                <Descriptions.Item label="Current">{detail.iAc2 ? `${detail.iAc2.toFixed(2)} A` : '-'}</Descriptions.Item>
+                <Descriptions.Item label="Voltage">{parseValue(detail.uAc2) > 0 ? `${parseValue(detail.uAc2).toFixed(1)} V` : '-'}</Descriptions.Item>
+                <Descriptions.Item label="Current">{parseValue(detail.iAc2) > 0 ? `${parseValue(detail.iAc2).toFixed(2)} A` : '-'}</Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
         </Row>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="Grid Frequency">{detail.fac ? `${detail.fac.toFixed(2)} Hz` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Grid Power">{detail.gridPower ? `${detail.gridPower.toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Grid Frequency">{parseValue(detail.fac) > 0 ? `${parseValue(detail.fac).toFixed(2)} Hz` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Grid Power">{parseValue(detail.gridPower) > 0 ? `${parseValue(detail.gridPower).toFixed(2)} kW` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Power Factor">{detail.powerFactor !== undefined ? detail.powerFactor : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
@@ -313,16 +339,16 @@ const InverterDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Battery SOC"
-                  value={detail.batteryCapacitySoc || 0}
+                  value={parseValue(detail.batteryCapacitySoc)}
                   suffix="%"
                   prefix={
                     <Progress
                       type="circle"
-                      percent={detail.batteryCapacitySoc || 0}
+                      percent={parseValue(detail.batteryCapacitySoc)}
                       size={50}
                       strokeColor={
-                        (detail.batteryCapacitySoc || 0) > 80 ? '#52c41a' :
-                        (detail.batteryCapacitySoc || 0) > 50 ? '#faad14' : '#ff4d4f'
+                        parseValue(detail.batteryCapacitySoc) > 80 ? '#52c41a' :
+                        parseValue(detail.batteryCapacitySoc) > 50 ? '#faad14' : '#ff4d4f'
                       }
                     />
                   }
@@ -333,9 +359,9 @@ const InverterDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Battery Power"
-                  value={detail.batteryPower ? detail.batteryPower.toFixed(2) : '0.00'}
+                  value={parseValue(detail.batteryPower).toFixed(2)}
                   suffix="kW"
-                  valueStyle={{ color: (detail.batteryPower || 0) > 0 ? '#52c41a' : '#ff4d4f' }}
+                  valueStyle={{ color: parseValue(detail.batteryPower) > 0 ? '#52c41a' : '#ff4d4f' }}
                 />
               </Card>
             </Col>
@@ -343,7 +369,7 @@ const InverterDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Battery Voltage"
-                  value={detail.batteryVoltage ? detail.batteryVoltage.toFixed(1) : '0.0'}
+                  value={parseValue(detail.batteryVoltage).toFixed(1)}
                   suffix="V"
                 />
               </Card>
@@ -352,7 +378,7 @@ const InverterDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Battery Current"
-                  value={detail.batteryCurrent ? detail.batteryCurrent.toFixed(2) : '0.00'}
+                  value={parseValue(detail.batteryCurrent).toFixed(2)}
                   suffix="A"
                 />
               </Card>
@@ -360,11 +386,11 @@ const InverterDetailPage: React.FC = () => {
           </Row>
           <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
             <Descriptions.Item label="Battery Type">{detail.batteryType || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Today's Charge">{detail.batteryTodayChargeEnergy ? `${detail.batteryTodayChargeEnergy.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Today's Discharge">{detail.batteryTodayDischargeEnergy ? `${detail.batteryTodayDischargeEnergy.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Total Charge">{detail.batteryTotalChargeEnergy ? `${detail.batteryTotalChargeEnergy.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Total Discharge">{detail.batteryTotalDischargeEnergy ? `${detail.batteryTotalDischargeEnergy.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Remaining Capacity">{detail.batteryCapacityRemain ? `${detail.batteryCapacityRemain.toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Today's Charge">{parseValue(detail.batteryTodayChargeEnergy) > 0 ? `${parseValue(detail.batteryTodayChargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Today's Discharge">{parseValue(detail.batteryTodayDischargeEnergy) > 0 ? `${parseValue(detail.batteryTodayDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Total Charge">{parseValue(detail.batteryTotalChargeEnergy) > 0 ? `${parseValue(detail.batteryTotalChargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Total Discharge">{parseValue(detail.batteryTotalDischargeEnergy) > 0 ? `${parseValue(detail.batteryTotalDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Remaining Capacity">{parseValue(detail.batteryCapacityRemain) > 0 ? `${parseValue(detail.batteryCapacityRemain).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           </Descriptions>
         </Card>
       )}
@@ -376,11 +402,11 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Inverter Temperature"
-                value={detail.inverterTemperature ? detail.inverterTemperature.toFixed(1) : '-'}
+                value={parseValue(detail.inverterTemperature) > 0 ? parseValue(detail.inverterTemperature).toFixed(1) : '-'}
                 suffix="°C"
                 valueStyle={{
-                  color: (detail.inverterTemperature || 0) > 60 ? '#ff4d4f' :
-                         (detail.inverterTemperature || 0) > 45 ? '#faad14' : '#52c41a'
+                  color: parseValue(detail.inverterTemperature) > 60 ? '#ff4d4f' :
+                         parseValue(detail.inverterTemperature) > 45 ? '#faad14' : '#52c41a'
                 }}
               />
             </Card>
@@ -389,11 +415,11 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Module Temperature"
-                value={detail.moduleTemperature ? detail.moduleTemperature.toFixed(1) : '-'}
+                value={parseValue(detail.moduleTemperature) > 0 ? parseValue(detail.moduleTemperature).toFixed(1) : '-'}
                 suffix="°C"
                 valueStyle={{
-                  color: (detail.moduleTemperature || 0) > 60 ? '#ff4d4f' :
-                         (detail.moduleTemperature || 0) > 45 ? '#faad14' : '#52c41a'
+                  color: parseValue(detail.moduleTemperature) > 60 ? '#ff4d4f' :
+                         parseValue(detail.moduleTemperature) > 45 ? '#faad14' : '#52c41a'
                 }}
               />
             </Card>
@@ -402,7 +428,7 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Ambient Temperature"
-                value={detail.ambientTemperature ? detail.ambientTemperature.toFixed(1) : '-'}
+                value={parseValue(detail.ambientTemperature) > 0 ? parseValue(detail.ambientTemperature).toFixed(1) : '-'}
                 suffix="°C"
               />
             </Card>

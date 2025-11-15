@@ -15,6 +15,7 @@ import {
   message,
   Badge,
   Divider,
+  Switch,
 } from 'antd';
 import {
   ThunderboltOutlined,
@@ -30,8 +31,10 @@ import {
   CheckCircleOutlined,
   WarningOutlined,
   ThunderboltFilled,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
+import fsolarService from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 
 const { Title, Text } = Typography;
@@ -66,6 +69,7 @@ interface DeviceMetrics {
 
 const RealTimeMonitoring: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [metrics, setMetrics] = useState<DeviceMetrics | null>(null);
@@ -96,19 +100,57 @@ const RealTimeMonitoring: React.FC = () => {
       setLoading(true);
       console.log('🔍 Fetching metrics for device:', deviceSn);
 
-      // Use getDeviceBasicInfo for real-time data
-      const result: any = await fsolarDeviceService.getDeviceBasicInfo(deviceSn);
+      if (useDbSource) {
+        // Use database API - get latest energy reading
+        const result: any = await fsolarService.getDbDeviceEnergyLatest(deviceSn);
+        console.log('📦 DB API Response:', result);
 
-      console.log('📦 API Response:', result);
-      console.log('📦 Result type:', typeof result);
-
-      // The basic info API returns the device metrics directly
-      if (result) {
-        console.log('✅ Got device data:', result);
-        setMetrics(result as DeviceMetrics);
-        console.log('✅ Metrics set successfully!');
+        if (result.data) {
+          // Map DB energy data to metrics format
+          const energyData = result.data;
+          setMetrics({
+            deviceSn: energyData.deviceSn || deviceSn,
+            dataTimeStr: energyData.dataTime || new Date().toISOString(),
+            timeZone: energyData.timeZone || '',
+            pvPower: energyData.pvPower?.toString() || '0',
+            pvTotalPower: energyData.pvTotalPower?.toString() || '0',
+            acTotalOutActPower: energyData.acTotalOutActPower?.toString() || '0',
+            acTtlInpower: energyData.acTtlInpower?.toString() || '0',
+            meterPower: energyData.meterPower?.toString() || '0',
+            emsPower: energyData.emsPower?.toString() || '0',
+            emsSoc: energyData.emsSoc?.toString() || '0',
+            emsVoltage: energyData.emsVoltage?.toString() || '0',
+            emsCurrent: energyData.emsCurrent?.toString() || '0',
+            acRInVolt: energyData.acRInVolt?.toString() || '0',
+            acROutVolt: energyData.acROutVolt?.toString() || '0',
+            acRInCurr: energyData.acRInCurr?.toString() || '0',
+            acROutCurr: energyData.acROutCurr?.toString() || '0',
+            acRInFreq: energyData.acRInFreq?.toString() || '0',
+            pvVolt: energyData.pvVolt?.toString() || '0',
+            pvInCurr: energyData.pvInCurr?.toString() || '0',
+            pv2Volt: energyData.pv2Volt?.toString() || '0',
+            pv2InCurr: energyData.pv2InCurr?.toString() || '0',
+            tempMax: energyData.tempMax?.toString() || '0',
+            devTempMax: energyData.devTempMax?.toString() || '0',
+            ePvToday: energyData.ePvToday?.toString() || '0',
+            workMode: energyData.workMode?.toString() || '0',
+          } as DeviceMetrics);
+        }
       } else {
-        console.warn('⚠️ No data in result');
+        // Use getDeviceBasicInfo for real-time data
+        const result: any = await fsolarDeviceService.getDeviceBasicInfo(deviceSn);
+
+        console.log('📦 API Response:', result);
+        console.log('📦 Result type:', typeof result);
+
+        // The basic info API returns the device metrics directly
+        if (result) {
+          console.log('✅ Got device data:', result);
+          setMetrics(result as DeviceMetrics);
+          console.log('✅ Metrics set successfully!');
+        } else {
+          console.warn('⚠️ No data in result');
+        }
       }
     } catch (error: any) {
       console.error('❌ Fetch metrics error:', error);
@@ -147,7 +189,7 @@ const RealTimeMonitoring: React.FC = () => {
       console.log('🛑 Clearing auto-refresh interval');
       clearInterval(interval);
     };
-  }, [selectedDevice, autoRefresh]);
+  }, [selectedDevice, autoRefresh, useDbSource]);
 
   console.log('🎨 Rendering component, metrics:', metrics ? 'EXISTS' : 'NULL', 'loading:', loading);
 
@@ -230,6 +272,17 @@ const RealTimeMonitoring: React.FC = () => {
               </Select.Option>
             ))}
           </Select>
+          <Divider type="vertical" />
+          <Switch
+            checked={useDbSource}
+            onChange={setUseDbSource}
+            checkedChildren={<DatabaseOutlined />}
+            unCheckedChildren={<CloudOutlined />}
+          />
+          <Tag color={useDbSource ? 'blue' : 'green'}>
+            {useDbSource ? 'Database' : 'Real-time API'}
+          </Tag>
+          <Divider type="vertical" />
           <Button
             icon={<ReloadOutlined />}
             onClick={() => selectedDevice && fetchMetrics(selectedDevice)}

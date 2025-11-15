@@ -16,6 +16,8 @@ import {
   Tabs,
   Badge,
   Divider,
+  Switch,
+  Tag,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -28,6 +30,8 @@ import {
   FireOutlined,
   DashboardOutlined,
   RiseOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import {
   LineChart,
@@ -44,6 +48,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { fsolarDeviceService } from '../../../service/fsolar';
+import fsolarService from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 import dayjs, { Dayjs } from 'dayjs';
 
@@ -84,6 +89,7 @@ interface HistoryRecord {
 
 const HistoricalData: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
@@ -113,27 +119,41 @@ const HistoricalData: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateStr = selectedDate.format('YYYY-MM-DD') + ' 00:00:00';
-      const response: any = await fsolarDeviceService.getDeviceHistory(
-        selectedDevice,
-        { dateStr, pageNum: page, pageSize: pagination.pageSize } as any
-      );
 
-      // Filter to show only data for the selected date (24 hours: 00:00 to 23:59)
-      const selectedDateStr = selectedDate.format('YYYY-MM-DD');
+      if (useDbSource) {
+        // Use database API - daily granularity
+        const response: any = await fsolarService.getDbDeviceHistory(selectedDevice, {
+          granularity: 'daily',
+          limit: pagination.pageSize,
+        });
 
-      const filteredData = (response.dataList || []).filter((record: HistoryRecord) => {
-        // Extract just the date part from deviceDataTime (format: "2025-11-02 02:56:07")
-        const recordDateStr = record.deviceDataTime.split(' ')[0];
-        return recordDateStr === selectedDateStr;
-      });
+        const dbData = Array.isArray(response.data) ? response.data : [];
+        setHistoryData(dbData);
+        setPagination({ ...pagination, current: page, total: dbData.length });
+      } else {
+        // Use real-time API
+        const dateStr = selectedDate.format('YYYY-MM-DD') + ' 00:00:00';
+        const response: any = await fsolarDeviceService.getDeviceHistory(
+          selectedDevice,
+          { dateStr, pageNum: page, pageSize: pagination.pageSize } as any
+        );
 
-      setHistoryData(filteredData);
-      setPagination({
-        current: parseInt(response.currentPage),
-        pageSize: parseInt(response.pageSize),
-        total: filteredData.length,
-      });
+        // Filter to show only data for the selected date (24 hours: 00:00 to 23:59)
+        const selectedDateStr = selectedDate.format('YYYY-MM-DD');
+
+        const filteredData = (response.dataList || []).filter((record: HistoryRecord) => {
+          // Extract just the date part from deviceDataTime (format: "2025-11-02 02:56:07")
+          const recordDateStr = record.deviceDataTime.split(' ')[0];
+          return recordDateStr === selectedDateStr;
+        });
+
+        setHistoryData(filteredData);
+        setPagination({
+          current: parseInt(response.currentPage),
+          pageSize: parseInt(response.pageSize),
+          total: filteredData.length,
+        });
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch historical data');
       setHistoryData([]);
@@ -150,7 +170,7 @@ const HistoricalData: React.FC = () => {
     if (selectedDevice) {
       fetchHistoryData(1);
     }
-  }, [selectedDevice, selectedDate]);
+  }, [selectedDevice, selectedDate, useDbSource]);
 
   const handleTableChange = (newPagination: any) => {
     fetchHistoryData(newPagination.current);
@@ -158,7 +178,7 @@ const HistoricalData: React.FC = () => {
 
   // Calculate statistics
   const stats = React.useMemo(() => {
-    if (historyData.length === 0) return null;
+    if (!Array.isArray(historyData) || historyData.length === 0) return null;
 
     const avgSoc = historyData.reduce((sum, r) => sum + parseFloat(r.emsSoc || '0'), 0) / historyData.length;
     const maxPvPower = Math.max(...historyData.map(r => parseFloat(r.pvTotalPower || '0')));
@@ -170,6 +190,8 @@ const HistoricalData: React.FC = () => {
 
   // Prepare chart data - aggregate by hour and fill all 24 hours
   const chartData = React.useMemo(() => {
+    if (!Array.isArray(historyData)) return [];
+
     // Group data by hour
     const hourlyData: { [key: string]: HistoryRecord[] } = {};
 
@@ -396,6 +418,24 @@ const HistoricalData: React.FC = () => {
                 style={{ width: '100%' }}
                 size="large"
               />
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#fff' }}>
+                Data Source
+              </Text>
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'green'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
             </Space>
           </Col>
           <Col xs={24} sm={12} md={6}>

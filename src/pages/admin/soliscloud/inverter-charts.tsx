@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Tabs, DatePicker, message, Button, Space, Typography, Spin, Empty, Row, Col, Statistic } from 'antd';
+import { Card, Tabs, DatePicker, message, Button, Space, Typography, Spin, Empty, Row, Col, Statistic, Switch, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
   LineChartOutlined,
   ThunderboltOutlined,
   SyncOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
@@ -17,6 +19,7 @@ const InverterChartsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [activeTab, setActiveTab] = useState('day');
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [dayData, setDayData] = useState<any[]>([]);
@@ -27,7 +30,12 @@ const InverterChartsPage: React.FC = () => {
     if (id) {
       fetchData();
     }
-  }, [id, activeTab, selectedDate]);
+  }, [id, activeTab, selectedDate, useDbSource]);
+
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
 
   const fetchData = async () => {
     if (!id) return;
@@ -36,50 +44,77 @@ const InverterChartsPage: React.FC = () => {
       setLoading(true);
 
       if (activeTab === 'day') {
-        const response = await solisCloudService.getInverterDayData({
-          id,
-          time: selectedDate.format('YYYY-MM-DD'),
-        });
+        let response;
+        if (useDbSource) {
+          // Use DB API for readings
+          response = await solisCloudService.getDbInverterReadings(id, {
+            startDate: selectedDate.startOf('day').toISOString(),
+            endDate: selectedDate.endOf('day').toISOString(),
+            limit: 500,
+          });
+          response = response.data || response;
+        } else {
+          response = await solisCloudService.getInverterDayData({
+            id,
+            time: selectedDate.format('YYYY-MM-DD'),
+          });
+        }
 
         // Transform data for chart
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.dateStr || record.dataTimestamp, type: 'Energy (kWh)', value: record.energy || 0 },
-            { time: record.dateStr || record.dataTimestamp, type: 'Battery Discharge (kWh)', value: record.batteryDischargeEnergy || 0 },
-            { time: record.dateStr || record.dataTimestamp, type: 'Battery Charge (kWh)', value: record.batteryChargeEnergy || 0 }
+            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Energy (kWh)', value: parseValue(record.energy || record.etoday) },
+            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Battery Discharge (kWh)', value: parseValue(record.batteryDischargeEnergy) },
+            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Battery Charge (kWh)', value: parseValue(record.batteryChargeEnergy) }
           );
         });
         setDayData(chartData);
 
       } else if (activeTab === 'month') {
-        const response = await solisCloudService.getInverterMonthData({
-          id,
-          month: selectedDate.format('YYYY-MM'),
-        });
+        let response;
+        if (useDbSource) {
+          response = await solisCloudService.getDbInverterMonths(id, { limit: 100 });
+          response = (response.data || response).filter((r: any) =>
+            r.month && r.month.startsWith(selectedDate.format('YYYY-MM'))
+          );
+        } else {
+          response = await solisCloudService.getInverterMonthData({
+            id,
+            month: selectedDate.format('YYYY-MM'),
+          });
+        }
 
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.dateStr, type: 'Daily Energy (kWh)', value: record.energy || 0 },
-            { time: record.dateStr, type: 'Consume Energy (kWh)', value: record.consumeEnergy || 0 },
-            { time: record.dateStr, type: 'Produce Energy (kWh)', value: record.produceEnergy || 0 }
+            { time: record.dateStr || record.month, type: 'Daily Energy (kWh)', value: parseValue(record.energy || record.totalEnergy) },
+            { time: record.dateStr || record.month, type: 'Consume Energy (kWh)', value: parseValue(record.consumeEnergy) },
+            { time: record.dateStr || record.month, type: 'Produce Energy (kWh)', value: parseValue(record.produceEnergy) }
           );
         });
         setMonthData(chartData);
 
       } else if (activeTab === 'year') {
-        const response = await solisCloudService.getInverterYearData({
-          id,
-          year: selectedDate.format('YYYY'),
-        });
+        let response;
+        if (useDbSource) {
+          response = await solisCloudService.getDbInverterYears(id, { limit: 10 });
+          response = (response.data || response).filter((r: any) =>
+            r.year && r.year.startsWith(selectedDate.format('YYYY'))
+          );
+        } else {
+          response = await solisCloudService.getInverterYearData({
+            id,
+            year: selectedDate.format('YYYY'),
+          });
+        }
 
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.dateStr, type: 'Monthly Energy (kWh)', value: record.energy || 0 },
-            { time: record.dateStr, type: 'Consume Energy (kWh)', value: record.consumeEnergy || 0 },
-            { time: record.dateStr, type: 'Produce Energy (kWh)', value: record.produceEnergy || 0 }
+            { time: record.dateStr || record.year, type: 'Monthly Energy (kWh)', value: parseValue(record.energy || record.totalEnergy) },
+            { time: record.dateStr || record.year, type: 'Consume Energy (kWh)', value: parseValue(record.consumeEnergy) },
+            { time: record.dateStr || record.year, type: 'Produce Energy (kWh)', value: parseValue(record.produceEnergy) }
           );
         });
         setYearData(chartData);
@@ -181,7 +216,7 @@ const InverterChartsPage: React.FC = () => {
               <Button
                 icon={<ArrowLeftOutlined />}
                 onClick={() => navigate(`/admin/soliscloud/inverters/${id}`)}
-                
+
               >
                 Back to Details
               </Button>
@@ -190,14 +225,27 @@ const InverterChartsPage: React.FC = () => {
                 Historical Data Charts
               </Title>
             </Space>
-            <Button
-              icon={<SyncOutlined />}
-              onClick={fetchData}
-              loading={loading}
-              
-            >
-              Refresh
-            </Button>
+            <Space>
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'green'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={fetchData}
+                loading={loading}
+
+              >
+                Refresh
+              </Button>
+            </Space>
           </Space>
           <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
             View historical performance data and trends

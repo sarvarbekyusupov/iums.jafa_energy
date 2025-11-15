@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Spin, Progress, DatePicker, Empty } from 'antd';
+import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Spin, Progress, DatePicker, Empty, Switch } from 'antd';
 import {
   DatabaseOutlined,
   CheckCircleOutlined,
@@ -14,6 +14,7 @@ import {
   EnvironmentOutlined,
   CalendarOutlined,
   LineChartOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
@@ -26,6 +27,7 @@ const CollectorDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [detail, setDetail] = useState<CollectorDetail | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [signalData, setSignalData] = useState<any[]>([]);
@@ -35,7 +37,7 @@ const CollectorDetailPage: React.FC = () => {
     if (id) {
       fetchDetail();
     }
-  }, [id]);
+  }, [id, useDbSource]);
 
   useEffect(() => {
     if (detail?.sn) {
@@ -48,8 +50,13 @@ const CollectorDetailPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await solisCloudService.getCollectorDetail({ id });
-      setDetail(response);
+      if (useDbSource) {
+        const response = await solisCloudService.getDbCollector(id);
+        setDetail(response.data || response);
+      } else {
+        const response = await solisCloudService.getCollectorDetail({ id });
+        setDetail(response);
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch collector details');
     } finally {
@@ -139,7 +146,7 @@ const CollectorDetailPage: React.FC = () => {
               <Button
                 icon={<ArrowLeftOutlined />}
                 onClick={() => navigate('/admin/soliscloud/collectors')}
-                
+
               >
                 Back
               </Button>
@@ -148,14 +155,27 @@ const CollectorDetailPage: React.FC = () => {
                 Collector Details
               </Title>
             </Space>
-            <Button
-              icon={<SyncOutlined />}
-              onClick={fetchDetail}
-              loading={loading}
-              
-            >
-              Refresh
-            </Button>
+            <Space>
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'purple'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={fetchDetail}
+                loading={loading}
+
+              >
+                Refresh
+              </Button>
+            </Space>
           </Space>
           <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
             Serial Number: <Text strong >{detail.sn}</Text>

@@ -49,6 +49,7 @@ import type {
 } from '../types/soliscloud';
 
 const BASE_URL = '/api/api/soliscloud';
+const DB_BASE_URL = '/api/api/soliscloud/db';
 
 class SolisCloudService {
   // ===== Section 1: Inverter APIs =====
@@ -469,6 +470,307 @@ class SolisCloudService {
       params
     );
     return response.data.data;
+  }
+
+  // ===== Section 6: Database Sync APIs (from synced DB) =====
+
+  /**
+   * Get all inverters from database
+   */
+  async getDbInverters(params?: { page?: number; limit?: number; stationId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.stationId) queryParams.append('stationId', params.stationId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverters${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get single inverter from database
+   */
+  async getDbInverter(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/inverters/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Get inverter daily readings from database
+   */
+  async getDbInverterReadings(id: string, params?: { startDate?: string; endDate?: string; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverters/${id}/readings${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get latest inverter reading from database
+   */
+  async getDbInverterLatestReading(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/inverters/${id}/latest-reading`);
+    return response.data;
+  }
+
+  /**
+   * Get inverter monthly data from database
+   */
+  async getDbInverterMonths(id: string, params?: { limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverters/${id}/months${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get inverter yearly data from database
+   */
+  async getDbInverterYears(id: string, params?: { limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverters/${id}/years${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all inverter monthly data from database
+   */
+  async getDbInverterMonthsAll(params?: { page?: number; limit?: number; inverterId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.inverterId) queryParams.append('inverterId', params.inverterId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverter-months${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all inverter yearly data from database
+   */
+  async getDbInverterYearsAll(params?: { page?: number; limit?: number; inverterId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.inverterId) queryParams.append('inverterId', params.inverterId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/inverter-years${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all stations from database
+   */
+  async getDbStations(params?: { page?: number; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/stations${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get single station from database
+   */
+  async getDbStation(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/stations/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Get station daily readings from database
+   */
+  async getDbStationReadings(id: string, params?: { startDate?: string; endDate?: string; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/stations/${id}/readings${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get latest station reading from database
+   */
+  async getDbStationLatestReading(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/stations/${id}/latest-reading`);
+    return response.data;
+  }
+
+  /**
+   * Get station monthly data from database
+   */
+  async getDbStationMonths(id: string, params?: { limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/stations/${id}/months${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get station yearly data from database
+   */
+  async getDbStationYears(id: string, params?: { limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/stations/${id}/years${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all station monthly data from database
+   */
+  async getDbStationMonthsAll(params?: { page?: number; limit?: number; stationId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.stationId) queryParams.append('stationId', params.stationId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/station-months${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all station yearly data from database
+   */
+  async getDbStationYearsAll(params?: { page?: number; limit?: number; stationId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.stationId) queryParams.append('stationId', params.stationId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/station-years${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all collectors from database
+   */
+  async getDbCollectors(params?: { page?: number; limit?: number; stationId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.stationId) queryParams.append('stationId', params.stationId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/collectors${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get single collector from database
+   */
+  async getDbCollector(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/collectors/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Get all alarms from database
+   */
+  async getDbAlarms(params?: { page?: number; limit?: number; status?: string; deviceId?: string; stationId?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.deviceId) queryParams.append('deviceId', params.deviceId);
+    if (params?.stationId) queryParams.append('stationId', params.stationId);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/alarms${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get active alarms only from database
+   */
+  async getDbActiveAlarms(): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/alarms/active`);
+    return response.data;
+  }
+
+  /**
+   * Get sync status from database
+   */
+  async getDbSyncStatus(): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/sync/status`);
+    return response.data;
+  }
+
+  /**
+   * Get sync history from database
+   */
+  async getDbSyncHistory(params?: { page?: number; limit?: number; syncType?: string; status?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.syncType) queryParams.append('syncType', params.syncType);
+    if (params?.status) queryParams.append('status', params.status);
+
+    const response = await apiClient.get<any>(
+      `${DB_BASE_URL}/sync/history${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Trigger manual sync
+   */
+  async triggerDbSync(params: { types: string[]; date?: string; month?: string; year?: string }): Promise<any> {
+    const response = await apiClient.post<any>(`${DB_BASE_URL}/sync/trigger`, params);
+    return response.data;
+  }
+
+  /**
+   * Validate inverter data
+   */
+  async validateDbInverter(id: string): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/validate/inverter/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Validate all data
+   */
+  async validateDbAll(): Promise<any> {
+    const response = await apiClient.get<any>(`${DB_BASE_URL}/validate/all`);
+    return response.data;
   }
 }
 

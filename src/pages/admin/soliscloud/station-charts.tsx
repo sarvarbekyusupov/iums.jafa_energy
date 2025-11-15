@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Tabs, DatePicker, message, Button, Space, Typography, Spin, Empty, Row, Col, Statistic } from 'antd';
+import { Card, Tabs, DatePicker, message, Button, Space, Typography, Spin, Empty, Row, Col, Statistic, Switch, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
   LineChartOutlined,
   HomeOutlined,
   SyncOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
@@ -17,6 +19,7 @@ const StationChartsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [activeTab, setActiveTab] = useState('day');
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [dayData, setDayData] = useState<any[]>([]);
@@ -28,7 +31,12 @@ const StationChartsPage: React.FC = () => {
     if (id) {
       fetchData();
     }
-  }, [id, activeTab, selectedDate]);
+  }, [id, activeTab, selectedDate, useDbSource]);
+
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
 
   const fetchData = async () => {
     if (!id) return;
@@ -37,47 +45,73 @@ const StationChartsPage: React.FC = () => {
       setLoading(true);
 
       if (activeTab === 'day') {
-        const response = await solisCloudService.getStationDayData({
-          id,
-          time: selectedDate.format('YYYY-MM-DD'),
-          timeZone: 8, // GMT+8
-        });
+        let response;
+        if (useDbSource) {
+          response = await solisCloudService.getDbStationReadings(id, {
+            startDate: selectedDate.startOf('day').toISOString(),
+            endDate: selectedDate.endOf('day').toISOString(),
+            limit: 500,
+          });
+          response = response.data || response;
+        } else {
+          response = await solisCloudService.getStationDayData({
+            id,
+            time: selectedDate.format('YYYY-MM-DD'),
+            timeZone: 8,
+          });
+        }
 
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.dataTimestamp, type: 'Power Output', value: record.pac || 0 },
-            { time: record.dataTimestamp, type: 'Energy Generated', value: record.eToday || 0 }
+            { time: record.dataTimestamp || record.timestamp, type: 'Power Output', value: parseValue(record.pac) },
+            { time: record.dataTimestamp || record.timestamp, type: 'Energy Generated', value: parseValue(record.eToday || record.energy) }
           );
         });
         setDayData(chartData);
 
       } else if (activeTab === 'month') {
-        const response = await solisCloudService.getStationMonthData({
-          id,
-          month: selectedDate.format('YYYY-MM'),
-        });
+        let response;
+        if (useDbSource) {
+          response = await solisCloudService.getDbStationMonths(id, { limit: 100 });
+          response = (response.data || response).filter((r: any) =>
+            r.month && r.month.startsWith(selectedDate.format('YYYY-MM'))
+          );
+        } else {
+          response = await solisCloudService.getStationMonthData({
+            id,
+            month: selectedDate.format('YYYY-MM'),
+          });
+        }
 
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.date, type: 'Daily Energy', value: record.dayEnergy || 0 },
-            { time: record.date, type: 'Peak Power', value: record.dayIncome || 0 }
+            { time: record.date || record.month, type: 'Daily Energy', value: parseValue(record.dayEnergy || record.totalEnergy) },
+            { time: record.date || record.month, type: 'Peak Power', value: parseValue(record.dayIncome || record.peakPower) }
           );
         });
         setMonthData(chartData);
 
       } else if (activeTab === 'year') {
-        const response = await solisCloudService.getStationYearData({
-          id,
-          year: selectedDate.format('YYYY'),
-        });
+        let response;
+        if (useDbSource) {
+          response = await solisCloudService.getDbStationYears(id, { limit: 10 });
+          response = (response.data || response).filter((r: any) =>
+            r.year && r.year.startsWith(selectedDate.format('YYYY'))
+          );
+        } else {
+          response = await solisCloudService.getStationYearData({
+            id,
+            year: selectedDate.format('YYYY'),
+          });
+        }
 
         const chartData: any[] = [];
         response?.forEach((record: any) => {
           chartData.push(
-            { time: record.month, type: 'Monthly Energy', value: record.monthEnergy || 0 },
-            { time: record.month, type: 'Monthly Income', value: record.monthIncome || 0 }
+            { time: record.month || record.year, type: 'Monthly Energy', value: parseValue(record.monthEnergy || record.totalEnergy) },
+            { time: record.month || record.year, type: 'Monthly Income', value: parseValue(record.monthIncome || record.totalIncome) }
           );
         });
         setYearData(chartData);
@@ -189,7 +223,7 @@ const StationChartsPage: React.FC = () => {
               <Button
                 icon={<ArrowLeftOutlined />}
                 onClick={() => navigate(`/admin/soliscloud/stations/${id}`)}
-                
+
               >
                 Back to Details
               </Button>
@@ -198,14 +232,27 @@ const StationChartsPage: React.FC = () => {
                 Station Performance Charts
               </Title>
             </Space>
-            <Button
-              icon={<SyncOutlined />}
-              onClick={fetchData}
-              loading={loading}
-              
-            >
-              Refresh
-            </Button>
+            <Space>
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'green'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={fetchData}
+                loading={loading}
+
+              >
+                Refresh
+              </Button>
+            </Space>
           </Space>
           <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
             Analyze station performance over time

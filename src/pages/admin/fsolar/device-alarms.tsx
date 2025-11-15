@@ -15,6 +15,8 @@ import {
   Badge,
   message,
   Empty,
+  Switch,
+  Divider,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -22,9 +24,12 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarDeviceService } from '../../../service/fsolar';
+import fsolarService from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 import dayjs, { Dayjs } from 'dayjs';
 
@@ -43,6 +48,7 @@ interface DeviceEvent {
 
 const DeviceAlarms: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [events, setEvents] = useState<DeviceEvent[]>([]);
@@ -51,6 +57,7 @@ const DeviceAlarms: React.FC = () => {
     dayjs(),
   ]);
   const [stateFilter, setStateFilter] = useState<string | undefined>(undefined);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
 
   // Fetch devices
   const fetchDevices = async () => {
@@ -66,30 +73,53 @@ const DeviceAlarms: React.FC = () => {
   };
 
   // Fetch device events
-  const fetchEvents = async () => {
+  const fetchEvents = async (page: number = 1) => {
     if (!selectedDevice) return;
 
     try {
       setLoading(true);
-      // Format dates as 'YYYY-MM-DD HH:mm:ss' strings, not milliseconds
-      const startTime = dateRange[0].format('YYYY-MM-DD HH:mm:ss');
-      const endTime = dateRange[1].format('YYYY-MM-DD HH:mm:ss');
 
-      const params: any = {
-        startTime,
-        endTime,
-      };
+      if (useDbSource) {
+        // Use database API
+        const params: any = {
+          page,
+          limit: pagination.pageSize,
+          deviceSn: selectedDevice,
+        };
 
-      if (stateFilter !== undefined) {
-        params.state = stateFilter;
+        if (stateFilter) {
+          params.status = stateFilter === '1' ? 'active' : 'cleared';
+        }
+
+        const result: any = await fsolarService.getDbEvents(params);
+        setEvents(Array.isArray(result.data) ? result.data : []);
+        setPagination({
+          current: parseInt(result.pagination?.page) || page,
+          pageSize: parseInt(result.pagination?.limit) || pagination.pageSize,
+          total: parseInt(result.pagination?.total) || 0,
+        });
+      } else {
+        // Use real-time API
+        const startTime = dateRange[0].format('YYYY-MM-DD HH:mm:ss');
+        const endTime = dateRange[1].format('YYYY-MM-DD HH:mm:ss');
+
+        const params: any = {
+          startTime,
+          endTime,
+        };
+
+        if (stateFilter !== undefined) {
+          params.state = stateFilter;
+        }
+
+        const result: any = await fsolarDeviceService.getDeviceEvents(
+          selectedDevice,
+          params
+        );
+
+        setEvents(result || []);
+        setPagination({ ...pagination, total: result?.length || 0 });
       }
-
-      const result: any = await fsolarDeviceService.getDeviceEvents(
-        selectedDevice,
-        params
-      );
-
-      setEvents(result || []);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch device events');
       setEvents([]);
@@ -104,9 +134,9 @@ const DeviceAlarms: React.FC = () => {
 
   useEffect(() => {
     if (selectedDevice) {
-      fetchEvents();
+      fetchEvents(1);
     }
-  }, [selectedDevice, dateRange, stateFilter]);
+  }, [selectedDevice, dateRange, stateFilter, useDbSource]);
 
   // Calculate statistics
   const stats = React.useMemo(() => {
@@ -243,7 +273,19 @@ const DeviceAlarms: React.FC = () => {
             <Select.Option value="3">In Progress</Select.Option>
           </Select>
 
-          <Button icon={<ReloadOutlined />} onClick={fetchEvents} loading={loading}>
+          <Divider type="vertical" />
+          <Switch
+            checked={useDbSource}
+            onChange={setUseDbSource}
+            checkedChildren={<DatabaseOutlined />}
+            unCheckedChildren={<CloudOutlined />}
+          />
+          <Tag color={useDbSource ? 'blue' : 'green'}>
+            {useDbSource ? 'Database' : 'Real-time API'}
+          </Tag>
+
+          <Divider type="vertical" />
+          <Button icon={<ReloadOutlined />} onClick={() => fetchEvents(1)} loading={loading}>
             Refresh
           </Button>
         </Space>

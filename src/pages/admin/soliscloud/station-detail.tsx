@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Spin, List, Avatar, Modal, Form, Input, InputNumber } from 'antd';
+import { Card, Descriptions, Space, Tag, message, Button, Row, Col, Statistic, Typography, Spin, List, Avatar, Modal, Form, Input, InputNumber, Switch } from 'antd';
 import {
   HomeOutlined,
   CheckCircleOutlined,
@@ -20,6 +20,8 @@ import {
   EditOutlined,
   PlusOutlined,
   LinkOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { StationDetail, InverterDetail, CollectorDetail } from '../../../types/soliscloud';
@@ -31,6 +33,7 @@ const StationDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<StationDetail | null>(null);
+  const [useDbSource, setUseDbSource] = useState(false);
   const [invertersLoading, setInvertersLoading] = useState(false);
   const [inverters, setInverters] = useState<InverterDetail[]>([]);
   const [collectorsLoading, setCollectorsLoading] = useState(false);
@@ -51,15 +54,25 @@ const StationDetailPage: React.FC = () => {
       fetchInverters();
       // fetchCollectors(); // TODO: Backend API collectors/detail-list not implemented yet
     }
-  }, [id]);
+  }, [id, useDbSource]);
+
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
 
   const fetchDetail = async () => {
     if (!id) return;
 
     try {
       setLoading(true);
-      const response = await solisCloudService.getStationDetail({ id });
-      setDetail(response);
+      if (useDbSource) {
+        const response = await solisCloudService.getDbStation(id);
+        setDetail(response.data || response);
+      } else {
+        const response = await solisCloudService.getStationDetail({ id });
+        setDetail(response);
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch station details');
     } finally {
@@ -248,6 +261,17 @@ const StationDetailPage: React.FC = () => {
           </Col>
           <Col>
             <Space size="middle">
+              <Space>
+                <Switch
+                  checked={useDbSource}
+                  onChange={setUseDbSource}
+                  checkedChildren={<DatabaseOutlined />}
+                  unCheckedChildren={<CloudOutlined />}
+                />
+                <Tag color={useDbSource ? 'blue' : 'green'}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
               <Button
                 icon={<EditOutlined />}
                 onClick={openEditModal}
@@ -290,7 +314,7 @@ const StationDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Total Capacity"
-              value={detail.capacity ? detail.capacity.toFixed(2) : '0.00'}
+              value={parseValue(detail.capacity).toFixed(2)}
               suffix="kW"
               prefix={<DashboardOutlined style={{ color: '#1890ff' }} />}
               valueStyle={{ color: '#1890ff' }}
@@ -301,7 +325,7 @@ const StationDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Current Power"
-              value={detail.pac ? detail.pac.toFixed(2) : '0.00'}
+              value={parseValue(detail.pac).toFixed(2)}
               suffix="kW"
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
               valueStyle={{ color: '#faad14' }}
@@ -312,7 +336,7 @@ const StationDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Today's Energy"
-              value={detail.eToday ? detail.eToday.toFixed(2) : '0.00'}
+              value={parseValue(detail.eToday).toFixed(2)}
               suffix="kWh"
               prefix={<BulbOutlined style={{ color: '#52c41a' }} />}
               valueStyle={{ color: '#52c41a' }}
@@ -327,8 +351,8 @@ const StationDetailPage: React.FC = () => {
           <Descriptions.Item label="Station ID">{detail.id || '-'}</Descriptions.Item>
           <Descriptions.Item label="Station Name">{detail.stationName || '-'}</Descriptions.Item>
           <Descriptions.Item label="Station Type">{getStationTypeTag(detail.stationType)}</Descriptions.Item>
-          <Descriptions.Item label="Total Capacity">{detail.capacity ? `${detail.capacity.toFixed(2)} kW` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Battery Capacity">{detail.batteryCapacity ? `${detail.batteryCapacity.toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Total Capacity">{parseValue(detail.capacity) > 0 ? `${parseValue(detail.capacity).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Battery Capacity">{parseValue(detail.batteryCapacity) > 0 ? `${parseValue(detail.batteryCapacity).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Status">{getStateTag(detail.state)}</Descriptions.Item>
         </Descriptions>
       </Card>
@@ -352,7 +376,7 @@ const StationDetailPage: React.FC = () => {
             <Card size="small" style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}>
               <Statistic
                 title="Today"
-                value={detail.eToday ? detail.eToday.toFixed(2) : '0.00'}
+                value={parseValue(detail.eToday).toFixed(2)}
                 suffix="kWh"
                 valueStyle={{ color: '#52c41a', fontSize: 20 }}
               />
@@ -362,7 +386,7 @@ const StationDetailPage: React.FC = () => {
             <Card size="small" style={{ background: '#e6f7ff', borderColor: '#91d5ff' }}>
               <Statistic
                 title="This Month"
-                value={detail.eMonth ? detail.eMonth.toFixed(2) : '0.00'}
+                value={parseValue(detail.eMonth).toFixed(2)}
                 suffix="kWh"
                 valueStyle={{ color: '#1890ff', fontSize: 20 }}
               />
@@ -372,7 +396,7 @@ const StationDetailPage: React.FC = () => {
             <Card size="small" style={{ background: '#fff7e6', borderColor: '#ffd591' }}>
               <Statistic
                 title="This Year"
-                value={detail.eYear ? detail.eYear.toFixed(2) : '0.00'}
+                value={parseValue(detail.eYear).toFixed(2)}
                 suffix="kWh"
                 valueStyle={{ color: '#fa8c16', fontSize: 20 }}
               />
@@ -380,9 +404,9 @@ const StationDetailPage: React.FC = () => {
           </Col>
         </Row>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="Total Energy">{detail.eTotal ? `${detail.eTotal.toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Current Power">{detail.pac ? `${detail.pac.toFixed(2)} kW` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Peak Power Today">{detail.peakPowerToday ? `${detail.peakPowerToday.toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Total Energy">{parseValue(detail.eTotal) > 0 ? `${parseValue(detail.eTotal).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Current Power">{parseValue(detail.pac) > 0 ? `${parseValue(detail.pac).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Peak Power Today">{parseValue(detail.peakPowerToday) > 0 ? `${parseValue(detail.peakPowerToday).toFixed(2)} kW` : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
 
@@ -394,7 +418,7 @@ const StationDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Today's Income"
-                  value={detail.dayIncome ? detail.dayIncome.toFixed(2) : '0.00'}
+                  value={parseValue(detail.dayIncome).toFixed(2)}
                   prefix={detail.currencyUnit || '$'}
                   valueStyle={{ fontSize: 18 }}
                 />
@@ -404,7 +428,7 @@ const StationDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="This Month"
-                  value={detail.monthIncome ? detail.monthIncome.toFixed(2) : '0.00'}
+                  value={parseValue(detail.monthIncome).toFixed(2)}
                   prefix={detail.currencyUnit || '$'}
                   valueStyle={{ fontSize: 18 }}
                 />
@@ -414,7 +438,7 @@ const StationDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="This Year"
-                  value={detail.yearIncome ? detail.yearIncome.toFixed(2) : '0.00'}
+                  value={parseValue(detail.yearIncome).toFixed(2)}
                   prefix={detail.currencyUnit || '$'}
                   valueStyle={{ fontSize: 18 }}
                 />
@@ -424,7 +448,7 @@ const StationDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Total Income"
-                  value={detail.totalIncome ? detail.totalIncome.toFixed(2) : '0.00'}
+                  value={parseValue(detail.totalIncome).toFixed(2)}
                   prefix={detail.currencyUnit || '$'}
                   valueStyle={{ fontSize: 18, color: '#52c41a' }}
                 />
@@ -460,7 +484,7 @@ const StationDetailPage: React.FC = () => {
                     <Text type="secondary">SN: {device.sn || '-'}</Text>
                     <div>{getStateTag(device.state)}</div>
                     {device.power !== undefined && (
-                      <Text>Power: <Text strong>{device.power.toFixed(2)} kW</Text></Text>
+                      <Text>Power: <Text strong>{parseValue(device.power).toFixed(2)} kW</Text></Text>
                     )}
                   </Space>
                 </Card>

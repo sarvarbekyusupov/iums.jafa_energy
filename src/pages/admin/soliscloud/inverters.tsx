@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Progress, Modal, Descriptions } from 'antd';
+import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Progress, Modal, Descriptions, Switch, Tooltip } from 'antd';
 import {
   ThunderboltOutlined,
   CheckCircleOutlined,
@@ -11,6 +11,8 @@ import {
   ThunderboltFilled,
   SafetyOutlined,
   InfoCircleOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { Inverter } from '../../../types/soliscloud';
@@ -28,10 +30,11 @@ const SolisCloudInverters: React.FC = () => {
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<any>(null);
   const [isWarrantyModalVisible, setIsWarrantyModalVisible] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(false);
 
   useEffect(() => {
     fetchInverters();
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination.current, pagination.pageSize, useDbSource]);
 
   useEffect(() => {
     filterInverters();
@@ -40,19 +43,36 @@ const SolisCloudInverters: React.FC = () => {
   const fetchInverters = async () => {
     try {
       setLoading(true);
-      const response = await solisCloudService.getInverterList({
-        pageNo: pagination.current,
-        pageSize: pagination.pageSize,
-      });
 
-      setInverters(response.page?.records || []);
-      setFilteredInverters(response.page?.records || []);
-      setPagination(prev => ({ ...prev, total: response.page?.total || 0 }));
+      if (useDbSource) {
+        // Fetch from database
+        const response = await solisCloudService.getDbInverters({
+          page: pagination.current,
+          limit: pagination.pageSize,
+        });
 
-      // Fetch warranty data for all inverters
-      fetchWarrantyData();
+        const records = response.data?.records || [];
+        setInverters(records);
+        setFilteredInverters(records);
+        setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
+      } else {
+        // Fetch from API
+        const response = await solisCloudService.getInverterList({
+          pageNo: pagination.current,
+          pageSize: pagination.pageSize,
+        });
+
+        setInverters(response.page?.records || []);
+        setFilteredInverters(response.page?.records || []);
+        setPagination(prev => ({ ...prev, total: response.page?.total || 0 }));
+
+        // Fetch warranty data for all inverters (only for API source)
+        if (!useDbSource) {
+          fetchWarrantyData();
+        }
+      }
     } catch (error: any) {
-      message.error(error?.response?.data?.msg || 'Failed to fetch inverters');
+      message.error(error?.response?.data?.msg || error?.response?.data?.message || 'Failed to fetch inverters');
     } finally {
       setLoading(false);
     }
@@ -170,29 +190,50 @@ const SolisCloudInverters: React.FC = () => {
       dataIndex: 'pac',
       key: 'pac',
       width: 130,
-      render: (pac: number) => (
-        <Space>
-          <ThunderboltOutlined style={{ color: '#faad14' }} />
-          <Text>{pac ? pac.toFixed(2) : '0.00'} kW</Text>
-        </Space>
-      ),
-      sorter: (a: Inverter, b: Inverter) => (a.pac || 0) - (b.pac || 0),
+      render: (pac: any) => {
+        const value = typeof pac === 'string' ? parseFloat(pac) : pac;
+        return (
+          <Space>
+            <ThunderboltOutlined style={{ color: '#faad14' }} />
+            <Text>{value ? value.toFixed(2) : '0.00'} kW</Text>
+          </Space>
+        );
+      },
+      sorter: (a: Inverter, b: Inverter) => {
+        const aVal = typeof a.pac === 'string' ? parseFloat(a.pac) : (a.pac || 0);
+        const bVal = typeof b.pac === 'string' ? parseFloat(b.pac) : (b.pac || 0);
+        return aVal - bVal;
+      },
     },
     {
       title: "Today's Energy",
       dataIndex: 'etoday',
       key: 'etoday',
       width: 130,
-      render: (etoday: number) => `${etoday ? etoday.toFixed(2) : '0.00'} kWh`,
-      sorter: (a: Inverter, b: Inverter) => (a.etoday || 0) - (b.etoday || 0),
+      render: (etoday: any) => {
+        const value = typeof etoday === 'string' ? parseFloat(etoday) : etoday;
+        return `${value ? value.toFixed(2) : '0.00'} kWh`;
+      },
+      sorter: (a: Inverter, b: Inverter) => {
+        const aVal = typeof a.etoday === 'string' ? parseFloat(a.etoday) : (a.etoday || 0);
+        const bVal = typeof b.etoday === 'string' ? parseFloat(b.etoday) : (b.etoday || 0);
+        return aVal - bVal;
+      },
     },
     {
       title: 'Total Energy',
       dataIndex: 'etotal',
       key: 'etotal',
       width: 130,
-      render: (etotal: number) => `${etotal ? etotal.toFixed(2) : '0.00'} kWh`,
-      sorter: (a: Inverter, b: Inverter) => (a.etotal || 0) - (b.etotal || 0),
+      render: (etotal: any) => {
+        const value = typeof etotal === 'string' ? parseFloat(etotal) : etotal;
+        return `${value ? value.toFixed(2) : '0.00'} kWh`;
+      },
+      sorter: (a: Inverter, b: Inverter) => {
+        const aVal = typeof a.etotal === 'string' ? parseFloat(a.etotal) : (a.etotal || 0);
+        const bVal = typeof b.etotal === 'string' ? parseFloat(b.etotal) : (b.etotal || 0);
+        return aVal - bVal;
+      },
     },
     {
       title: 'Warranty',
@@ -247,11 +288,18 @@ const SolisCloudInverters: React.FC = () => {
   const onlineInverters = inverters.filter(i => i.state === 1).length;
   const offlineInverters = inverters.filter(i => i.state === 2).length;
   const alarmInverters = inverters.filter(i => i.state === 3).length;
-  const totalPower = inverters.reduce((sum, i) => sum + (i.pac || 0), 0);
-  const totalEnergyToday = inverters.reduce((sum, i) => sum + (i.etoday || 0), 0);
-  const totalEnergyAll = inverters.reduce((sum, i) => sum + (i.etotal || 0), 0);
+
+  // Handle both string and number values from API/DB
+  const parseValue = (val: any): number => {
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return val || 0;
+  };
+
+  const totalPower = inverters.reduce((sum, i) => sum + parseValue(i.pac), 0);
+  const totalEnergyToday = inverters.reduce((sum, i) => sum + parseValue(i.etoday), 0);
+  const totalEnergyAll = inverters.reduce((sum, i) => sum + parseValue(i.etotal), 0);
   const avgBatterySoc = inverters.length > 0
-    ? inverters.reduce((sum, i) => sum + (i.batteryCapacitySoc || 0), 0) / inverters.length
+    ? inverters.reduce((sum, i) => sum + parseValue(i.batteryCapacitySoc), 0) / inverters.length
     : 0;
 
   return (
@@ -260,21 +308,44 @@ const SolisCloudInverters: React.FC = () => {
       <Card
         style={{
           marginBottom: 24,
-          
+
           border: 'none',
         }}
       >
-        <Space direction="vertical" size="small">
-          <Space>
-            <ThunderboltOutlined style={{ fontSize: 32 }} />
-            <Title level={2} style={{ margin: 0 }}>
-              Solar Inverters
-            </Title>
-          </Space>
-          <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
-            Monitor and manage your solar inverters and battery systems
-          </Text>
-        </Space>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space direction="vertical" size="small">
+              <Space>
+                <ThunderboltOutlined style={{ fontSize: 32 }} />
+                <Title level={2} style={{ margin: 0 }}>
+                  Solar Inverters
+                </Title>
+              </Space>
+              <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
+                Monitor and manage your solar inverters and battery systems
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space size="large">
+              <Tooltip title={useDbSource ? "Switch to Real-time API Data" : "Switch to Database (Synced) Data"}>
+                <Space>
+                  <CloudOutlined style={{ color: useDbSource ? '#bfbfbf' : '#1890ff' }} />
+                  <Switch
+                    checked={useDbSource}
+                    onChange={setUseDbSource}
+                    checkedChildren={<DatabaseOutlined />}
+                    unCheckedChildren={<CloudOutlined />}
+                  />
+                  <DatabaseOutlined style={{ color: useDbSource ? '#1890ff' : '#bfbfbf' }} />
+                </Space>
+              </Tooltip>
+              <Tag color={useDbSource ? 'blue' : 'green'}>
+                {useDbSource ? 'Database' : 'Real-time API'}
+              </Tag>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {/* Statistics */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography } from 'antd';
+import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Switch, Tooltip } from 'antd';
 import {
   DatabaseOutlined,
   CheckCircleOutlined,
@@ -8,6 +8,7 @@ import {
   ReloadOutlined,
   SearchOutlined,
   SignalFilled,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { Collector } from '../../../types/soliscloud';
@@ -21,10 +22,11 @@ const SolisCloudCollectors: React.FC = () => {
   const [filteredCollectors, setFilteredCollectors] = useState<Collector[]>([]);
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [useDbSource, setUseDbSource] = useState(false);
 
   useEffect(() => {
     fetchCollectors();
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination.current, pagination.pageSize, useDbSource]);
 
   useEffect(() => {
     filterCollectors();
@@ -33,16 +35,31 @@ const SolisCloudCollectors: React.FC = () => {
   const fetchCollectors = async () => {
     try {
       setLoading(true);
-      const response = await solisCloudService.getCollectorList({
-        pageNo: pagination.current,
-        pageSize: pagination.pageSize,
-      });
 
-      setCollectors(response.records || []);
-      setFilteredCollectors(response.records || []);
-      setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      if (useDbSource) {
+        // Fetch from database
+        const response = await solisCloudService.getDbCollectors({
+          page: pagination.current,
+          limit: pagination.pageSize,
+        });
+
+        const records = response.data?.records || [];
+        setCollectors(records);
+        setFilteredCollectors(records);
+        setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
+      } else {
+        // Fetch from API
+        const response = await solisCloudService.getCollectorList({
+          pageNo: pagination.current,
+          pageSize: pagination.pageSize,
+        });
+
+        setCollectors(response.records || []);
+        setFilteredCollectors(response.records || []);
+        setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      }
     } catch (error: any) {
-      message.error(error?.response?.data?.msg || 'Failed to fetch collectors');
+      message.error(error?.response?.data?.msg || error?.response?.data?.message || 'Failed to fetch collectors');
     } finally {
       setLoading(false);
     }
@@ -172,21 +189,44 @@ const SolisCloudCollectors: React.FC = () => {
       <Card
         style={{
           marginBottom: 24,
-          
+
           border: 'none',
         }}
       >
-        <Space direction="vertical" size="small">
-          <Space>
-            <DatabaseOutlined style={{ fontSize: 32 }} />
-            <Title level={2} style={{ margin: 0 }}>
-              Data Collectors
-            </Title>
-          </Space>
-          <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
-            Monitor and manage your SolisCloud data collection devices
-          </Text>
-        </Space>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space direction="vertical" size="small">
+              <Space>
+                <DatabaseOutlined style={{ fontSize: 32 }} />
+                <Title level={2} style={{ margin: 0 }}>
+                  Data Collectors
+                </Title>
+              </Space>
+              <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
+                Monitor and manage your SolisCloud data collection devices
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space size="large">
+              <Tooltip title={useDbSource ? "Switch to Real-time API Data" : "Switch to Database (Synced) Data"}>
+                <Space>
+                  <CloudOutlined style={{ color: useDbSource ? '#bfbfbf' : '#722ed1' }} />
+                  <Switch
+                    checked={useDbSource}
+                    onChange={setUseDbSource}
+                    checkedChildren={<DatabaseOutlined />}
+                    unCheckedChildren={<CloudOutlined />}
+                  />
+                  <DatabaseOutlined style={{ color: useDbSource ? '#722ed1' : '#bfbfbf' }} />
+                </Space>
+              </Tooltip>
+              <Tag color={useDbSource ? 'blue' : 'purple'}>
+                {useDbSource ? 'Database' : 'Real-time API'}
+              </Tag>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {/* Statistics */}

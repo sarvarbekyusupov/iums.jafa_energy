@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Badge } from 'antd';
+import { Card, Table, Space, Tag, message, Button, Input, Row, Col, Statistic, Typography, Badge, Switch } from 'antd';
 import {
   BellOutlined,
   WarningOutlined,
@@ -8,6 +8,8 @@ import {
   CheckCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
 import type { DeviceAlarm } from '../../../types/soliscloud';
@@ -20,11 +22,12 @@ const SolisCloudAlarms: React.FC = () => {
   const [alarms, setAlarms] = useState<DeviceAlarm[]>([]);
   const [filteredAlarms, setFilteredAlarms] = useState<DeviceAlarm[]>([]);
   const [searchText, setSearchText] = useState('');
+  const [useDbSource, setUseDbSource] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
 
   useEffect(() => {
     fetchAlarms();
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination.current, pagination.pageSize, useDbSource]);
 
   useEffect(() => {
     filterAlarms();
@@ -33,19 +36,39 @@ const SolisCloudAlarms: React.FC = () => {
   const fetchAlarms = async () => {
     try {
       setLoading(true);
-      const response = await solisCloudService.getAlarmList({
-        pageNo: pagination.current,
-        pageSize: pagination.pageSize,
-      });
+      let response;
 
-      // Add unique index to each alarm record to ensure unique keys
-      const alarmsWithIndex = (response.records || []).map((alarm, idx) => ({
-        ...alarm,
-        uniqueIndex: `${pagination.current}-${idx}`,
-      }));
-      setAlarms(alarmsWithIndex);
-      setFilteredAlarms(alarmsWithIndex);
-      setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      if (useDbSource) {
+        response = await solisCloudService.getDbAlarms({
+          page: pagination.current,
+          limit: pagination.pageSize,
+        });
+        const dbAlarms = (response.data?.records || response.data || []).map((alarm: any, idx: number) => ({
+          ...alarm,
+          uniqueIndex: `${pagination.current}-${idx}`,
+          alarmLevel: alarm.level?.toString() || alarm.alarmLevel,
+          alarmMsg: alarm.message || alarm.alarmMsg,
+          alarmCode: alarm.code || alarm.alarmCode,
+          alarmBeginTime: alarm.startTime || alarm.alarmBeginTime,
+          alarmEndTime: alarm.endTime || alarm.alarmEndTime,
+          state: alarm.status?.toString() || alarm.state,
+        }));
+        setAlarms(dbAlarms);
+        setFilteredAlarms(dbAlarms);
+        setPagination(prev => ({ ...prev, total: response.data?.total || dbAlarms.length }));
+      } else {
+        response = await solisCloudService.getAlarmList({
+          pageNo: pagination.current,
+          pageSize: pagination.pageSize,
+        });
+        const alarmsWithIndex = (response.records || []).map((alarm, idx) => ({
+          ...alarm,
+          uniqueIndex: `${pagination.current}-${idx}`,
+        }));
+        setAlarms(alarmsWithIndex);
+        setFilteredAlarms(alarmsWithIndex);
+        setPagination(prev => ({ ...prev, total: response.total || 0 }));
+      }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch alarms');
     } finally {
@@ -240,6 +263,17 @@ const SolisCloudAlarms: React.FC = () => {
         }
         extra={
           <Space>
+            <Space>
+              <Switch
+                checked={useDbSource}
+                onChange={setUseDbSource}
+                checkedChildren={<DatabaseOutlined />}
+                unCheckedChildren={<CloudOutlined />}
+              />
+              <Tag color={useDbSource ? 'blue' : 'red'}>
+                {useDbSource ? 'Database' : 'Real-time API'}
+              </Tag>
+            </Space>
             <Input
               placeholder="Search by station, device or message"
               prefix={<SearchOutlined />}
