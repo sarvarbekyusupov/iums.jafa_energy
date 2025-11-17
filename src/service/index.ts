@@ -14,6 +14,8 @@ export * from './timezone.service';
 export * from './hopecloud.service';
 export * from './fusion-solar.service';
 export * from './fsolar';
+export * from './soliscloud.service';
+export * from './unified-solar.service';
 export * from './integration-orchestrator.service';
 export * from './webhooks.service';
 
