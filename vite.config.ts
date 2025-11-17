@@ -24,7 +24,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'https://jafabackend.duckdns.org',
+        target: 'http://3.121.174.54:3000',
         changeOrigin: true,
         secure: false,
         ws: true,
