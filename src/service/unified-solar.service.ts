@@ -54,7 +54,7 @@ class UnifiedSolarService {
     try {
       // Fetch stations
       const stationsResponse = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 1000 });
-      const stations = stationsResponse.data?.page?.records || [];
+      const stations = stationsResponse.data?.records || [];
 
       // Calculate statistics
       const totalStations = stations.length;
@@ -70,8 +70,8 @@ class UnifiedSolarService {
       let criticalAlarms = 0;
       let warningAlarms = 0;
       try {
-        const alarmsResponse = await hopeCloudService.getAlarms({ pageIndex: 1, pageSize: 1000 });
-        const alarms = alarmsResponse.data?.records || [];
+        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 1000 });
+        const alarms = alarmsResponse.data || [];
         activeAlarms = alarms.filter(a => a.status === 'active').length;
         criticalAlarms = alarms.filter(a => a.severity === 'critical' && a.status === 'active').length;
         warningAlarms = alarms.filter(a => a.severity === 'warning' && a.status === 'active').length;
