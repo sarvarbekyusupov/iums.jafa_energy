@@ -149,7 +149,7 @@ class UnifiedSolarService {
         recordsLength: stationsResponse.records?.length,
         sampleStation: stations[0],
         sampleStationFields: stations[0] ? Object.keys(stations[0]) : [],
-        etodayValues: stations.slice(0, 3).map((s: any) => ({ name: s.stationName, eToday: s.eToday, pac: s.pac, eTotal: s.eTotal })),
+        etodayValues: stations.slice(0, 3).map((s: any) => ({ name: s.stationName, dayEnergy: s.dayEnergy, power: s.power, allEnergy: s.allEnergy })),
         fullResponse: stationsResponse
       });
 
@@ -170,9 +170,9 @@ class UnifiedSolarService {
       const onlineInverters = inverters.filter((inv: any) => inv.state === 1).length;
       const warningInverters = inverters.filter((inv: any) => inv.state === 3).length;
 
-      const totalEnergyToday = stations.reduce((sum: number, s: any) => sum + (s.eToday || 0), 0);
-      const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.eTotal || 0), 0);
-      const currentPower = stations.reduce((sum: number, s: any) => sum + (s.pac || 0), 0);
+      const totalEnergyToday = stations.reduce((sum: number, s: any) => sum + (s.dayEnergy || 0), 0);
+      const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.allEnergy || 0), 0);
+      const currentPower = stations.reduce((sum: number, s: any) => sum + (s.power || 0), 0);
 
       console.log('SolisCloud Calculated Stats:', {
         totalStations,
@@ -215,7 +215,7 @@ class UnifiedSolarService {
         },
         power: {
           current: currentPower,
-          peak: Math.max(...stations.map((s: any) => s.pac || 0), 0),
+          peak: Math.max(...stations.map((s: any) => s.power || 0), 0),
         },
         devices: {
           total: totalInverters,
