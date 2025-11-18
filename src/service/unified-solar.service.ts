@@ -52,9 +52,8 @@ class UnifiedSolarService {
    */
   private async fetchHopeCloudData(): Promise<UnifiedSolarData> {
     try {
-      // Fetch stations with retry logic for 502 errors
-      // Note: Using pageSize of 100 to match other providers and reduce backend load
-      const stationsResponse = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 100 });
+      // Fetch stations without pagination parameters (HopeCloud API works better without them)
+      const stationsResponse = await hopeCloudService.getStations();
       const stations = stationsResponse.data?.records || [];
 
       // Calculate statistics
@@ -66,12 +65,12 @@ class UnifiedSolarService {
       const totalEnergyLifetime = stations.reduce((sum, s) => sum + (s.sumKwh || 0), 0);
       const currentPower = stations.reduce((sum, s) => sum + (s.nowKw || 0), 0);
 
-      // Try to fetch alarms
+      // Try to fetch alarms (without pagination - HopeCloud API handles this internally)
       let activeAlarms = 0;
       let criticalAlarms = 0;
       let warningAlarms = 0;
       try {
-        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 100 });
+        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 10 });
         const alarms = alarmsResponse.data || [];
         activeAlarms = alarms.filter(a => a.status === 'active').length;
         criticalAlarms = alarms.filter(a => a.severity === 'critical' && a.status === 'active').length;
