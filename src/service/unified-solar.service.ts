@@ -58,8 +58,12 @@ class UnifiedSolarService {
 
       console.log('HopeCloud API Response:', {
         totalStations: stations.length,
+        hasRecords: !!stationsResponse.data?.records,
+        recordsLength: stationsResponse.data?.records?.length,
         sampleStation: stations[0],
-        responseStructure: stationsResponse.data
+        sampleStationFields: stations[0] ? Object.keys(stations[0]) : [],
+        todayKwhValues: stations.slice(0, 3).map(s => ({ name: s.name, todayKwh: s.todayKwh, nowKw: s.nowKw, sumKwh: s.sumKwh })),
+        fullResponse: stationsResponse
       });
 
       // Calculate statistics
@@ -141,8 +145,12 @@ class UnifiedSolarService {
 
       console.log('SolisCloud Stations Response:', {
         totalStations: stations.length,
+        hasRecords: !!stationsResponse.records,
+        recordsLength: stationsResponse.records?.length,
         sampleStation: stations[0],
-        responseStructure: stationsResponse
+        sampleStationFields: stations[0] ? Object.keys(stations[0]) : [],
+        etodayValues: stations.slice(0, 3).map((s: any) => ({ name: s.stationName, eToday: s.eToday, pac: s.pac, eTotal: s.eTotal })),
+        fullResponse: stationsResponse
       });
 
       // Fetch inverters using real-time API
