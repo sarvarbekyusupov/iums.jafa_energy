@@ -1,6 +1,6 @@
 import { apiClient } from './api-client';
 
-const DB_BASE_URL = '/api/api/fsolar/db';
+const DB_BASE_URL = '/api/fsolar/db';
 
 class FSolarService {
   // ==================== DEVICE MANAGEMENT ====================
