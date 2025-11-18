@@ -52,19 +52,10 @@ class UnifiedSolarService {
    */
   private async fetchHopeCloudData(): Promise<UnifiedSolarData> {
     try {
-      // Fetch stations
-      const stationsResponse = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 1000 });
+      // Fetch stations with retry logic for 502 errors
+      // Note: Using pageSize of 100 to match other providers and reduce backend load
+      const stationsResponse = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 100 });
       const stations = stationsResponse.data?.records || [];
-
-      console.log('HopeCloud API Response:', {
-        totalStations: stations.length,
-        hasRecords: !!stationsResponse.data?.records,
-        recordsLength: stationsResponse.data?.records?.length,
-        sampleStation: stations[0],
-        sampleStationFields: stations[0] ? Object.keys(stations[0]) : [],
-        todayKwhValues: stations.slice(0, 3).map(s => ({ name: s.name, todayKwh: s.todayKwh, nowKw: s.nowKw, sumKwh: s.sumKwh })),
-        fullResponse: stationsResponse
-      });
 
       // Calculate statistics
       const totalStations = stations.length;
@@ -75,20 +66,12 @@ class UnifiedSolarService {
       const totalEnergyLifetime = stations.reduce((sum, s) => sum + (s.sumKwh || 0), 0);
       const currentPower = stations.reduce((sum, s) => sum + (s.nowKw || 0), 0);
 
-      console.log('HopeCloud Calculated Stats:', {
-        totalStations,
-        onlineStations,
-        totalEnergyToday,
-        currentPower,
-        totalEnergyLifetime
-      });
-
       // Try to fetch alarms
       let activeAlarms = 0;
       let criticalAlarms = 0;
       let warningAlarms = 0;
       try {
-        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 1000 });
+        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 100 });
         const alarms = alarmsResponse.data || [];
         activeAlarms = alarms.filter(a => a.status === 'active').length;
         criticalAlarms = alarms.filter(a => a.severity === 'critical' && a.status === 'active').length;
@@ -139,30 +122,15 @@ class UnifiedSolarService {
   private async fetchSolisCloudData(): Promise<UnifiedSolarData> {
     try {
       // Fetch stations using detail list API (same as working SolisCloud dashboard)
-      const stationsParams = { pageNo: 1, pageSize: 1000 };
+      // Note: Using pageSize of 100 to match the working dashboard (1000 causes 400 error)
+      const stationsParams = { pageNo: 1, pageSize: 100 };
       const stationsResponse = await solisCloudService.getStationDetailList(stationsParams);
       const stations = stationsResponse.records || [];
 
-      console.log('SolisCloud Stations Response:', {
-        totalStations: stations.length,
-        hasRecords: !!stationsResponse.records,
-        recordsLength: stationsResponse.records?.length,
-        sampleStation: stations[0],
-        sampleStationFields: stations[0] ? Object.keys(stations[0]) : [],
-        etodayValues: stations.slice(0, 3).map((s: any) => ({ name: s.stationName, eToday: s.eToday, pac: s.pac, eTotal: s.eTotal })),
-        fullResponse: stationsResponse
-      });
-
       // Fetch inverters using real-time API
-      const invertersParams = { pageNo: 1, pageSize: 1000 };
+      const invertersParams = { pageNo: 1, pageSize: 100 };
       const invertersResponse = await solisCloudService.getInverterList(invertersParams);
       const inverters = invertersResponse.page?.records || [];
-
-      console.log('SolisCloud Inverters Response:', {
-        totalInverters: inverters.length,
-        sampleInverter: inverters[0],
-        responseStructure: invertersResponse
-      });
 
       // Calculate statistics
       const totalStations = stations.length;
@@ -174,14 +142,6 @@ class UnifiedSolarService {
       const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.eTotal || 0), 0);
       const currentPower = stations.reduce((sum: number, s: any) => sum + (s.pac || 0), 0);
 
-      console.log('SolisCloud Calculated Stats:', {
-        totalStations,
-        totalInverters,
-        totalEnergyToday,
-        currentPower,
-        totalEnergyLifetime
-      });
-
       // Try to fetch alarms
       let activeAlarms = 0;
       let criticalAlarms = 0;
@@ -189,7 +149,7 @@ class UnifiedSolarService {
       try {
         const alarmsParams = {
           pageNo: 1,
-          pageSize: 1000,
+          pageSize: 100,
         };
         const alarmsResponse = await solisCloudService.getAlarmList(alarmsParams);
         const alarms = alarmsResponse.records || [];
@@ -242,7 +202,7 @@ class UnifiedSolarService {
   private async fetchFSolarData(): Promise<UnifiedSolarData> {
     try {
       // Fetch devices using DB API
-      const devicesResponse = await fsolarService.getDbDevices({ page: 1, limit: 1000 });
+      const devicesResponse = await fsolarService.getDbDevices({ page: 1, limit: 100 });
       const devices = devicesResponse.data?.data || [];
 
       const totalDevices = devices.length;
@@ -252,7 +212,7 @@ class UnifiedSolarService {
       let totalEnergyToday = 0;
       let currentPower = 0;
       try {
-        const energyResponse = await fsolarService.getDbEnergy({ limit: 1000 });
+        const energyResponse = await fsolarService.getDbEnergy({ limit: 100 });
         const energyData = energyResponse.data?.data || [];
 
         // Calculate today's energy (assuming the API returns recent data)
@@ -270,7 +230,7 @@ class UnifiedSolarService {
       let criticalAlarms = 0;
       let warningAlarms = 0;
       try {
-        const eventsResponse = await fsolarService.getDbEvents({ status: 'active', limit: 1000 });
+        const eventsResponse = await fsolarService.getDbEvents({ status: 'active', limit: 100 });
         const events = eventsResponse.data?.data || [];
         activeAlarms = events.length;
         criticalAlarms = events.filter((e: any) => e.alarmLevel === 1).length;
