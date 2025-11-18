@@ -56,6 +56,12 @@ class UnifiedSolarService {
       const stationsResponse = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 1000 });
       const stations = stationsResponse.data?.records || [];
 
+      console.log('HopeCloud API Response:', {
+        totalStations: stations.length,
+        sampleStation: stations[0],
+        responseStructure: stationsResponse.data
+      });
+
       // Calculate statistics
       const totalStations = stations.length;
       const onlineStations = stations.filter(s => s.status === 1).length;
@@ -64,6 +70,14 @@ class UnifiedSolarService {
       const totalEnergyYear = stations.reduce((sum, s) => sum + (s.yearKwh || 0), 0);
       const totalEnergyLifetime = stations.reduce((sum, s) => sum + (s.sumKwh || 0), 0);
       const currentPower = stations.reduce((sum, s) => sum + (s.nowKw || 0), 0);
+
+      console.log('HopeCloud Calculated Stats:', {
+        totalStations,
+        onlineStations,
+        totalEnergyToday,
+        currentPower,
+        totalEnergyLifetime
+      });
 
       // Try to fetch alarms
       let activeAlarms = 0;
@@ -94,7 +108,7 @@ class UnifiedSolarService {
         },
         power: {
           current: currentPower,
-          peak: Math.max(...stations.map(s => s.nowKw || 0)),
+          peak: Math.max(...stations.map(s => s.nowKw || 0), 0),
         },
         devices: {
           total: 0, // Will be calculated from devices if needed
@@ -125,10 +139,22 @@ class UnifiedSolarService {
       const stationsResponse = await solisCloudService.getStationList(stationsParams);
       const stations = stationsResponse.records || [];
 
+      console.log('SolisCloud Stations Response:', {
+        totalStations: stations.length,
+        sampleStation: stations[0],
+        responseStructure: stationsResponse
+      });
+
       // Fetch inverters using real-time API
       const invertersParams = { pageNo: 1, pageSize: 1000 };
       const invertersResponse = await solisCloudService.getInverterList(invertersParams);
       const inverters = invertersResponse.page?.records || [];
+
+      console.log('SolisCloud Inverters Response:', {
+        totalInverters: inverters.length,
+        sampleInverter: inverters[0],
+        responseStructure: invertersResponse
+      });
 
       // Calculate statistics
       const totalStations = stations.length;
@@ -139,6 +165,14 @@ class UnifiedSolarService {
       const totalEnergyToday = stations.reduce((sum: number, s: any) => sum + (s.eToday || 0), 0);
       const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.eTotal || 0), 0);
       const currentPower = stations.reduce((sum: number, s: any) => sum + (s.pac || 0), 0);
+
+      console.log('SolisCloud Calculated Stats:', {
+        totalStations,
+        totalInverters,
+        totalEnergyToday,
+        currentPower,
+        totalEnergyLifetime
+      });
 
       // Try to fetch alarms
       let activeAlarms = 0;
