@@ -76,6 +76,9 @@ const WeatherListPage = lazy(() => import("../pages/admin/soliscloud/weather-lis
 const WeatherDetailPage = lazy(() => import("../pages/admin/soliscloud/weather-detail"));
 const SolisCloudAPITest = lazy(() => import("../pages/admin/soliscloud/api-test"));
 
+// Lazy load User pages
+const SolarMonitor = lazy(() => import("../pages/user/solar-monitor"));
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<App />}>
@@ -112,7 +115,19 @@ const router = createBrowserRouter(
         } 
       />
       <Route path="*" element={<NotFound />} />
-      
+
+      {/* USER - Simple Solar Monitor */}
+      <Route
+        path="monitor"
+        element={
+          <LayoutProtect>
+            <Suspense fallback={<PageLoader />}>
+              <SolarMonitor />
+            </Suspense>
+          </LayoutProtect>
+        }
+      />
+
       {/* ADMIN */}
       <Route
         path="admin"
