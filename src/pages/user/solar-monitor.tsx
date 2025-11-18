@@ -11,14 +11,19 @@ import {
 } from '@ant-design/icons';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
+import { useAuth } from '../../helpers/hooks/useAuth';
 
 const { Title, Text } = Typography;
 
 /**
  * Simple Solar Monitor Page for End Users
- * Displays combined solar data from all providers in a clean, read-only view
+ * Displays solar data from providers that belong to the authenticated user
+ *
+ * NOTE: The backend API should filter data based on the authenticated user's ID.
+ * Only solar stations/devices assigned to this user should be returned.
  */
 const SolarMonitor: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [solarData, setSolarData] = useState<UnifiedSolarSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +115,7 @@ const SolarMonitor: React.FC = () => {
         <div style={{ textAlign: 'center', paddingTop: '24px' }}>
           <Title level={1} style={{ margin: 0, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
             <SunOutlined style={{ color: '#faad14', fontSize: '48px' }} />
-            My Solar Energy System
+            {user ? `${user.firstName}'s Solar Energy System` : 'My Solar Energy System'}
           </Title>
           <Text type="secondary" style={{ fontSize: '16px' }}>
             Real-time monitoring of your solar power generation

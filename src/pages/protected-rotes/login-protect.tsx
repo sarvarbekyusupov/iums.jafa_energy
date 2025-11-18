@@ -27,7 +27,13 @@ const LoginProtect = ({ children }: ProtectProps) => {
 
   if (isAuthenticated && user) {
     if (location.pathname === "/") {
-      return <Navigate to="/admin" replace />;
+      // Role-based redirection after login
+      if (user.role === 'super_admin' || user.role === 'admin') {
+        return <Navigate to="/admin" replace />;
+      } else {
+        // Regular users (operator, user) go to monitor page
+        return <Navigate to="/monitor" replace />;
+      }
     }
   }
 

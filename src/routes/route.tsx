@@ -17,6 +17,7 @@ import {
 } from "@pages";
 import { LayoutProtect } from "@pages";
 import { LoginProtect } from "@pages";
+import RoleProtect from "../pages/protected-rotes/role-protect";
 
 // Loading component for suspense fallback
 const PageLoader = () => (
@@ -128,14 +129,16 @@ const router = createBrowserRouter(
         }
       />
 
-      {/* ADMIN */}
+      {/* ADMIN - Only accessible by super_admin and admin roles */}
       <Route
         path="admin"
         element={
           <LayoutProtect>
-            <Suspense fallback={<PageLoader />}>
-              <AdminLayout />
-            </Suspense>
+            <RoleProtect allowedRoles={['super_admin', 'admin']}>
+              <Suspense fallback={<PageLoader />}>
+                <AdminLayout />
+              </Suspense>
+            </RoleProtect>
           </LayoutProtect>
         }
       >
