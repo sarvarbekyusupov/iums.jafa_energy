@@ -134,9 +134,9 @@ class UnifiedSolarService {
    */
   private async fetchSolisCloudData(): Promise<UnifiedSolarData> {
     try {
-      // Fetch stations using real-time API instead of DB
+      // Fetch stations using detail list API (same as working SolisCloud dashboard)
       const stationsParams = { pageNo: 1, pageSize: 1000 };
-      const stationsResponse = await solisCloudService.getStationList(stationsParams);
+      const stationsResponse = await solisCloudService.getStationDetailList(stationsParams);
       const stations = stationsResponse.records || [];
 
       console.log('SolisCloud Stations Response:', {
