@@ -1156,116 +1156,197 @@ const HopeCloudManagement: React.FC = () => {
   // SyncContent function removed from UI but preserved for future use
 
   // Single comprehensive alarms management
-  const AlarmsContent = () => (
-    <Card 
-      title={
-        <Space>
-          <BellOutlined />
-          <span>Alarm Management</span>
-          <Badge count={Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0} />
-        </Space>
-      }
-      extra={
-        <Space>
-          <Select
-            placeholder="Filter by severity"
-            style={{ width: 150 }}
-            allowClear
-            onChange={setAlarmFilter}
-          >
-            <Select.Option value="high">High</Select.Option>
-            <Select.Option value="medium">Medium</Select.Option>
-            <Select.Option value="low">Low</Select.Option>
-          </Select>
-          <Button icon={<ReloadOutlined />} onClick={fetchAllData} loading={loading}>
-            Refresh
-          </Button>
-        </Space>
-      }
-    >
-      {(!Array.isArray(alarms) || alarms.length === 0) ? (
-        <Empty
-          image={<SafetyCertificateOutlined style={{ fontSize: '64px', color: '#52c41a' }} />}
-          description="No active alarms"
-        >
-          <Text type="secondary">All systems are operating normally</Text>
-        </Empty>
-      ) : (
-        <List
-          dataSource={Array.isArray(alarms) ? alarms.filter(alarm => 
-            !alarmFilter || alarm.severity === alarmFilter
-          ) : []}
-          renderItem={(alarm) => (
-            <List.Item
-              actions={[
-                <Button 
-                  key="details" 
-                  type="link" 
-                  size="small"
-                  icon={<FileTextOutlined />}
-                  onClick={() => handleViewAlarmDetails(alarm)}
-                >
-                  View Details
-                </Button>,
-                <Button 
-                  key="acknowledge" 
-                  type="link" 
-                  size="small"
-                  onClick={() => handleAcknowledgeAlarm(alarm)}
-                >
-                  Acknowledge
-                </Button>
-              ]}
+  const AlarmsContent = () => {
+    const activeAlarms = Array.isArray(alarms) ? alarms.filter(a => a.status === 'active') : [];
+    const filteredAlarms = Array.isArray(alarms) ? alarms.filter(alarm =>
+      !alarmFilter || alarm.severity === alarmFilter
+    ) : [];
+
+    return (
+      <Card
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              background: DESIGN_TOKENS.gradients.orange,
+              padding: '8px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <BellOutlined style={{ color: 'white', fontSize: '16px' }} />
+            </div>
+            <span style={{ fontSize: '18px', fontWeight: 600, color: 'rgba(0,0,0,0.8)' }}>
+              Alarm Management
+            </span>
+            <Badge
+              count={activeAlarms.length}
+              overflowCount={99}
+              style={{ backgroundColor: DESIGN_TOKENS.status.error }}
+            />
+          </div>
+        }
+        extra={
+          <Space>
+            <Select
+              placeholder="Filter by severity"
+              style={{ width: 150 }}
+              allowClear
+              onChange={setAlarmFilter}
             >
-              <List.Item.Meta
-                avatar={
-                  <Avatar 
-                    icon={<ExclamationCircleOutlined />} 
-                    style={{ 
-                      backgroundColor: alarm.severity === 'high' ? '#ff4d4f' : 
-                                      alarm.severity === 'medium' ? '#faad14' : '#52c41a' 
-                    }} 
-                  />
-                }
-                title={
-                  <Space>
-                    <Text strong>{alarm.alarmContent || alarm.alarmType || `Alarm ${alarm.alarmCode}`}</Text>
-                    <Tag 
-                      color={alarm.alarmGrade === '2' ? 'red' : 
-                             alarm.alarmGrade === '1' ? 'orange' : 'green'}
+              <Select.Option value="high">High</Select.Option>
+              <Select.Option value="medium">Medium</Select.Option>
+              <Select.Option value="low">Low</Select.Option>
+            </Select>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAllData}
+              loading={loading}
+              style={{
+                borderColor: DESIGN_TOKENS.menu.primary,
+                color: DESIGN_TOKENS.menu.primary
+              }}
+            >
+              Refresh
+            </Button>
+          </Space>
+        }
+      >
+        {(!Array.isArray(alarms) || alarms.length === 0) ? (
+          <div style={{
+            background: DESIGN_TOKENS.backgrounds.green,
+            border: `1px solid ${DESIGN_TOKENS.backgrounds.greenBorder}`,
+            borderRadius: '12px',
+            padding: '48px 24px',
+            textAlign: 'center'
+          }}>
+            <Empty
+              image={<SafetyCertificateOutlined style={{ fontSize: '64px', color: DESIGN_TOKENS.status.success }} />}
+              description={
+                <Space direction="vertical" size={8}>
+                  <Text strong style={{ fontSize: '16px', color: 'rgba(0,0,0,0.85)' }}>
+                    No Active Alarms
+                  </Text>
+                  <Text type="secondary">All systems are operating normally</Text>
+                </Space>
+              }
+            />
+          </div>
+        ) : (
+          <List
+            dataSource={filteredAlarms}
+            renderItem={(alarm) => {
+              const isActive = alarm.status === 'active';
+              const severityColor = alarm.alarmGrade === '2' ? DESIGN_TOKENS.status.error :
+                                   alarm.alarmGrade === '1' ? DESIGN_TOKENS.status.warning :
+                                   DESIGN_TOKENS.status.success;
+
+              return (
+                <List.Item
+                  style={{
+                    background: isActive ? DESIGN_TOKENS.backgrounds.red : 'transparent',
+                    borderLeft: isActive ? DESIGN_TOKENS.borders.error : 'none',
+                    padding: '16px',
+                    marginBottom: '8px',
+                    borderRadius: '8px',
+                    transition: 'all 0.3s ease'
+                  }}
+                  actions={[
+                    <Button
+                      key="details"
+                      type="link"
+                      size="small"
+                      icon={<FileTextOutlined />}
+                      onClick={() => handleViewAlarmDetails(alarm)}
+                      style={{ color: DESIGN_TOKENS.status.info }}
                     >
-                      {alarm.alarmGrade === '2' ? 'Severe' : 
-                       alarm.alarmGrade === '1' ? 'General' : 
-                       alarm.alarmGrade === '0' ? 'Prompt' : 'Unknown'}
-                    </Tag>
-                    <Badge 
-                      status={alarm.status === 'active' ? 'error' : 'success'} 
-                      text={alarm.status === 'active' ? 'Active' : 'Resolved'}
-                    />
-                  </Space>
-                }
-                description={
-                  <Space direction="vertical" size={4}>
-                    <Text>{alarm.alarmContent || alarm.message}</Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Device: {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId} • Plant: {alarm.plantName || 'Unknown'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Occurred: {new Date(alarm.reportedTime || alarm.occurredAt).toLocaleString()}
-                    </Text>
-                  </Space>
-                }
-              />
-            </List.Item>
-          )}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-          }}
-        />
-      )}
-    </Card>
-  );
+                      View Details
+                    </Button>,
+                    <Button
+                      key="acknowledge"
+                      type="link"
+                      size="small"
+                      onClick={() => handleAcknowledgeAlarm(alarm)}
+                      style={{
+                        color: isActive ? DESIGN_TOKENS.status.warning : DESIGN_TOKENS.menu.primary
+                      }}
+                    >
+                      {isActive ? 'Acknowledge' : 'Acknowledged'}
+                    </Button>
+                  ]}
+                >
+                  <List.Item.Meta
+                    avatar={
+                      <Avatar
+                        icon={<ExclamationCircleOutlined />}
+                        style={{
+                          backgroundColor: severityColor,
+                          boxShadow: `0 2px 8px ${severityColor}40`
+                        }}
+                      />
+                    }
+                    title={
+                      <Space size="small">
+                        <Text strong style={{ fontSize: '15px' }}>
+                          {alarm.alarmContent || alarm.alarmType || `Alarm ${alarm.alarmCode}`}
+                        </Text>
+                        <Tag
+                          color={alarm.alarmGrade === '2' ? 'error' :
+                                 alarm.alarmGrade === '1' ? 'warning' : 'success'}
+                          style={{ fontWeight: 500 }}
+                        >
+                          {alarm.alarmGrade === '2' ? 'Severe' :
+                           alarm.alarmGrade === '1' ? 'General' :
+                           alarm.alarmGrade === '0' ? 'Prompt' : 'Unknown'}
+                        </Tag>
+                        <Tag
+                          color={isActive ? 'error' : 'success'}
+                          icon={isActive ? <ExclamationCircleOutlined /> : <CheckCircleOutlined />}
+                        >
+                          {isActive ? 'Active' : 'Resolved'}
+                        </Tag>
+                      </Space>
+                    }
+                    description={
+                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                        <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
+                          {alarm.alarmContent || alarm.message}
+                        </Text>
+                        <div style={{
+                          background: DESIGN_TOKENS.backgrounds.blue,
+                          border: `1px solid ${DESIGN_TOKENS.backgrounds.blueBorder}`,
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          marginTop: '8px'
+                        }}>
+                          <Space split={<span style={{ color: '#d9d9d9' }}>•</span>}>
+                            <Text style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)' }}>
+                              <strong>Device:</strong> {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId}
+                            </Text>
+                            <Text style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)' }}>
+                              <strong>Plant:</strong> {alarm.plantName || 'Unknown'}
+                            </Text>
+                            <Text style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)' }}>
+                              <strong>Time:</strong> {new Date(alarm.reportedTime || alarm.occurredAt).toLocaleString()}
+                            </Text>
+                          </Space>
+                        </div>
+                      </Space>
+                    }
+                  />
+                </List.Item>
+              );
+            }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} alarms`,
+            }}
+          />
+        )}
+      </Card>
+    );
+  };
 
   // Communication modules management
   const CommunicationModulesContent = () => {
@@ -1774,66 +1855,103 @@ const HopeCloudManagement: React.FC = () => {
                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
                       <Row gutter={16}>
                         <Col span={8}>
-                          <Card size="small">
+                          <Card
+                            size="small"
+                            style={{
+                              background: DESIGN_TOKENS.backgrounds.blue,
+                              border: `1px solid ${DESIGN_TOKENS.backgrounds.blueBorder}`,
+                            }}
+                          >
                             <Statistic
-                              title="Current Power"
+                              title={<span style={{ color: 'rgba(0,0,0,0.85)', fontWeight: 500 }}>Current Power</span>}
                               value={selectedStation.nowKw}
                               precision={2}
                               suffix="kW"
-                              prefix={<ThunderboltOutlined />}
+                              prefix={<ThunderboltOutlined style={{ color: DESIGN_TOKENS.status.info }} />}
+                              valueStyle={{ color: DESIGN_TOKENS.status.info, fontWeight: 600 }}
                             />
                             <Progress
                               percent={Math.round((selectedStation.nowKw / selectedStation.kwp) * 100)}
+                              strokeColor={DESIGN_TOKENS.status.info}
                               style={{ marginTop: 12 }}
                             />
                           </Card>
                         </Col>
                         <Col span={8}>
-                          <Card size="small">
+                          <Card
+                            size="small"
+                            style={{
+                              background: DESIGN_TOKENS.backgrounds.green,
+                              border: `1px solid ${DESIGN_TOKENS.backgrounds.greenBorder}`,
+                            }}
+                          >
                             <Statistic
-                              title="Today Generation"
+                              title={<span style={{ color: 'rgba(0,0,0,0.85)', fontWeight: 500 }}>Today Generation</span>}
                               value={selectedStation.todayKwh}
                               precision={1}
                               suffix="kWh"
-                              prefix={<SunOutlined />}
+                              prefix={<SunOutlined style={{ color: DESIGN_TOKENS.status.success }} />}
+                              valueStyle={{ color: DESIGN_TOKENS.status.success, fontWeight: 600 }}
                             />
                           </Card>
                         </Col>
                         <Col span={8}>
-                          <Card size="small">
+                          <Card
+                            size="small"
+                            style={{
+                              background: selectedStation.status === 1
+                                ? DESIGN_TOKENS.backgrounds.green
+                                : DESIGN_TOKENS.backgrounds.red,
+                              border: selectedStation.status === 1
+                                ? `1px solid ${DESIGN_TOKENS.backgrounds.greenBorder}`
+                                : `1px solid ${DESIGN_TOKENS.backgrounds.redBorder}`,
+                            }}
+                          >
                             <Statistic
-                              title="Status"
+                              title={<span style={{ color: 'rgba(0,0,0,0.85)', fontWeight: 500 }}>Status</span>}
                               value={selectedStation.status === 1 ? 'Online' : 'Offline'}
-                              prefix={selectedStation.status === 1 ? 
-                                <CheckCircleOutlined style={{ color: '#52c41a' }} /> : 
-                                <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                              prefix={selectedStation.status === 1 ?
+                                <CheckCircleOutlined style={{ color: DESIGN_TOKENS.status.success }} /> :
+                                <ExclamationCircleOutlined style={{ color: DESIGN_TOKENS.status.error }} />
                               }
-                              valueStyle={{ 
-                                color: selectedStation.status === 1 ? '#52c41a' : '#ff4d4f' 
+                              valueStyle={{
+                                color: selectedStation.status === 1 ? DESIGN_TOKENS.status.success : DESIGN_TOKENS.status.error,
+                                fontWeight: 600
                               }}
                             />
                           </Card>
                         </Col>
                       </Row>
 
-                      <Card title="Complete Station Information" size="small">
+                      <Card
+                        title={
+                          <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                            Complete Station Information
+                          </span>
+                        }
+                        size="small"
+                        style={{
+                          background: DESIGN_TOKENS.backgrounds.purple,
+                          border: `1px solid ${DESIGN_TOKENS.backgrounds.purpleBorder}`,
+                        }}
+                      >
                         <Descriptions column={3} size="small" bordered>
                           <Descriptions.Item label="Station Name">{selectedStation.name}</Descriptions.Item>
                           <Descriptions.Item label="Owner">{selectedStation.ownerName}</Descriptions.Item>
                           <Descriptions.Item label="Company">{selectedStation.companyName}</Descriptions.Item>
-                          
+
                           <Descriptions.Item label="Address">{selectedStation.address}</Descriptions.Item>
                           <Descriptions.Item label="City">{selectedStation.city}</Descriptions.Item>
                           <Descriptions.Item label="Province">{selectedStation.province}</Descriptions.Item>
-                          
+
                           <Descriptions.Item label="District">{selectedStation.district}</Descriptions.Item>
                           <Descriptions.Item label="Plant Type">{selectedStation.powerPlantType}</Descriptions.Item>
                           <Descriptions.Item label="Network Type">{selectedStation.networkType}</Descriptions.Item>
-                          
+
                           <Descriptions.Item label="Capacity">{selectedStation.kwp} kWp</Descriptions.Item>
                           <Descriptions.Item label="Orientation">{selectedStation.orientationAngle}°</Descriptions.Item>
                           <Descriptions.Item label="Dip Angle">{selectedStation.dipAngle}°</Descriptions.Item>
-                          
+
                           {selectedStation.ownerPhone && (
                             <Descriptions.Item label="Owner Phone">{selectedStation.ownerPhone}</Descriptions.Item>
                           )}
@@ -1843,7 +1961,7 @@ const HopeCloudManagement: React.FC = () => {
                           {selectedStation.plantContactPhone && (
                             <Descriptions.Item label="Plant Phone">{selectedStation.plantContactPhone}</Descriptions.Item>
                           )}
-                          
+
                           {selectedStation.serviceProviderName && (
                             <Descriptions.Item label="Service Provider">{selectedStation.serviceProviderName}</Descriptions.Item>
                           )}
@@ -1853,7 +1971,7 @@ const HopeCloudManagement: React.FC = () => {
                           {selectedStation.paymentType && (
                             <Descriptions.Item label="Payment Type">{selectedStation.paymentType}</Descriptions.Item>
                           )}
-                          
+
                           {selectedStation.subassemblyNumber && (
                             <Descriptions.Item label="Subassemblies">{selectedStation.subassemblyNumber}</Descriptions.Item>
                           )}
@@ -1862,12 +1980,18 @@ const HopeCloudManagement: React.FC = () => {
                             <Descriptions.Item label="Network Time">{selectedStation.networkTime}</Descriptions.Item>
                           )}
                         </Descriptions>
-                        
+
                         {selectedStation.remark && (
-                          <div style={{ marginTop: 16 }}>
-                            <Text strong>Remarks:</Text>
+                          <div style={{
+                            marginTop: 16,
+                            background: DESIGN_TOKENS.backgrounds.orange,
+                            border: `1px solid ${DESIGN_TOKENS.backgrounds.orangeBorder}`,
+                            borderRadius: '6px',
+                            padding: '12px'
+                          }}>
+                            <Text strong style={{ color: 'rgba(0,0,0,0.85)' }}>Remarks:</Text>
                             <br />
-                            <Text>{selectedStation.remark}</Text>
+                            <Text style={{ color: 'rgba(0,0,0,0.65)' }}>{selectedStation.remark}</Text>
                           </div>
                         )}
                       </Card>
@@ -1955,44 +2079,102 @@ const HopeCloudManagement: React.FC = () => {
                   key: 'realtime',
                   label: 'Real-time Data',
                   children: (Array.isArray(realtimeData) && realtimeData.length > 0) ? (
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
                       {Array.isArray(realtimeData) && realtimeData.map((data, index) => (
-                        <Card key={index} size="small" title="Current Real-time Metrics">
+                        <Card
+                          key={index}
+                          size="small"
+                          title={
+                            <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                              Current Real-time Metrics
+                            </span>
+                          }
+                          style={{
+                            background: DESIGN_TOKENS.backgrounds.green,
+                            border: `1px solid ${DESIGN_TOKENS.backgrounds.greenBorder}`,
+                          }}
+                        >
                           <Row gutter={16}>
                             <Col span={6}>
-                              <Statistic
-                                title="Active Power"
-                                value={data.nowKw}
-                                suffix="kW"
-                              />
+                              <Card
+                                size="small"
+                                style={{
+                                  background: '#fff',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                                }}
+                              >
+                                <Statistic
+                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Active Power</span>}
+                                  value={data.nowKw}
+                                  suffix="kW"
+                                  valueStyle={{ color: DESIGN_TOKENS.status.info }}
+                                  prefix={<ThunderboltOutlined />}
+                                />
+                              </Card>
                             </Col>
                             <Col span={6}>
-                              <Statistic
-                                title="Day Yield"
-                                value={data.todayKwh}
-                                suffix="kWh"
-                              />
+                              <Card
+                                size="small"
+                                style={{
+                                  background: '#fff',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                                }}
+                              >
+                                <Statistic
+                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Day Yield</span>}
+                                  value={data.todayKwh}
+                                  suffix="kWh"
+                                  valueStyle={{ color: DESIGN_TOKENS.status.success }}
+                                  prefix={<SunOutlined />}
+                                />
+                              </Card>
                             </Col>
                             <Col span={6}>
-                              <Statistic
-                                title="Total Yield"
-                                value={data.totalKwh}
-                                suffix="kWh"
-                              />
+                              <Card
+                                size="small"
+                                style={{
+                                  background: '#fff',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                                }}
+                              >
+                                <Statistic
+                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Total Yield</span>}
+                                  value={data.totalKwh}
+                                  suffix="kWh"
+                                  valueStyle={{ color: DESIGN_TOKENS.status.purple }}
+                                />
+                              </Card>
                             </Col>
                             <Col span={6}>
-                              <Statistic
-                                title="Efficiency"
-                                value={0}
-                                suffix="%"
-                              />
+                              <Card
+                                size="small"
+                                style={{
+                                  background: '#fff',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                                }}
+                              >
+                                <Statistic
+                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Efficiency</span>}
+                                  value={0}
+                                  suffix="%"
+                                  valueStyle={{ color: DESIGN_TOKENS.status.warning }}
+                                />
+                              </Card>
                             </Col>
                           </Row>
                         </Card>
                       ))}
                     </Space>
                   ) : (
-                    <Empty description="No real-time data available" />
+                    <div style={{
+                      background: DESIGN_TOKENS.backgrounds.orange,
+                      border: `1px solid ${DESIGN_TOKENS.backgrounds.orangeBorder}`,
+                      borderRadius: '12px',
+                      padding: '48px 24px',
+                      textAlign: 'center'
+                    }}>
+                      <Empty description="No real-time data available" />
+                    </div>
                   ),
                 },
               ]}
@@ -2026,7 +2208,18 @@ const HopeCloudManagement: React.FC = () => {
                   label: 'Basic Info',
                   children: (
                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                      <Card size="small" title="Basic Device Information">
+                      <Card
+                        size="small"
+                        title={
+                          <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                            Basic Device Information
+                          </span>
+                        }
+                        style={{
+                          background: DESIGN_TOKENS.backgrounds.purple,
+                          border: `1px solid ${DESIGN_TOKENS.backgrounds.purpleBorder}`,
+                        }}
+                      >
                         <Descriptions column={1} size="small">
                           <Descriptions.Item label="Equipment Name">{selectedDevice.equipmentName}</Descriptions.Item>
                           <Descriptions.Item label="Serial Number">{selectedDevice.equipmentSn}</Descriptions.Item>
@@ -2035,7 +2228,7 @@ const HopeCloudManagement: React.FC = () => {
                           <Descriptions.Item label="Rated Power">{selectedDevice.ratedPower} kW</Descriptions.Item>
                           <Descriptions.Item label="Current Power">{(selectedDevice.nowKw || 0).toFixed(2)} kW</Descriptions.Item>
                           <Descriptions.Item label="Status">
-                            <Badge 
+                            <Badge
                               status={selectedDevice.status === 1 ? 'success' : 'error'}
                               text={selectedDevice.status === 1 ? 'Online' : 'Offline'}
                             />
@@ -2044,7 +2237,18 @@ const HopeCloudManagement: React.FC = () => {
                       </Card>
 
                       {equipmentDetails && (
-                        <Card size="small" title="Advanced Equipment Details">
+                        <Card
+                          size="small"
+                          title={
+                            <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                              Advanced Equipment Details
+                            </span>
+                          }
+                          style={{
+                            background: DESIGN_TOKENS.backgrounds.blue,
+                            border: `1px solid ${DESIGN_TOKENS.backgrounds.blueBorder}`,
+                          }}
+                        >
                           <Descriptions column={1} size="small">
                             <Descriptions.Item label="Device Name">{equipmentDetails.deviceName}</Descriptions.Item>
                             <Descriptions.Item label="Device Type">{equipmentDetails.deviceType}</Descriptions.Item>
