@@ -11,17 +11,17 @@ interface WelcomeCardProps {
 }
 
 const WelcomeCard: React.FC<WelcomeCardProps> = ({ userName, onAddUser, onSettings }) => {
-  const getGreeting = () => {
+  const greeting = React.useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
-  };
+  }, []);
 
   return (
-    <Card 
-      style={{ 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+    <Card
+      style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         border: 'none',
         borderRadius: '12px'
       }}
@@ -29,7 +29,7 @@ const WelcomeCard: React.FC<WelcomeCardProps> = ({ userName, onAddUser, onSettin
       <Row align="middle">
         <Col flex="auto">
           <Title level={2} style={{ color: 'white', margin: 0 }}>
-            {getGreeting()}, {userName}! 👋
+            {greeting}, {userName}! 👋
           </Title>
           <Paragraph style={{ color: 'rgba(255,255,255,0.8)', margin: '8px 0 0 0' }}>
             Here's what's happening with your ERP system today.
@@ -37,18 +37,18 @@ const WelcomeCard: React.FC<WelcomeCardProps> = ({ userName, onAddUser, onSettin
         </Col>
         <Col>
           <Space>
-            <Button 
-              type="primary" 
-              ghost 
-              icon={<PlusOutlined />} 
+            <Button
+              type="primary"
+              ghost
+              icon={<PlusOutlined />}
               href="/admin/users"
               onClick={onAddUser}
             >
               Add User
             </Button>
-            <Button 
-              type="primary" 
-              ghost 
+            <Button
+              type="primary"
+              ghost
               icon={<SettingOutlined />}
               onClick={onSettings}
             >
@@ -61,4 +61,4 @@ const WelcomeCard: React.FC<WelcomeCardProps> = ({ userName, onAddUser, onSettin
   );
 };
 
-export default WelcomeCard;
+export default React.memo(WelcomeCard);

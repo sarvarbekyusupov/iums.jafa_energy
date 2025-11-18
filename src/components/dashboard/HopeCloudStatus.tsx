@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Space, Typography, Spin, Alert, Button, Tag } from 'antd';
 import { 
   CloudServerOutlined, 
@@ -19,16 +19,16 @@ const HopeCloudStatus: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [healthData, batchData] = await Promise.all([
         hopeCloudService.getHealth(),
         hopeCloudService.getBatchStatus()
       ]);
-      
+
       setHealth(healthData);
       setBatchStatus(batchData);
     } catch (err: any) {
@@ -36,9 +36,9 @@ const HopeCloudStatus: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const triggerRealtimeSync = async () => {
+  const triggerRealtimeSync = useCallback(async () => {
     try {
       setSyncing(true);
       await hopeCloudService.triggerRealtimeSync();
@@ -49,7 +49,7 @@ const HopeCloudStatus: React.FC = () => {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [fetchStatus]);
 
   useEffect(() => {
     fetchStatus();
@@ -234,4 +234,4 @@ const HopeCloudStatus: React.FC = () => {
   );
 };
 
-export default HopeCloudStatus;
+export default React.memo(HopeCloudStatus);

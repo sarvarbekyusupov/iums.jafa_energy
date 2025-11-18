@@ -35,11 +35,11 @@ const StatCard: React.FC<StatCardProps> = ({
         valueStyle={{ color }}
         suffix={
           trend && (
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              fontSize: '12px', 
-              marginTop: '4px' 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '12px',
+              marginTop: '4px'
             }}>
               {trend.direction === 'up' ? (
                 <ArrowUpOutlined style={{ color: '#3f8600', marginRight: '4px' }} />
@@ -59,9 +59,9 @@ const StatCard: React.FC<StatCardProps> = ({
         </div>
       )}
       {showProgress && (
-        <Progress 
-          percent={progressPercent} 
-          showInfo={false} 
+        <Progress
+          percent={progressPercent}
+          showInfo={false}
           size="small"
           style={{ marginTop: '8px' }}
         />
@@ -70,4 +70,4 @@ const StatCard: React.FC<StatCardProps> = ({
   );
 };
 
-export default StatCard;
+export default React.memo(StatCard);
