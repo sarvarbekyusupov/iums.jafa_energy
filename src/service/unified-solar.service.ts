@@ -120,23 +120,25 @@ class UnifiedSolarService {
    */
   private async fetchSolisCloudData(): Promise<UnifiedSolarData> {
     try {
-      // Fetch stations using DB API
-      const stationsResponse = await solisCloudService.getDbStations({ page: 1, limit: 1000 });
-      const stations = stationsResponse.data?.data || [];
+      // Fetch stations using real-time API instead of DB
+      const stationsParams = { pageNo: 1, pageSize: 1000 };
+      const stationsResponse = await solisCloudService.getStationList(stationsParams);
+      const stations = stationsResponse.records || [];
 
-      // Fetch inverters using DB API
-      const invertersResponse = await solisCloudService.getDbInverters({ page: 1, limit: 1000 });
-      const inverters = invertersResponse.data?.data || [];
+      // Fetch inverters using real-time API
+      const invertersParams = { pageNo: 1, pageSize: 1000 };
+      const invertersResponse = await solisCloudService.getInverterList(invertersParams);
+      const inverters = invertersResponse.page?.records || [];
 
       // Calculate statistics
       const totalStations = stations.length;
       const totalInverters = inverters.length;
-      const onlineInverters = inverters.filter(inv => inv.state === 1).length;
-      const warningInverters = inverters.filter(inv => inv.state === 3).length;
+      const onlineInverters = inverters.filter((inv: any) => inv.state === 1).length;
+      const warningInverters = inverters.filter((inv: any) => inv.state === 3).length;
 
-      const totalEnergyToday = stations.reduce((sum, s) => sum + (s.eToday || 0), 0);
-      const totalEnergyLifetime = stations.reduce((sum, s) => sum + (s.eTotal || 0), 0);
-      const currentPower = stations.reduce((sum, s) => sum + (s.pac || 0), 0);
+      const totalEnergyToday = stations.reduce((sum: number, s: any) => sum + (s.eToday || 0), 0);
+      const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.eTotal || 0), 0);
+      const currentPower = stations.reduce((sum: number, s: any) => sum + (s.pac || 0), 0);
 
       // Try to fetch alarms
       let activeAlarms = 0;
@@ -149,9 +151,9 @@ class UnifiedSolarService {
         };
         const alarmsResponse = await solisCloudService.getAlarmList(alarmsParams);
         const alarms = alarmsResponse.records || [];
-        activeAlarms = alarms.filter(a => a.state === '0').length; // 0 = ongoing
-        criticalAlarms = alarms.filter(a => a.alarmLevel === '3' && a.state === '0').length;
-        warningAlarms = alarms.filter(a => a.alarmLevel === '1' && a.state === '0').length;
+        activeAlarms = alarms.filter((a: any) => a.state === '0').length; // 0 = ongoing
+        criticalAlarms = alarms.filter((a: any) => a.alarmLevel === '3' && a.state === '0').length;
+        warningAlarms = alarms.filter((a: any) => a.alarmLevel === '1' && a.state === '0').length;
       } catch (error) {
         console.warn('Failed to fetch SolisCloud alarms:', error);
       }
@@ -160,8 +162,8 @@ class UnifiedSolarService {
         provider: 'SolisCloud',
         stations: {
           total: totalStations,
-          online: stations.filter(s => s.state === 1).length,
-          offline: stations.filter(s => s.state !== 1).length,
+          online: stations.filter((s: any) => s.state === 1).length,
+          offline: stations.filter((s: any) => s.state !== 1).length,
         },
         energy: {
           today: totalEnergyToday,
@@ -171,7 +173,7 @@ class UnifiedSolarService {
         },
         power: {
           current: currentPower,
-          peak: Math.max(...stations.map(s => s.pac || 0)),
+          peak: Math.max(...stations.map((s: any) => s.pac || 0), 0),
         },
         devices: {
           total: totalInverters,
