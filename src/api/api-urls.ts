@@ -140,6 +140,29 @@ export class ApiUrls {
     CHANNEL_TREE: `${this.BASE_URL}/hopecloud/users/channel-tree`,
   };
 
+  // UNIFIED SOLAR ENDPOINTS
+  public static readonly UNIFIED_SOLAR = {
+    BASE: `${this.BASE_URL}/unified-solar`,
+    DATA: `${this.BASE_URL}/unified-solar/data`,
+  };
+
+  // SOLISCLOUD ENDPOINTS
+  public static readonly SOLISCLOUD = {
+    BASE: `${this.BASE_URL}/soliscloud`,
+    STATIONS: `${this.BASE_URL}/soliscloud/stations`,
+    STATION_DETAIL_LIST: `${this.BASE_URL}/soliscloud/stations/detail-list`,
+    INVERTER_LIST: `${this.BASE_URL}/soliscloud/inverters/list`,
+    ALARM_LIST: `${this.BASE_URL}/soliscloud/alarms/list`,
+  };
+
+  // FSOLAR ENDPOINTS
+  public static readonly FSOLAR = {
+    BASE: `${this.BASE_URL}/fsolar`,
+    DB_DEVICES: `${this.BASE_URL}/fsolar/db/devices`,
+    DB_ENERGY: `${this.BASE_URL}/fsolar/db/energy`,
+    DB_EVENTS: `${this.BASE_URL}/fsolar/db/events`,
+  };
+
   // LEGACY ENDPOINTS (keeping for backward compatibility)
   public static GROUPS: string = "/group";
   public static STUDENTS: string = "/student";
