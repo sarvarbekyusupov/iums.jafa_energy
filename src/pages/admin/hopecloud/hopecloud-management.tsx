@@ -26,7 +26,10 @@ import {
   Form,
   Divider,
   Alert,
+  Switch,
+  Tooltip,
 } from 'antd';
+import { DESIGN_TOKENS } from '../../../constants/design-tokens';
 import type { TabsProps } from 'antd';
 import {
   CloudServerOutlined,
@@ -159,6 +162,9 @@ const HopeCloudManagement: React.FC = () => {
   // Filters
   const [stationFilter, setStationFilter] = useState('');
   const [alarmFilter, setAlarmFilter] = useState('');
+
+  // Data source toggle (API/Database)
+  const [useDbSource, setUseDbSource] = useState(false);
   
 
   const fetchAllData = async () => {
@@ -775,43 +781,165 @@ const HopeCloudManagement: React.FC = () => {
   */
 
   // Stations content with enhanced design
-  const StationsContent = () => (
-    <div style={{ width: '100%', padding: '24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <DatabaseOutlined />
-            Power Stations Management
-            <Badge count={Array.isArray(stations) ? stations.length : 0} showZero style={{ backgroundColor: '#13c2c2' }} />
-          </Title>
-          <Text type="secondary">
-            {getFilteredStations().length} of {stations.length} stations
-            {stationFilter && ` • Searching: "${stationFilter}"`}
-          </Text>
+  const StationsContent = () => {
+    const totalStations = Array.isArray(stations) ? stations.length : 0;
+    const onlineStations = Array.isArray(stations) ? stations.filter(s => s.status === 1).length : 0;
+    const offlineStations = totalStations - onlineStations;
+    const activeAlarms = Array.isArray(alarms) ? alarms.filter(a => a.status === 'active').length : 0;
+    const totalPower = Array.isArray(stations) ? stations.reduce((sum, s) => sum + (s.nowKw || 0), 0) : 0;
+    const totalCapacity = Array.isArray(stations) ? stations.reduce((sum, s) => sum + (s.kwp || 0), 0) : 0;
+    const todayEnergy = Array.isArray(stations) ? stations.reduce((sum, s) => sum + (s.todayKwh || 0), 0) : 0;
+
+    return (
+      <div style={{ width: '100%', padding: '24px', background: '#f0f2f5', minHeight: '100vh', boxSizing: 'border-box' }}>
+        {/* Data Source Toggle */}
+        <Card style={{ marginBottom: 24 }}>
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={4} style={{ margin: 0 }}>
+                <DatabaseOutlined /> Data Source
+              </Title>
+            </Col>
+            <Col>
+              <Space size="large">
+                <Tooltip title={useDbSource ? "Switch to Real-time API" : "Switch to Database"}>
+                  <Space>
+                    <CloudServerOutlined style={{ color: useDbSource ? '#bfbfbf' : DESIGN_TOKENS.status.success, fontSize: 20 }} />
+                    <Switch
+                      checked={useDbSource}
+                      onChange={setUseDbSource}
+                      checkedChildren={<DatabaseOutlined />}
+                      unCheckedChildren={<CloudServerOutlined />}
+                    />
+                    <DatabaseOutlined style={{ color: useDbSource ? DESIGN_TOKENS.status.success : '#bfbfbf', fontSize: 20 }} />
+                  </Space>
+                </Tooltip>
+                <Tag color={useDbSource ? 'blue' : 'green'} style={{ padding: '4px 12px', fontSize: 14 }}>
+                  {useDbSource ? 'Database' : 'Real-time API'}
+                </Tag>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Gradient Statistics Cards */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ background: DESIGN_TOKENS.gradients.purple, border: 'none' }}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.9)' }}>Total Stations</span>}
+                value={totalStations}
+                prefix={<HomeOutlined style={{ color: '#fff' }} />}
+                valueStyle={{ color: '#fff' }}
+              />
+              <Progress
+                percent={totalStations > 0 ? Math.round((onlineStations / totalStations) * 100) : 0}
+                strokeColor="#fff"
+                showInfo={false}
+                style={{ marginTop: 8 }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
+                {onlineStations} online, {offlineStations} offline
+              </Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ background: DESIGN_TOKENS.gradients.pink, border: 'none' }}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.9)' }}>Current Power</span>}
+                value={totalPower.toFixed(1)}
+                suffix="kW"
+                prefix={<ThunderboltOutlined style={{ color: '#fff' }} />}
+                valueStyle={{ color: '#fff' }}
+              />
+              <Progress
+                percent={totalCapacity > 0 ? Math.min(Math.round((totalPower / totalCapacity) * 100), 100) : 0}
+                strokeColor="#fff"
+                showInfo={false}
+                style={{ marginTop: 8 }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
+                {Math.round((totalPower / totalCapacity) * 100)}% of {totalCapacity.toFixed(0)} kWp
+              </Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ background: DESIGN_TOKENS.gradients.green, border: 'none' }}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.9)' }}>Today's Energy</span>}
+                value={todayEnergy.toFixed(1)}
+                suffix="kWh"
+                prefix={<SunOutlined style={{ color: '#fff' }} />}
+                valueStyle={{ color: '#fff' }}
+              />
+              <Progress
+                percent={75}
+                strokeColor="#fff"
+                showInfo={false}
+                style={{ marginTop: 8 }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
+                Generating clean energy
+              </Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ background: DESIGN_TOKENS.gradients.orange, border: 'none' }}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.9)' }}>Active Alarms</span>}
+                value={activeAlarms}
+                prefix={<BellOutlined style={{ color: '#fff' }} />}
+                valueStyle={{ color: '#fff' }}
+              />
+              <Progress
+                percent={activeAlarms > 0 ? 100 : 0}
+                strokeColor="#fff"
+                showInfo={false}
+                style={{ marginTop: 8 }}
+                status={activeAlarms > 0 ? 'exception' : 'success'}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
+                {activeAlarms > 0 ? 'Attention required' : 'All systems normal'}
+              </Text>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Header */}
+        <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <DatabaseOutlined />
+              Power Stations Management
+              <Badge count={Array.isArray(stations) ? stations.length : 0} showZero style={{ backgroundColor: DESIGN_TOKENS.menu.primary }} />
+            </Title>
+            <Text type="secondary">
+              {getFilteredStations().length} of {stations.length} stations
+              {stationFilter && ` • Searching: "${stationFilter}"`}
+            </Text>
+          </div>
+          <Space>
+            <Input
+              placeholder="Search stations..."
+              prefix={<SearchOutlined />}
+              value={stationFilter}
+              onChange={(e) => setStationFilter(e.target.value)}
+              style={{ width: 250 }}
+              allowClear
+            />
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => setCreateStationVisible(true)}
+              style={{
+                background: DESIGN_TOKENS.menu.primary,
+                borderColor: DESIGN_TOKENS.menu.primary,
+                color: '#fff'
+              }}
+            >
+              Create Station
+            </Button>
+          </Space>
         </div>
-        <Space>
-          <Input
-            placeholder="Search stations..."
-            prefix={<SearchOutlined />}
-            value={stationFilter}
-            onChange={(e) => setStationFilter(e.target.value)}
-            style={{ width: 250 }}
-            allowClear
-          />
-          <Button
-            icon={<PlusOutlined />}
-            onClick={() => setCreateStationVisible(true)}
-            style={{
-              background: '#13c2c2',
-              borderColor: '#13c2c2',
-              color: '#fff'
-            }}
-          >
-            Create Station
-          </Button>
-        </Space>
-      </div>
 
       {/* Stations Grid */}
       <div>
@@ -996,8 +1124,8 @@ const HopeCloudManagement: React.FC = () => {
                         setStationHistoryVisible(true);
                       }}
                       style={{
-                        borderColor: '#13c2c2',
-                        color: '#13c2c2'
+                        borderColor: DESIGN_TOKENS.menu.primary,
+                        color: DESIGN_TOKENS.menu.primary
                       }}
                     >
                       History
@@ -1006,10 +1134,10 @@ const HopeCloudManagement: React.FC = () => {
                       size="small"
                       icon={<EyeOutlined />}
                       onClick={() => handleViewStationDetailsModal(station.id)}
+                      type="primary"
                       style={{
-                        background: '#13c2c2',
-                        borderColor: '#13c2c2',
-                        color: '#fff'
+                        background: DESIGN_TOKENS.menu.primary,
+                        borderColor: DESIGN_TOKENS.menu.primary,
                       }}
                     >
                       Details
@@ -1022,7 +1150,8 @@ const HopeCloudManagement: React.FC = () => {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   // SyncContent function removed from UI but preserved for future use
 
