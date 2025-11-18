@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -5,6 +6,7 @@ import {
   RouterProvider,
   Navigate,
 } from "react-router-dom";
+import { Spin } from "antd";
 import App from "../App";
 import {
   NotFound,
@@ -15,47 +17,64 @@ import {
 } from "@pages";
 import { LayoutProtect } from "@pages";
 import { LoginProtect } from "@pages";
-import AdminLayout from "../pages/admin/admin-layout";
-import Dashboard from "../pages/admin/dashboard";
-import UserManagement from "../pages/admin/users/user-management";
-import HopeCloudManagement from "../pages/admin/hopecloud/hopecloud-management";
-import SyncDataManagement from "../pages/admin/hopecloud/sync-data-management";
-import SitesManagement from "../pages/admin/sites/sites-management";
-import FusionSolarManagement from "../pages/admin/fusion-solar/fusion-solar-management";
-import ReportsManagement from "../pages/admin/reports/reports-management";
-import MonitoringManagement from "../pages/admin/monitoring/monitoring-management";
-import AnalyticsManagement from "../pages/admin/analytics/analytics-management";
-import NotificationsManagement from "../pages/admin/notifications/notifications-management";
-import DevicesManagement from "../pages/admin/devices/devices-management";
-// Fsolar pages
-import FsolarRealTimeMonitoring from "../pages/admin/fsolar/real-time-monitoring";
-import FsolarDevicesManagement from "../pages/admin/fsolar/devices-management";
-import FsolarDeviceSettings from "../pages/admin/fsolar/device-settings";
-import FsolarEnergyAnalytics from "../pages/admin/fsolar/energy-analytics";
-import FsolarHistoricalData from "../pages/admin/fsolar/historical-data";
-import FsolarTemplatesManagement from "../pages/admin/fsolar/templates-management";
-import FsolarTasksManagement from "../pages/admin/fsolar/tasks-management";
-import FsolarTaskMonitoring from "../pages/admin/fsolar/task-monitoring";
-import FsolarRunRecords from "../pages/admin/fsolar/run-records";
-import FsolarDeviceAlarms from "../pages/admin/fsolar/device-alarms";
-// SolisCloud pages
-import SolisCloudDashboard from "../pages/admin/soliscloud/dashboard";
-import SolisCloudStations from "../pages/admin/soliscloud/stations";
-import StationDetailPage from "../pages/admin/soliscloud/station-detail";
-import StationChartsPage from "../pages/admin/soliscloud/station-charts";
-import SolisCloudInverters from "../pages/admin/soliscloud/inverters";
-import InverterDetailPage from "../pages/admin/soliscloud/inverter-detail";
-import InverterChartsPage from "../pages/admin/soliscloud/inverter-charts";
-import SolisCloudAlarms from "../pages/admin/soliscloud/alarms";
-import SolisCloudCollectors from "../pages/admin/soliscloud/collectors";
-import CollectorDetailPage from "../pages/admin/soliscloud/collector-detail";
-import CollectorDiagnosticsPage from "../pages/admin/soliscloud/collector-diagnostics";
-import EPMListPage from "../pages/admin/soliscloud/epm-list";
-import EPMDetailPage from "../pages/admin/soliscloud/epm-detail";
-import EPMChartsPage from "../pages/admin/soliscloud/epm-charts";
-import WeatherListPage from "../pages/admin/soliscloud/weather-list";
-import WeatherDetailPage from "../pages/admin/soliscloud/weather-detail";
-import SolisCloudAPITest from "../pages/admin/soliscloud/api-test";
+
+// Loading component for suspense fallback
+const PageLoader = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    width: '100%'
+  }}>
+    <Spin size="large" tip="Loading..." />
+  </div>
+);
+
+// Lazy load admin layout and pages
+const AdminLayout = lazy(() => import("../pages/admin/admin-layout"));
+const Dashboard = lazy(() => import("../pages/admin/dashboard"));
+const UserManagement = lazy(() => import("../pages/admin/users/user-management"));
+const HopeCloudManagement = lazy(() => import("../pages/admin/hopecloud/hopecloud-management"));
+const SyncDataManagement = lazy(() => import("../pages/admin/hopecloud/sync-data-management"));
+const SitesManagement = lazy(() => import("../pages/admin/sites/sites-management"));
+const FusionSolarManagement = lazy(() => import("../pages/admin/fusion-solar/fusion-solar-management"));
+const ReportsManagement = lazy(() => import("../pages/admin/reports/reports-management"));
+const MonitoringManagement = lazy(() => import("../pages/admin/monitoring/monitoring-management"));
+const AnalyticsManagement = lazy(() => import("../pages/admin/analytics/analytics-management"));
+const NotificationsManagement = lazy(() => import("../pages/admin/notifications/notifications-management"));
+const DevicesManagement = lazy(() => import("../pages/admin/devices/devices-management"));
+
+// Lazy load Fsolar pages
+const FsolarRealTimeMonitoring = lazy(() => import("../pages/admin/fsolar/real-time-monitoring"));
+const FsolarDevicesManagement = lazy(() => import("../pages/admin/fsolar/devices-management"));
+const FsolarDeviceSettings = lazy(() => import("../pages/admin/fsolar/device-settings"));
+const FsolarEnergyAnalytics = lazy(() => import("../pages/admin/fsolar/energy-analytics"));
+const FsolarHistoricalData = lazy(() => import("../pages/admin/fsolar/historical-data"));
+const FsolarTemplatesManagement = lazy(() => import("../pages/admin/fsolar/templates-management"));
+const FsolarTasksManagement = lazy(() => import("../pages/admin/fsolar/tasks-management"));
+const FsolarTaskMonitoring = lazy(() => import("../pages/admin/fsolar/task-monitoring"));
+const FsolarRunRecords = lazy(() => import("../pages/admin/fsolar/run-records"));
+const FsolarDeviceAlarms = lazy(() => import("../pages/admin/fsolar/device-alarms"));
+
+// Lazy load SolisCloud pages
+const SolisCloudDashboard = lazy(() => import("../pages/admin/soliscloud/dashboard"));
+const SolisCloudStations = lazy(() => import("../pages/admin/soliscloud/stations"));
+const StationDetailPage = lazy(() => import("../pages/admin/soliscloud/station-detail"));
+const StationChartsPage = lazy(() => import("../pages/admin/soliscloud/station-charts"));
+const SolisCloudInverters = lazy(() => import("../pages/admin/soliscloud/inverters"));
+const InverterDetailPage = lazy(() => import("../pages/admin/soliscloud/inverter-detail"));
+const InverterChartsPage = lazy(() => import("../pages/admin/soliscloud/inverter-charts"));
+const SolisCloudAlarms = lazy(() => import("../pages/admin/soliscloud/alarms"));
+const SolisCloudCollectors = lazy(() => import("../pages/admin/soliscloud/collectors"));
+const CollectorDetailPage = lazy(() => import("../pages/admin/soliscloud/collector-detail"));
+const CollectorDiagnosticsPage = lazy(() => import("../pages/admin/soliscloud/collector-diagnostics"));
+const EPMListPage = lazy(() => import("../pages/admin/soliscloud/epm-list"));
+const EPMDetailPage = lazy(() => import("../pages/admin/soliscloud/epm-detail"));
+const EPMChartsPage = lazy(() => import("../pages/admin/soliscloud/epm-charts"));
+const WeatherListPage = lazy(() => import("../pages/admin/soliscloud/weather-list"));
+const WeatherDetailPage = lazy(() => import("../pages/admin/soliscloud/weather-detail"));
+const SolisCloudAPITest = lazy(() => import("../pages/admin/soliscloud/api-test"));
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -99,53 +118,55 @@ const router = createBrowserRouter(
         path="admin"
         element={
           <LayoutProtect>
-            <AdminLayout />
+            <Suspense fallback={<PageLoader />}>
+              <AdminLayout />
+            </Suspense>
           </LayoutProtect>
         }
       >
-        <Route index element={<Dashboard />} />
-        <Route path="sites" element={<SitesManagement />} />
-        <Route path="devices" element={<DevicesManagement />} />
+        <Route index element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+        <Route path="sites" element={<Suspense fallback={<PageLoader />}><SitesManagement /></Suspense>} />
+        <Route path="devices" element={<Suspense fallback={<PageLoader />}><DevicesManagement /></Suspense>} />
         <Route path="hopecloud" element={<Navigate to="/admin/hopecloud/real-time-data" replace />} />
-        <Route path="hopecloud/real-time-data" element={<HopeCloudManagement />} />
-        <Route path="hopecloud/sync-data" element={<SyncDataManagement />} />
-        <Route path="fusion-solar" element={<FusionSolarManagement />} />
-        <Route path="reports" element={<ReportsManagement />} />
-        <Route path="monitoring" element={<MonitoringManagement />} />
-        <Route path="analytics" element={<AnalyticsManagement />} />
-        <Route path="notifications" element={<NotificationsManagement />} />
-        <Route path="users" element={<UserManagement />} />
+        <Route path="hopecloud/real-time-data" element={<Suspense fallback={<PageLoader />}><HopeCloudManagement /></Suspense>} />
+        <Route path="hopecloud/sync-data" element={<Suspense fallback={<PageLoader />}><SyncDataManagement /></Suspense>} />
+        <Route path="fusion-solar" element={<Suspense fallback={<PageLoader />}><FusionSolarManagement /></Suspense>} />
+        <Route path="reports" element={<Suspense fallback={<PageLoader />}><ReportsManagement /></Suspense>} />
+        <Route path="monitoring" element={<Suspense fallback={<PageLoader />}><MonitoringManagement /></Suspense>} />
+        <Route path="analytics" element={<Suspense fallback={<PageLoader />}><AnalyticsManagement /></Suspense>} />
+        <Route path="notifications" element={<Suspense fallback={<PageLoader />}><NotificationsManagement /></Suspense>} />
+        <Route path="users" element={<Suspense fallback={<PageLoader />}><UserManagement /></Suspense>} />
         {/* Fsolar routes */}
         <Route path="fsolar" element={<Navigate to="/admin/fsolar/realtime" replace />} />
-        <Route path="fsolar/realtime" element={<FsolarRealTimeMonitoring />} />
-        <Route path="fsolar/devices" element={<FsolarDevicesManagement />} />
-        <Route path="fsolar/settings" element={<FsolarDeviceSettings />} />
-        <Route path="fsolar/energy" element={<FsolarEnergyAnalytics />} />
-        <Route path="fsolar/history" element={<FsolarHistoricalData />} />
-        <Route path="fsolar/templates" element={<FsolarTemplatesManagement />} />
-        <Route path="fsolar/tasks" element={<FsolarTasksManagement />} />
-        <Route path="fsolar/monitor" element={<FsolarTaskMonitoring />} />
-        <Route path="fsolar/records" element={<FsolarRunRecords />} />
-        <Route path="fsolar/alarms" element={<FsolarDeviceAlarms />} />
+        <Route path="fsolar/realtime" element={<Suspense fallback={<PageLoader />}><FsolarRealTimeMonitoring /></Suspense>} />
+        <Route path="fsolar/devices" element={<Suspense fallback={<PageLoader />}><FsolarDevicesManagement /></Suspense>} />
+        <Route path="fsolar/settings" element={<Suspense fallback={<PageLoader />}><FsolarDeviceSettings /></Suspense>} />
+        <Route path="fsolar/energy" element={<Suspense fallback={<PageLoader />}><FsolarEnergyAnalytics /></Suspense>} />
+        <Route path="fsolar/history" element={<Suspense fallback={<PageLoader />}><FsolarHistoricalData /></Suspense>} />
+        <Route path="fsolar/templates" element={<Suspense fallback={<PageLoader />}><FsolarTemplatesManagement /></Suspense>} />
+        <Route path="fsolar/tasks" element={<Suspense fallback={<PageLoader />}><FsolarTasksManagement /></Suspense>} />
+        <Route path="fsolar/monitor" element={<Suspense fallback={<PageLoader />}><FsolarTaskMonitoring /></Suspense>} />
+        <Route path="fsolar/records" element={<Suspense fallback={<PageLoader />}><FsolarRunRecords /></Suspense>} />
+        <Route path="fsolar/alarms" element={<Suspense fallback={<PageLoader />}><FsolarDeviceAlarms /></Suspense>} />
         {/* SolisCloud routes */}
         <Route path="soliscloud" element={<Navigate to="/admin/soliscloud/dashboard" replace />} />
-        <Route path="soliscloud/dashboard" element={<SolisCloudDashboard />} />
-        <Route path="soliscloud/stations" element={<SolisCloudStations />} />
-        <Route path="soliscloud/stations/:id" element={<StationDetailPage />} />
-        <Route path="soliscloud/stations/:id/charts" element={<StationChartsPage />} />
-        <Route path="soliscloud/inverters" element={<SolisCloudInverters />} />
-        <Route path="soliscloud/inverters/:id" element={<InverterDetailPage />} />
-        <Route path="soliscloud/inverters/:id/charts" element={<InverterChartsPage />} />
-        <Route path="soliscloud/alarms" element={<SolisCloudAlarms />} />
-        <Route path="soliscloud/collectors" element={<SolisCloudCollectors />} />
-        <Route path="soliscloud/collectors/:id" element={<CollectorDetailPage />} />
-        <Route path="soliscloud/collectors/:sn/diagnostics" element={<CollectorDiagnosticsPage />} />
-        <Route path="soliscloud/epm" element={<EPMListPage />} />
-        <Route path="soliscloud/epm/:id" element={<EPMDetailPage />} />
-        <Route path="soliscloud/epm/:id/charts" element={<EPMChartsPage />} />
-        <Route path="soliscloud/weather" element={<WeatherListPage />} />
-        <Route path="soliscloud/weather/:sn" element={<WeatherDetailPage />} />
-        <Route path="soliscloud/api-test" element={<SolisCloudAPITest />} />
+        <Route path="soliscloud/dashboard" element={<Suspense fallback={<PageLoader />}><SolisCloudDashboard /></Suspense>} />
+        <Route path="soliscloud/stations" element={<Suspense fallback={<PageLoader />}><SolisCloudStations /></Suspense>} />
+        <Route path="soliscloud/stations/:id" element={<Suspense fallback={<PageLoader />}><StationDetailPage /></Suspense>} />
+        <Route path="soliscloud/stations/:id/charts" element={<Suspense fallback={<PageLoader />}><StationChartsPage /></Suspense>} />
+        <Route path="soliscloud/inverters" element={<Suspense fallback={<PageLoader />}><SolisCloudInverters /></Suspense>} />
+        <Route path="soliscloud/inverters/:id" element={<Suspense fallback={<PageLoader />}><InverterDetailPage /></Suspense>} />
+        <Route path="soliscloud/inverters/:id/charts" element={<Suspense fallback={<PageLoader />}><InverterChartsPage /></Suspense>} />
+        <Route path="soliscloud/alarms" element={<Suspense fallback={<PageLoader />}><SolisCloudAlarms /></Suspense>} />
+        <Route path="soliscloud/collectors" element={<Suspense fallback={<PageLoader />}><SolisCloudCollectors /></Suspense>} />
+        <Route path="soliscloud/collectors/:id" element={<Suspense fallback={<PageLoader />}><CollectorDetailPage /></Suspense>} />
+        <Route path="soliscloud/collectors/:sn/diagnostics" element={<Suspense fallback={<PageLoader />}><CollectorDiagnosticsPage /></Suspense>} />
+        <Route path="soliscloud/epm" element={<Suspense fallback={<PageLoader />}><EPMListPage /></Suspense>} />
+        <Route path="soliscloud/epm/:id" element={<Suspense fallback={<PageLoader />}><EPMDetailPage /></Suspense>} />
+        <Route path="soliscloud/epm/:id/charts" element={<Suspense fallback={<PageLoader />}><EPMChartsPage /></Suspense>} />
+        <Route path="soliscloud/weather" element={<Suspense fallback={<PageLoader />}><WeatherListPage /></Suspense>} />
+        <Route path="soliscloud/weather/:sn" element={<Suspense fallback={<PageLoader />}><WeatherDetailPage /></Suspense>} />
+        <Route path="soliscloud/api-test" element={<Suspense fallback={<PageLoader />}><SolisCloudAPITest /></Suspense>} />
       </Route>
     </Route>
   )

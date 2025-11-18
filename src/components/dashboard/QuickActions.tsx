@@ -22,7 +22,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
   onExportData,
   onViewReports,
 }) => {
-  const actions = [
+  const actions = React.useMemo(() => [
     {
       icon: <UserAddOutlined />,
       title: 'Add User',
@@ -51,7 +51,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
       onClick: onViewReports,
       color: '#fa541c',
     },
-  ];
+  ], [onAddUser, onSendEmail, onExportData, onViewReports]);
 
   return (
     <Card title={
@@ -97,4 +97,4 @@ const QuickActions: React.FC<QuickActionsProps> = ({
   );
 };
 
-export default QuickActions;
+export default React.memo(QuickActions);
