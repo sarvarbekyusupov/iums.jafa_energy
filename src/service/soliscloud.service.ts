@@ -48,8 +48,8 @@ import type {
   PaginationParams,
 } from '../types/soliscloud';
 
-const BASE_URL = '/api/api/soliscloud';
-const DB_BASE_URL = '/api/api/soliscloud/db';
+const BASE_URL = '/api/soliscloud';
+const DB_BASE_URL = '/api/soliscloud/db';
 
 class SolisCloudService {
   // ===== Section 1: Inverter APIs =====
