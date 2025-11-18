@@ -17,15 +17,17 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Debug logging for API requests
-    console.log('🔵 API Request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`,
-      data: config.data,
-      params: config.params
-    });
+    // Debug logging for API requests (disabled in production)
+    if (import.meta.env.DEV) {
+      console.log('🔵 API Request:', {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        baseURL: config.baseURL,
+        fullURL: `${config.baseURL}${config.url}`,
+        data: config.data,
+        params: config.params
+      });
+    }
 
     return config;
   },
@@ -37,23 +39,27 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
   (response) => {
-    // Debug logging for successful responses
-    console.log('🟢 API Response:', {
-      status: response.status,
-      url: response.config.url,
-      data: response.data
-    });
+    // Debug logging for successful responses (disabled in production)
+    if (import.meta.env.DEV) {
+      console.log('🟢 API Response:', {
+        status: response.status,
+        url: response.config.url,
+        data: response.data
+      });
+    }
     return response;
   },
   async (error) => {
-    // Debug logging for failed responses
-    console.error('🔴 API Error:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: error.config?.url,
-      data: error.response?.data,
-      message: error.message
-    });
+    // Debug logging for failed responses (disabled in production)
+    if (import.meta.env.DEV) {
+      console.error('🔴 API Error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        url: error.config?.url,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
 
     const originalRequest = error.config;
 
