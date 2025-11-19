@@ -59,6 +59,8 @@ class UnifiedSolarService {
       // Transform backend response to match frontend structure
       const providers: UnifiedSolarData[] = [];
 
+      console.log('🔍 Backend raw data:', JSON.stringify(backendData, null, 2));
+
       // HopeCloud data - only add if user has stations
       if (backendData.hopecloud && backendData.hopecloud.totalStations > 0) {
         providers.push({

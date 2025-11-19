@@ -148,12 +148,18 @@ const UserStationsManagement: React.FC = () => {
         isOwner: values.isOwner || true,
       };
 
-      await userStationsService.assignStation(assignData);
+      console.log('🔵 ASSIGNING STATION:', assignData);
+      console.log('🔵 Using endpoint:', '/api/user-stations/assign');
+
+      const result = await userStationsService.assignStation(assignData);
+      console.log('✅ ASSIGNMENT SUCCESS:', result);
+
       message.success('Station assigned successfully');
       setModalVisible(false);
       form.resetFields();
       fetchUserStations(selectedUser);
     } catch (error: any) {
+      console.error('❌ ASSIGNMENT FAILED:', error.response?.data || error);
       message.error(error.response?.data?.message || 'Failed to assign station');
     } finally {
       setLoading(false);
