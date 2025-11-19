@@ -140,6 +140,13 @@ export class ApiUrls {
     CHANNEL_TREE: `${this.BASE_URL}/hopecloud/users/channel-tree`,
   };
 
+  // UNIFIED SOLAR ENDPOINTS
+  public static readonly UNIFIED_SOLAR = {
+    BASE: `${this.BASE_URL}/unified-solar`,
+    GET_DATA: `${this.BASE_URL}/unified-solar/data`,
+    GET_COMPARISON: `${this.BASE_URL}/unified-solar/comparison`,
+  };
+
   // LEGACY ENDPOINTS (keeping for backward compatibility)
   public static GROUPS: string = "/group";
   public static STUDENTS: string = "/student";

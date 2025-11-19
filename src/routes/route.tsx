@@ -77,7 +77,13 @@ const WeatherDetailPage = lazy(() => import("../pages/admin/soliscloud/weather-d
 const SolisCloudAPITest = lazy(() => import("../pages/admin/soliscloud/api-test"));
 
 // Lazy load User pages
+const UserLayout = lazy(() => import("../pages/user/user-layout"));
+const UserDashboard = lazy(() => import("../pages/user/user-dashboard"));
+const UserInvertersDetail = lazy(() => import("../pages/user/user-inverters-detail"));
 const SolarMonitor = lazy(() => import("../pages/user/solar-monitor"));
+
+// Auth components
+const DashboardRedirect = lazy(() => import("../components/auth/dashboard-redirect"));
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -116,19 +122,34 @@ const router = createBrowserRouter(
       />
       <Route path="*" element={<NotFound />} />
 
-      {/* USER - Simple Solar Monitor */}
+      {/* Dashboard Redirect - Auto-redirect based on role */}
       <Route
-        path="monitor"
+        path="dashboard"
         element={
           <LayoutProtect>
             <Suspense fallback={<PageLoader />}>
-              <SolarMonitor />
+              <DashboardRedirect />
             </Suspense>
           </LayoutProtect>
         }
       />
 
-      {/* ADMIN */}
+      {/* USER ROUTES */}
+      <Route
+        path="user"
+        element={
+          <LayoutProtect>
+            <Suspense fallback={<PageLoader />}>
+              <UserLayout />
+            </Suspense>
+          </LayoutProtect>
+        }
+      >
+        <Route index element={<Suspense fallback={<PageLoader />}><UserDashboard /></Suspense>} />
+        <Route path="inverters" element={<Suspense fallback={<PageLoader />}><UserInvertersDetail /></Suspense>} />
+      </Route>
+
+      {/* ADMIN ROUTES */}
       <Route
         path="admin"
         element={

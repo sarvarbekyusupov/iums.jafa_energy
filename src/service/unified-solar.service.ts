@@ -1,6 +1,5 @@
-import { hopeCloudService } from './hopecloud.service';
-import { solisCloudService } from './soliscloud.service';
-import fsolarService from './fsolar.service';
+import { apiClient } from './api-client';
+import { ApiUrls } from '../api/api-urls';
 
 export interface UnifiedSolarData {
   provider: 'HopeCloud' | 'SolisCloud' | 'FSolar';
@@ -48,280 +47,130 @@ export interface UnifiedSolarSummary {
 
 class UnifiedSolarService {
   /**
-   * Fetch data from HopeCloud API
-   */
-  private async fetchHopeCloudData(): Promise<UnifiedSolarData> {
-    try {
-      // Fetch stations without pagination parameters (HopeCloud API works better without them)
-      const stationsResponse = await hopeCloudService.getStations();
-      const stations = stationsResponse.data?.records || [];
-
-      // Calculate statistics
-      const totalStations = stations.length;
-      const onlineStations = stations.filter(s => s.status === 1).length;
-      const totalEnergyToday = stations.reduce((sum, s) => sum + (s.todayKwh || 0), 0);
-      const totalEnergyMonth = stations.reduce((sum, s) => sum + (s.monKwh || 0), 0);
-      const totalEnergyYear = stations.reduce((sum, s) => sum + (s.yearKwh || 0), 0);
-      const totalEnergyLifetime = stations.reduce((sum, s) => sum + (s.sumKwh || 0), 0);
-      const currentPower = stations.reduce((sum, s) => sum + (s.nowKw || 0), 0);
-
-      // Try to fetch alarms (without pagination - HopeCloud API handles this internally)
-      let activeAlarms = 0;
-      let criticalAlarms = 0;
-      let warningAlarms = 0;
-      try {
-        const alarmsResponse = await hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 10 });
-        const alarms = alarmsResponse.data || [];
-        activeAlarms = alarms.filter(a => a.status === 'active').length;
-        criticalAlarms = alarms.filter(a => a.severity === 'critical' && a.status === 'active').length;
-        warningAlarms = alarms.filter(a => a.severity === 'warning' && a.status === 'active').length;
-      } catch (error) {
-        console.warn('Failed to fetch HopeCloud alarms:', error);
-      }
-
-      return {
-        provider: 'HopeCloud',
-        stations: {
-          total: totalStations,
-          online: onlineStations,
-          offline: totalStations - onlineStations,
-        },
-        energy: {
-          today: totalEnergyToday,
-          thisMonth: totalEnergyMonth,
-          thisYear: totalEnergyYear,
-          total: totalEnergyLifetime,
-        },
-        power: {
-          current: currentPower,
-          peak: Math.max(...stations.map(s => s.nowKw || 0), 0),
-        },
-        devices: {
-          total: 0, // Will be calculated from devices if needed
-          online: 0,
-          offline: 0,
-          warning: 0,
-        },
-        alarms: {
-          active: activeAlarms,
-          critical: criticalAlarms,
-          warning: warningAlarms,
-        },
-        lastUpdate: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error('Error fetching HopeCloud data:', error);
-      return this.getEmptyProviderData('HopeCloud');
-    }
-  }
-
-  /**
-   * Fetch data from SolisCloud API
-   */
-  private async fetchSolisCloudData(): Promise<UnifiedSolarData> {
-    try {
-      // Fetch stations using detail list API (same as working SolisCloud dashboard)
-      // Note: Using pageSize of 100 to match the working dashboard (1000 causes 400 error)
-      const stationsParams = { pageNo: 1, pageSize: 100 };
-      const stationsResponse = await solisCloudService.getStationDetailList(stationsParams);
-      const stations = stationsResponse.records || [];
-
-      // Fetch inverters using real-time API
-      const invertersParams = { pageNo: 1, pageSize: 100 };
-      const invertersResponse = await solisCloudService.getInverterList(invertersParams);
-      const inverters = invertersResponse.page?.records || [];
-
-      // Calculate statistics
-      const totalStations = stations.length;
-      const totalInverters = inverters.length;
-      const onlineInverters = inverters.filter((inv: any) => inv.state === 1).length;
-      const warningInverters = inverters.filter((inv: any) => inv.state === 3).length;
-
-      const totalEnergyToday = stations.reduce((sum: number, s: any) => sum + (s.eToday || 0), 0);
-      const totalEnergyLifetime = stations.reduce((sum: number, s: any) => sum + (s.eTotal || 0), 0);
-      const currentPower = stations.reduce((sum: number, s: any) => sum + (s.pac || 0), 0);
-
-      // Try to fetch alarms
-      let activeAlarms = 0;
-      let criticalAlarms = 0;
-      let warningAlarms = 0;
-      try {
-        const alarmsParams = {
-          pageNo: 1,
-          pageSize: 100,
-        };
-        const alarmsResponse = await solisCloudService.getAlarmList(alarmsParams);
-        const alarms = alarmsResponse.records || [];
-        activeAlarms = alarms.filter((a: any) => a.state === '0').length; // 0 = ongoing
-        criticalAlarms = alarms.filter((a: any) => a.alarmLevel === '3' && a.state === '0').length;
-        warningAlarms = alarms.filter((a: any) => a.alarmLevel === '1' && a.state === '0').length;
-      } catch (error) {
-        console.warn('Failed to fetch SolisCloud alarms:', error);
-      }
-
-      return {
-        provider: 'SolisCloud',
-        stations: {
-          total: totalStations,
-          online: stations.filter((s: any) => s.state === 1).length,
-          offline: stations.filter((s: any) => s.state !== 1).length,
-        },
-        energy: {
-          today: totalEnergyToday,
-          thisMonth: 0, // Not available in direct API
-          thisYear: 0,  // Not available in direct API
-          total: totalEnergyLifetime,
-        },
-        power: {
-          current: currentPower,
-          peak: Math.max(...stations.map((s: any) => s.pac || 0), 0),
-        },
-        devices: {
-          total: totalInverters,
-          online: onlineInverters,
-          offline: totalInverters - onlineInverters - warningInverters,
-          warning: warningInverters,
-        },
-        alarms: {
-          active: activeAlarms,
-          critical: criticalAlarms,
-          warning: warningAlarms,
-        },
-        lastUpdate: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error('Error fetching SolisCloud data:', error);
-      return this.getEmptyProviderData('SolisCloud');
-    }
-  }
-
-  /**
-   * Fetch data from FSolar API
-   */
-  private async fetchFSolarData(): Promise<UnifiedSolarData> {
-    try {
-      // Fetch devices using DB API
-      const devicesResponse = await fsolarService.getDbDevices({ page: 1, limit: 100 });
-      const devices = devicesResponse.data?.data || [];
-
-      const totalDevices = devices.length;
-      const onlineDevices = devices.filter((d: any) => d.status === 'online').length;
-
-      // Fetch energy data
-      let totalEnergyToday = 0;
-      let currentPower = 0;
-      try {
-        const energyResponse = await fsolarService.getDbEnergy({ limit: 100 });
-        const energyData = energyResponse.data?.data || [];
-
-        // Calculate today's energy (assuming the API returns recent data)
-        const today = new Date().toISOString().split('T')[0];
-        const todayEnergy = energyData.filter((e: any) =>
-          e.timestamp && e.timestamp.startsWith(today)
-        );
-        totalEnergyToday = todayEnergy.reduce((sum: number, e: any) => sum + (e.production || 0), 0);
-      } catch (error) {
-        console.warn('Failed to fetch FSolar energy data:', error);
-      }
-
-      // Try to fetch events/alarms
-      let activeAlarms = 0;
-      let criticalAlarms = 0;
-      let warningAlarms = 0;
-      try {
-        const eventsResponse = await fsolarService.getDbEvents({ status: 'active', limit: 100 });
-        const events = eventsResponse.data?.data || [];
-        activeAlarms = events.length;
-        criticalAlarms = events.filter((e: any) => e.alarmLevel === 1).length;
-        warningAlarms = events.filter((e: any) => e.alarmLevel === 4).length;
-      } catch (error) {
-        console.warn('Failed to fetch FSolar events:', error);
-      }
-
-      return {
-        provider: 'FSolar',
-        stations: {
-          total: 0, // FSolar doesn't have stations concept
-          online: 0,
-          offline: 0,
-        },
-        energy: {
-          today: totalEnergyToday,
-          thisMonth: 0, // Would need to calculate from historical data
-          thisYear: 0,  // Would need to calculate from historical data
-          total: 0,     // Would need to calculate from historical data
-        },
-        power: {
-          current: currentPower,
-          peak: 0,
-        },
-        devices: {
-          total: totalDevices,
-          online: onlineDevices,
-          offline: totalDevices - onlineDevices,
-          warning: 0,
-        },
-        alarms: {
-          active: activeAlarms,
-          critical: criticalAlarms,
-          warning: warningAlarms,
-        },
-        lastUpdate: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error('Error fetching FSolar data:', error);
-      return this.getEmptyProviderData('FSolar');
-    }
-  }
-
-  /**
-   * Get empty provider data template
-   */
-  private getEmptyProviderData(provider: 'HopeCloud' | 'SolisCloud' | 'FSolar'): UnifiedSolarData {
-    return {
-      provider,
-      stations: { total: 0, online: 0, offline: 0 },
-      energy: { today: 0, thisMonth: 0, thisYear: 0, total: 0 },
-      power: { current: 0, peak: 0 },
-      devices: { total: 0, online: 0, offline: 0, warning: 0 },
-      alarms: { active: 0, critical: 0, warning: 0 },
-      lastUpdate: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Fetch unified data from all solar providers
+   * Fetch unified data from backend API
+   * Backend automatically filters data based on user role and assignments
    */
   async getUnifiedSolarData(): Promise<UnifiedSolarSummary> {
     try {
-      // Fetch data from all providers in parallel
-      const [hopeCloudData, solisCloudData, fsolarData] = await Promise.all([
-        this.fetchHopeCloudData(),
-        this.fetchSolisCloudData(),
-        this.fetchFSolarData(),
-      ]);
+      const response = await apiClient.get(ApiUrls.UNIFIED_SOLAR.GET_DATA);
+      // Backend returns { status: "success", data: {...} }
+      const backendData = response.data.data || response.data;
 
-      const providers = [hopeCloudData, solisCloudData, fsolarData];
+      // Transform backend response to match frontend structure
+      const providers: UnifiedSolarData[] = [];
 
-      // Calculate totals
-      const totalStations = providers.reduce((sum, p) => sum + p.stations.total, 0);
-      const totalDevices = providers.reduce((sum, p) => sum + p.devices.total, 0);
-      const totalEnergyToday = providers.reduce((sum, p) => sum + p.energy.today, 0);
-      const totalEnergyMonth = providers.reduce((sum, p) => sum + p.energy.thisMonth, 0);
-      const totalEnergyYear = providers.reduce((sum, p) => sum + p.energy.thisYear, 0);
-      const totalEnergyLifetime = providers.reduce((sum, p) => sum + p.energy.total, 0);
-      const totalCurrentPower = providers.reduce((sum, p) => sum + p.power.current, 0);
-      const totalActiveAlarms = providers.reduce((sum, p) => sum + p.alarms.active, 0);
+      // HopeCloud data - only add if user has stations
+      if (backendData.hopecloud && backendData.hopecloud.totalStations > 0) {
+        providers.push({
+          provider: 'HopeCloud',
+          stations: {
+            total: backendData.hopecloud.totalStations || 0,
+            online: backendData.hopecloud.totalOnline || 0,
+            offline: backendData.hopecloud.totalOffline || 0,
+          },
+          energy: {
+            today: backendData.hopecloud.totalEnergyToday || 0,
+            thisMonth: backendData.hopecloud.totalEnergyMonth || 0,
+            thisYear: backendData.hopecloud.totalEnergyYear || 0,
+            total: backendData.hopecloud.totalEnergyLifetime || 0,
+          },
+          power: {
+            current: backendData.hopecloud.totalPower || 0,
+            peak: backendData.hopecloud.peakPower || 0,
+          },
+          devices: {
+            total: 0,
+            online: 0,
+            offline: 0,
+            warning: 0,
+          },
+          alarms: {
+            active: backendData.hopecloud.totalAlarms || 0,
+            critical: 0,
+            warning: 0,
+          },
+          lastUpdate: new Date().toISOString(),
+        });
+      }
 
+      // SolisCloud data - only add if user has stations
+      if (backendData.soliscloud && backendData.soliscloud.totalStations > 0) {
+        providers.push({
+          provider: 'SolisCloud',
+          stations: {
+            total: backendData.soliscloud.totalStations || 0,
+            online: backendData.soliscloud.totalOnline || 0,
+            offline: backendData.soliscloud.totalOffline || 0,
+          },
+          energy: {
+            today: backendData.soliscloud.totalEnergyToday || 0,
+            thisMonth: backendData.soliscloud.totalEnergyMonth || 0,
+            thisYear: backendData.soliscloud.totalEnergyYear || 0,
+            total: backendData.soliscloud.totalEnergyLifetime || 0,
+          },
+          power: {
+            current: backendData.soliscloud.totalPower || 0,
+            peak: backendData.soliscloud.peakPower || 0,
+          },
+          devices: {
+            total: backendData.soliscloud.totalInverters || 0,
+            online: backendData.soliscloud.totalOnlineInverters || 0,
+            offline: backendData.soliscloud.totalOfflineInverters || 0,
+            warning: 0,
+          },
+          alarms: {
+            active: backendData.soliscloud.totalAlarms || 0,
+            critical: 0,
+            warning: 0,
+          },
+          lastUpdate: new Date().toISOString(),
+        });
+      }
+
+      // FSolar data - only add if user has devices
+      if (backendData.fsolar && backendData.fsolar.totalDevices > 0) {
+        providers.push({
+          provider: 'FSolar',
+          stations: {
+            total: 0,
+            online: 0,
+            offline: 0,
+          },
+          energy: {
+            today: backendData.fsolar.totalEnergyToday || 0,
+            thisMonth: backendData.fsolar.totalEnergyMonth || 0,
+            thisYear: backendData.fsolar.totalEnergyYear || 0,
+            total: backendData.fsolar.totalEnergyLifetime || 0,
+          },
+          power: {
+            current: backendData.fsolar.totalPower || 0,
+            peak: backendData.fsolar.peakPower || 0,
+          },
+          devices: {
+            total: backendData.fsolar.totalDevices || 0,
+            online: backendData.fsolar.totalOnline || 0,
+            offline: backendData.fsolar.totalOffline || 0,
+            warning: 0,
+          },
+          alarms: {
+            active: backendData.fsolar.totalAlarms || 0,
+            critical: 0,
+            warning: 0,
+          },
+          lastUpdate: new Date().toISOString(),
+        });
+      }
+
+      // Return transformed data
       return {
-        totalStations,
-        totalDevices,
-        totalEnergyToday,
-        totalEnergyMonth,
-        totalEnergyYear,
-        totalEnergyLifetime,
-        totalCurrentPower,
-        totalActiveAlarms,
+        totalStations: backendData.summary?.totalStations || 0,
+        totalDevices: backendData.summary?.totalDevices || 0,
+        totalEnergyToday: backendData.summary?.totalEnergyToday || 0,
+        totalEnergyMonth: backendData.summary?.totalEnergyMonth || 0,
+        totalEnergyYear: backendData.summary?.totalEnergyYear || 0,
+        totalEnergyLifetime: backendData.summary?.totalEnergyLifetime || 0,
+        totalCurrentPower: backendData.summary?.totalPower || 0,
+        totalActiveAlarms: backendData.summary?.totalAlarms || 0,
         providers,
         lastUpdate: new Date().toISOString(),
       };
@@ -335,35 +184,41 @@ class UnifiedSolarService {
    * Get comparison data for charts and analytics
    */
   async getProviderComparison() {
-    const data = await this.getUnifiedSolarData();
-
-    return {
-      energyComparison: data.providers.map(p => ({
-        provider: p.provider,
-        today: p.energy.today,
-        month: p.energy.thisMonth,
-        year: p.energy.thisYear,
-        total: p.energy.total,
-      })),
-      powerComparison: data.providers.map(p => ({
-        provider: p.provider,
-        current: p.power.current,
-        peak: p.power.peak,
-      })),
-      deviceComparison: data.providers.map(p => ({
-        provider: p.provider,
-        total: p.devices.total,
-        online: p.devices.online,
-        offline: p.devices.offline,
-        warning: p.devices.warning,
-      })),
-      alarmComparison: data.providers.map(p => ({
-        provider: p.provider,
-        active: p.alarms.active,
-        critical: p.alarms.critical,
-        warning: p.alarms.warning,
-      })),
-    };
+    try {
+      const response = await apiClient.get(ApiUrls.UNIFIED_SOLAR.GET_COMPARISON);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching provider comparison:', error);
+      // Fallback: calculate from unified data
+      const data = await this.getUnifiedSolarData();
+      return {
+        energyComparison: data.providers.map(p => ({
+          provider: p.provider,
+          today: p.energy.today,
+          month: p.energy.thisMonth,
+          year: p.energy.thisYear,
+          total: p.energy.total,
+        })),
+        powerComparison: data.providers.map(p => ({
+          provider: p.provider,
+          current: p.power.current,
+          peak: p.power.peak,
+        })),
+        deviceComparison: data.providers.map(p => ({
+          provider: p.provider,
+          total: p.devices.total,
+          online: p.devices.online,
+          offline: p.devices.offline,
+          warning: p.devices.warning,
+        })),
+        alarmComparison: data.providers.map(p => ({
+          provider: p.provider,
+          active: p.alarms.active,
+          critical: p.alarms.critical,
+          warning: p.alarms.warning,
+        })),
+      };
+    }
   }
 }
 

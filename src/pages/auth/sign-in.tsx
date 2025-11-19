@@ -90,8 +90,9 @@ const SignIn = () => {
       await login(formData);
 
       // Allow browser to detect successful login before navigation
+      // Redirect to dashboard route which will auto-route based on role
       setTimeout(() => {
-        navigate("/admin");
+        navigate("/dashboard");
       }, 100);
     } catch (error) {
       console.error("Login failed:", error);
