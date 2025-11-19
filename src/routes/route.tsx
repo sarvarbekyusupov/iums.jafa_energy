@@ -35,6 +35,7 @@ const PageLoader = () => (
 const AdminLayout = lazy(() => import("../pages/admin/admin-layout"));
 const Dashboard = lazy(() => import("../pages/admin/dashboard"));
 const UserManagement = lazy(() => import("../pages/admin/users/user-management"));
+const UserStationsManagement = lazy(() => import("../pages/admin/user-stations/user-stations-management"));
 const HopeCloudManagement = lazy(() => import("../pages/admin/hopecloud/hopecloud-management"));
 const SyncDataManagement = lazy(() => import("../pages/admin/hopecloud/sync-data-management"));
 const SitesManagement = lazy(() => import("../pages/admin/sites/sites-management"));
@@ -172,6 +173,7 @@ const router = createBrowserRouter(
         <Route path="analytics" element={<Suspense fallback={<PageLoader />}><AnalyticsManagement /></Suspense>} />
         <Route path="notifications" element={<Suspense fallback={<PageLoader />}><NotificationsManagement /></Suspense>} />
         <Route path="users" element={<Suspense fallback={<PageLoader />}><UserManagement /></Suspense>} />
+        <Route path="user-stations" element={<Suspense fallback={<PageLoader />}><UserStationsManagement /></Suspense>} />
         {/* Fsolar routes */}
         <Route path="fsolar" element={<Navigate to="/admin/fsolar/realtime" replace />} />
         <Route path="fsolar/realtime" element={<Suspense fallback={<PageLoader />}><FsolarRealTimeMonitoring /></Suspense>} />

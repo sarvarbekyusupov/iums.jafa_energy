@@ -153,6 +153,12 @@ const AdminLayout: React.FC = () => {
           label: "User Management",
           onClick: () => navigate("/admin/users"),
         },
+        {
+          key: "/admin/user-stations",
+          icon: <ThunderboltOutlined />,
+          label: "Station Assignment",
+          onClick: () => navigate("/admin/user-stations"),
+        },
       ],
     },
     {
