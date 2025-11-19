@@ -162,10 +162,12 @@ const UserStationsManagement: React.FC = () => {
   const handleRemoveStation = async (userId: number, provider: string, stationId: string) => {
     try {
       setLoading(true);
-      await userStationsService.removeStation(userId, provider, stationId);
+      console.log('Removing station:', { userId, provider, stationId });
+      await userStationsService.removeStation(userId, provider, String(stationId));
       message.success('Station removed successfully');
       fetchUserStations(userId);
     } catch (error: any) {
+      console.error('Remove station error:', error.response?.data);
       message.error(error.response?.data?.message || 'Failed to remove station');
     } finally {
       setLoading(false);
