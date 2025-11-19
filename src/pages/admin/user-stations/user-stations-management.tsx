@@ -79,6 +79,7 @@ const UserStationsManagement: React.FC = () => {
     try {
       setLoading(true);
       const data = await userStationsService.getUserStations(userId);
+      console.log('User stations data:', data);
       setUserStations(data);
     } catch (error: any) {
       message.error('Failed to load user stations');
@@ -197,6 +198,7 @@ const UserStationsManagement: React.FC = () => {
       title: 'Provider',
       dataIndex: 'provider',
       key: 'provider',
+      width: 150,
       render: (provider: string) => (
         <Space>
           {getProviderIcon(provider)}
@@ -206,49 +208,67 @@ const UserStationsManagement: React.FC = () => {
     },
     {
       title: 'Station Name',
-      dataIndex: 'station_name',
       key: 'station_name',
+      width: 200,
+      render: (record: any) => record.station_name || record.stationName || '-',
     },
     {
       title: 'Station ID',
-      dataIndex: 'station_id',
       key: 'station_id',
-      render: (text: string) => <Text code>{text}</Text>,
+      width: 200,
+      render: (record: any) => (
+        <Text code style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>
+          {record.station_id || record.stationId || '-'}
+        </Text>
+      ),
     },
     {
       title: 'Owner',
-      dataIndex: 'is_owner',
       key: 'is_owner',
-      render: (isOwner: boolean) => (
-        <Tag color={isOwner ? 'green' : 'default'}>
-          {isOwner ? 'Owner' : 'Viewer'}
-        </Tag>
-      ),
+      width: 100,
+      render: (record: any) => {
+        const isOwner = record.is_owner !== undefined ? record.is_owner : record.isOwner;
+        return (
+          <Tag color={isOwner ? 'green' : 'default'}>
+            {isOwner ? 'Owner' : 'Viewer'}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Status',
-      dataIndex: 'is_active',
       key: 'is_active',
-      render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'error'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
+      width: 100,
+      render: (record: any) => {
+        const isActive = record.is_active !== undefined ? record.is_active : record.isActive;
+        return (
+          <Tag color={isActive ? 'success' : 'error'}>
+            {isActive ? 'Active' : 'Inactive'}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Assigned At',
-      dataIndex: 'assigned_at',
       key: 'assigned_at',
-      render: (date: string) => new Date(date).toLocaleDateString(),
+      width: 130,
+      render: (record: any) => {
+        const date = record.assigned_at || record.assignedAt;
+        return date ? new Date(date).toLocaleDateString() : '-';
+      },
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: UserStationResponse) => (
+      render: (_: any, record: any) => (
         <Popconfirm
           title="Remove this station assignment?"
           description="The user will lose access to this station."
-          onConfirm={() => handleRemoveStation(record.user_id, record.provider, record.station_id)}
+          onConfirm={() => handleRemoveStation(
+            record.user_id || record.userId,
+            record.provider,
+            record.station_id || record.stationId
+          )}
           okText="Yes, Remove"
           cancelText="Cancel"
         >
@@ -322,6 +342,7 @@ const UserStationsManagement: React.FC = () => {
               loading={loading}
               pagination={{ pageSize: 10 }}
               locale={{ emptyText: 'No stations assigned yet' }}
+              scroll={{ x: 'max-content' }}
             />
           </Card>
         </Col>
