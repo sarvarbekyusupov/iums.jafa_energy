@@ -147,6 +147,19 @@ export class ApiUrls {
     GET_COMPARISON: `${this.BASE_URL}/unified-solar/comparison`,
   };
 
+  // USER STATIONS MANAGEMENT (Admin only)
+  public static readonly USER_STATIONS = {
+    BASE: `${this.BASE_URL}/user-stations`,
+    ASSIGN: `${this.BASE_URL}/user-stations/assign`,
+    GET_USER_STATIONS: (userId: number) => `${this.BASE_URL}/user-stations/user/${userId}`,
+    REMOVE: (userId: number, provider: string, stationId: string) =>
+      `${this.BASE_URL}/user-stations/${userId}/${provider}/${stationId}`,
+    GET_STATION_USERS: (provider: string, stationId: string) =>
+      `${this.BASE_URL}/user-stations/station/${provider}/${stationId}`,
+    DEACTIVATE: (userId: number, provider: string, stationId: string) =>
+      `${this.BASE_URL}/user-stations/deactivate/${userId}/${provider}/${stationId}`,
+  };
+
   // LEGACY ENDPOINTS (keeping for backward compatibility)
   public static GROUPS: string = "/group";
   public static STUDENTS: string = "/student";
