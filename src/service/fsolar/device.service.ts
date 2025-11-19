@@ -23,7 +23,7 @@ import type {
 } from '../../types/fsolar';
 import { validateDeviceSn, validateDateRange, validatePagination } from './utils';
 
-const FSOLAR_BASE_URL = '/api/api/fsolar';
+const FSOLAR_BASE_URL = '/api/fsolar';
 
 /**
  * Fsolar Device Management Service

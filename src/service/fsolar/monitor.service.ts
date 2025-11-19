@@ -6,7 +6,7 @@ import type {
 } from '../../types/fsolar';
 import { TASK_STATUS, COMMAND_STATUS } from './utils';
 
-const FSOLAR_BASE_URL = '/api/api/fsolar';
+const FSOLAR_BASE_URL = '/api/fsolar';
 
 /**
  * Task monitoring callback types

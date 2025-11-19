@@ -15,7 +15,7 @@ import type {
 } from '../../types/fsolar';
 import { validatePagination } from './utils';
 
-const FSOLAR_BASE_URL = '/api/api/fsolar';
+const FSOLAR_BASE_URL = '/api/fsolar';
 
 /**
  * Fsolar Economic Mode Task Service

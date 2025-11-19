@@ -9,7 +9,7 @@ import type {
 } from '../../types/fsolar';
 import { validatePagination, RUN_TYPE, TASK_STATUS, fromFsolarTimestamp } from './utils';
 
-const FSOLAR_BASE_URL = '/api/api/fsolar';
+const FSOLAR_BASE_URL = '/api/fsolar';
 
 /**
  * Fsolar Task Run Records Service

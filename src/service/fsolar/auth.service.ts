@@ -8,7 +8,7 @@ import type {
   EncryptPasswordResponse,
 } from '../../types/fsolar';
 
-const FSOLAR_BASE_URL = '/api/api/fsolar';
+const FSOLAR_BASE_URL = '/api/fsolar';
 
 /**
  * Fsolar Authentication Service

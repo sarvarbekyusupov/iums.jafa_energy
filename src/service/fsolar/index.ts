@@ -2,7 +2,7 @@
  * Fsolar API Integration
  *
  * Complete integration of all 29 Fsolar API endpoints
- * Base URL: http://localhost:3000/api/api/fsolar
+ * Base URL: http://localhost:3000/api/fsolar
  *
  * Services:
  * - Authentication (5 endpoints)
