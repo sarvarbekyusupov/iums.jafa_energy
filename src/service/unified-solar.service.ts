@@ -129,8 +129,9 @@ class UnifiedSolarService {
         });
       }
 
-      // FSolar data - only add if user has devices
-      if (backendData.fsolar && backendData.fsolar.totalDevices > 0) {
+      // FSolar data - ALWAYS add to debug backend filtering
+      if (backendData.fsolar) {
+        console.log('⚠️ FSolar data from backend:', backendData.fsolar);
         providers.push({
           provider: 'FSolar',
           stations: {
