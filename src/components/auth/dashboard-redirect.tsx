@@ -38,6 +38,11 @@ const DashboardRedirect = () => {
     return <Navigate to="/admin" replace />;
   }
 
+  // Redirect partners to partner dashboard
+  if (user.role === 'partner') {
+    return <Navigate to="/partner" replace />;
+  }
+
   // Default: redirect regular users to user dashboard
   return <Navigate to="/user" replace />;
 };
