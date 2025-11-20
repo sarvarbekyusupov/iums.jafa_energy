@@ -129,15 +129,19 @@ class UnifiedSolarService {
         });
       }
 
-      // FSolar data - ALWAYS add to debug backend filtering
-      if (backendData.fsolar) {
-        console.log('⚠️ FSolar data from backend:', backendData.fsolar);
+      // FSolar data - only add if user has devices
+      // Check multiple possible field names from backend
+      const fsolarDeviceCount = backendData.fsolar?.totalDevices ||
+                                backendData.fsolar?.totalStations ||
+                                backendData.fsolar?.deviceCount || 0;
+
+      if (backendData.fsolar && fsolarDeviceCount > 0) {
         providers.push({
           provider: 'FSolar',
           stations: {
-            total: 0,
-            online: 0,
-            offline: 0,
+            total: fsolarDeviceCount,
+            online: backendData.fsolar.totalOnline || backendData.fsolar.onlineCount || 0,
+            offline: backendData.fsolar.totalOffline || backendData.fsolar.offlineCount || 0,
           },
           energy: {
             today: backendData.fsolar.totalEnergyToday || 0,
