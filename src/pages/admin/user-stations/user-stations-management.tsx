@@ -65,9 +65,9 @@ const UserStationsManagement: React.FC = () => {
     try {
       setLoading(true);
       const data = await authService.getAllUsers();
-      // Filter to show only regular users
-      const regularUsers = data.filter(u => u.role === 'user' || u.role === 'operator');
-      setUsers(regularUsers);
+      // Filter to show users, operators, and partners (not admins)
+      const assignableUsers = data.filter(u => u.role === 'user' || u.role === 'operator' || u.role === 'partner');
+      setUsers(assignableUsers);
     } catch (error: any) {
       message.error('Failed to load users');
     } finally {
