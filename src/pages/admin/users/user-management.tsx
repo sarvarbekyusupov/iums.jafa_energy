@@ -152,6 +152,8 @@ const UserModal: React.FC<UserModalProps> = ({ visible, user, onCancel, onSucces
         >
           <Select>
             <Option value="user">User</Option>
+            <Option value="partner">Partner</Option>
+            <Option value="operator">Operator</Option>
             <Option value="admin">Admin</Option>
           </Select>
         </Form.Item>
@@ -278,11 +280,20 @@ const UserManagement: React.FC = () => {
       title: 'Role',
       dataIndex: 'role',
       key: 'role',
-      render: (role: string) => (
-        <Tag color={role === 'admin' ? 'red' : 'blue'}>
-          {role.toUpperCase()}
-        </Tag>
-      ),
+      render: (role: string) => {
+        const colorMap: Record<string, string> = {
+          super_admin: 'red',
+          admin: 'red',
+          operator: 'orange',
+          partner: 'purple',
+          user: 'blue',
+        };
+        return (
+          <Tag color={colorMap[role] || 'blue'}>
+            {role.toUpperCase()}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Status',
