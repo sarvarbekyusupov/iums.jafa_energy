@@ -4,7 +4,7 @@
 FROM node:20-alpine AS builder
 
 # Build argument for API URL
-ARG VITE_BASE_URL=http://3.121.174.54:3000
+ARG VITE_BASE_URL=https://jafaiums.uz
 
 WORKDIR /app
 
