@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Spin, Alert, Space, Typography, Tag, Progress } from 'antd';
+import { Card, Row, Col, Statistic, Spin, Alert, Space, Typography, Tag, Progress, Grid } from 'antd';
 import {
   ThunderboltOutlined,
   SunOutlined,
@@ -14,6 +14,7 @@ import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 /**
  * User Dashboard - Summary view of solar energy system
@@ -24,6 +25,8 @@ const UserDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [solarData, setSolarData] = useState<UnifiedSolarSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   useEffect(() => {
     fetchSolarData();
@@ -93,87 +96,107 @@ const UserDashboard: React.FC = () => {
 
   return (
     <div style={{ padding: '0' }}>
-      <Space direction="vertical" size={24} style={{ width: '100%' }}>
+      <Space direction="vertical" size={isMobile ? 16 : 24} style={{ width: '100%' }}>
         {/* Welcome Header */}
         <div>
-          <Title level={2} style={{ margin: 0, marginBottom: 4 }}>
+          <Title level={isMobile ? 3 : 2} style={{ margin: 0, marginBottom: 4 }}>
             Welcome, {user?.firstName} {user?.lastName}!
           </Title>
-          <Text type="secondary">
+          <Text type="secondary" style={{ fontSize: isMobile ? '13px' : '14px' }}>
             Here's your solar energy system overview
           </Text>
           <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
+          <Text type="secondary" style={{ fontSize: isMobile ? '11px' : '12px' }}>
             Last updated: {new Date(solarData.lastUpdate).toLocaleString()}
           </Text>
         </div>
 
         {/* Key Metrics Cards */}
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} lg={6}>
-            <Card style={{ borderLeft: '4px solid #1890ff' }}>
+        <Row gutter={isMobile ? [12, 12] : [16, 16]}>
+          <Col xs={12} sm={12} lg={6}>
+            <Card
+              size={isMobile ? "small" : "default"}
+              style={{ borderLeft: '4px solid #1890ff' }}
+              styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
               <Statistic
                 title="Current Power"
                 value={solarData.totalCurrentPower.toFixed(2)}
                 suffix="kW"
                 prefix={<ThunderboltOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card style={{ borderLeft: '4px solid #52c41a' }}>
+          <Col xs={12} sm={12} lg={6}>
+            <Card
+              size={isMobile ? "small" : "default"}
+              style={{ borderLeft: '4px solid #52c41a' }}
+              styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
               <Statistic
                 title="Energy Today"
                 value={solarData.totalEnergyToday.toFixed(2)}
                 suffix="kWh"
                 prefix={<SunOutlined />}
-                valueStyle={{ color: '#52c41a' }}
+                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card style={{ borderLeft: '4px solid #fa8c16' }}>
+          <Col xs={12} sm={12} lg={6}>
+            <Card
+              size={isMobile ? "small" : "default"}
+              style={{ borderLeft: '4px solid #fa8c16' }}
+              styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
               <Statistic
                 title="Total Energy"
                 value={(solarData.totalEnergyLifetime / 1000).toFixed(2)}
                 suffix="MWh"
                 prefix={<FireOutlined />}
-                valueStyle={{ color: '#fa8c16' }}
+                valueStyle={{ color: '#fa8c16', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card style={{ borderLeft: `4px solid ${solarData.totalActiveAlarms > 0 ? '#f5222d' : '#52c41a'}` }}>
+          <Col xs={12} sm={12} lg={6}>
+            <Card
+              size={isMobile ? "small" : "default"}
+              style={{ borderLeft: `4px solid ${solarData.totalActiveAlarms > 0 ? '#f5222d' : '#52c41a'}` }}
+              styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
               <Statistic
                 title="System Status"
                 value={solarData.totalActiveAlarms}
                 suffix="Alarms"
                 prefix={solarData.totalActiveAlarms > 0 ? <WarningOutlined /> : <CheckCircleOutlined />}
-                valueStyle={{ color: solarData.totalActiveAlarms > 0 ? '#f5222d' : '#52c41a' }}
+                valueStyle={{ color: solarData.totalActiveAlarms > 0 ? '#f5222d' : '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Card>
           </Col>
         </Row>
 
         {/* Your Providers */}
-        <Card title={<Space><DashboardOutlined /> Your Solar Providers</Space>}>
-          <Row gutter={[16, 16]}>
+        <Card
+          title={<Space><DashboardOutlined /> <span style={{ fontSize: isMobile ? '14px' : '16px' }}>Your Solar Providers</span></Space>}
+          size={isMobile ? "small" : "default"}
+        >
+          <Row gutter={isMobile ? [12, 12] : [16, 16]}>
             {solarData.providers.map((provider) => (
-              <Col xs={24} md={8} key={provider.provider}>
+              <Col xs={24} sm={12} md={8} key={provider.provider}>
                 <Card
                   size="small"
                   style={{ borderLeft: `4px solid ${getProviderColor(provider.provider)}` }}
+                  styles={{ body: { padding: isMobile ? '12px' : '16px' } }}
                 >
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Space>
+                  <Space direction="vertical" size={isMobile ? "small" : "middle"} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <Space size="small">
                         {getProviderIcon(provider.provider)}
-                        <Text strong style={{ color: getProviderColor(provider.provider) }}>
+                        <Text strong style={{ color: getProviderColor(provider.provider), fontSize: isMobile ? '13px' : '14px' }}>
                           {provider.provider}
                         </Text>
                       </Space>
-                      <Tag color={provider.alarms.active > 0 ? 'error' : 'success'}>
+                      <Tag color={provider.alarms.active > 0 ? 'error' : 'success'} style={{ margin: 0, fontSize: isMobile ? '11px' : '12px' }}>
                         {provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
                       </Tag>
                     </div>
@@ -184,7 +207,7 @@ const UserDashboard: React.FC = () => {
                           title="Power"
                           value={provider.power.current.toFixed(1)}
                           suffix="kW"
-                          valueStyle={{ fontSize: '18px', color: getProviderColor(provider.provider) }}
+                          valueStyle={{ fontSize: isMobile ? '16px' : '18px', color: getProviderColor(provider.provider) }}
                         />
                       </Col>
                       <Col span={12}>
@@ -192,7 +215,7 @@ const UserDashboard: React.FC = () => {
                           title="Today"
                           value={provider.energy.today.toFixed(1)}
                           suffix="kWh"
-                          valueStyle={{ fontSize: '18px', color: getProviderColor(provider.provider) }}
+                          valueStyle={{ fontSize: isMobile ? '16px' : '18px', color: getProviderColor(provider.provider) }}
                         />
                       </Col>
                     </Row>
@@ -200,7 +223,7 @@ const UserDashboard: React.FC = () => {
                     {provider.stations.total > 0 && (
                       <>
                         <div>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                          <Text type="secondary" style={{ fontSize: isMobile ? '11px' : '12px' }}>
                             Stations: {provider.stations.online}/{provider.stations.total} online
                           </Text>
                           <Progress
@@ -220,37 +243,40 @@ const UserDashboard: React.FC = () => {
         </Card>
 
         {/* System Summary */}
-        <Card title={<Space><FireOutlined /> System Summary</Space>}>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={6}>
+        <Card
+          title={<Space><FireOutlined /> <span style={{ fontSize: isMobile ? '14px' : '16px' }}>System Summary</span></Space>}
+          size={isMobile ? "small" : "default"}
+        >
+          <Row gutter={isMobile ? [12, 12] : [16, 16]}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
                 title="Total Stations"
                 value={solarData.totalStations}
                 prefix={<DashboardOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
                 title="This Month"
                 value={solarData.totalEnergyMonth.toFixed(0)}
                 suffix="kWh"
-                valueStyle={{ color: '#52c41a' }}
+                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
                 title="This Year"
                 value={(solarData.totalEnergyYear / 1000).toFixed(1)}
                 suffix="MWh"
-                valueStyle={{ color: '#fa8c16' }}
+                valueStyle={{ color: '#fa8c16', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
                 title="Providers"
                 value={solarData.providers.length}
-                valueStyle={{ color: '#722ed1' }}
+                valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Col>
           </Row>

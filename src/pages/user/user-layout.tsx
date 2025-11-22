@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -7,6 +7,7 @@ import {
   Dropdown,
   Typography,
   Space,
+  Drawer,
 } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -18,6 +19,7 @@ import {
   DashboardOutlined,
   ThunderboltOutlined,
   SunOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../helpers/hooks/useAuth";
@@ -28,9 +30,30 @@ const { Text } = Typography;
 const UserLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState<string[]>(["my-solar"]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Handle responsive detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Set initial open keys based on current location
   React.useEffect(() => {
@@ -92,6 +115,38 @@ const UserLayout: React.FC = () => {
       ],
     },
   ];
+
+  // Sidebar content component
+  const SidebarContent = () => (
+    <>
+      <div
+        style={{
+          height: 64,
+          margin: "20px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          fontWeight: "700",
+          fontSize: collapsed && !isMobile ? "24px" : "22px",
+          letterSpacing: "1.5px",
+          fontFamily:
+            "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          textShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+        }}
+      >
+        {collapsed && !isMobile ? "JE" : "JAFA ENERGY"}
+      </div>
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={getSelectedKeys()}
+        openKeys={openKeys}
+        onOpenChange={handleMenuOpenChange}
+        items={sidebarItems}
+      />
+    </>
+  );
 
   return (
     <Layout
@@ -168,53 +223,68 @@ const UserLayout: React.FC = () => {
         />
       </div>
 
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        width={260}
-        style={{
-          position: "relative",
-          zIndex: 10,
-          background:
-            "linear-gradient(180deg, rgba(6, 78, 59, 0.95) 0%, rgba(4, 47, 46, 0.95) 100%)",
-          backdropFilter: "blur(10px)",
-          boxShadow: "2px 0 8px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <div
-          style={{
-            height: 64,
-            margin: "20px 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: "700",
-            fontSize: collapsed ? "24px" : "22px",
-            letterSpacing: "1.5px",
-            fontFamily:
-              "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            textShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          onClose={() => setMobileMenuOpen(false)}
+          open={mobileMenuOpen}
+          width={280}
+          closable={false}
+          styles={{
+            body: {
+              padding: 0,
+              background:
+                "linear-gradient(180deg, rgba(6, 78, 59, 0.98) 0%, rgba(4, 47, 46, 0.98) 100%)",
+            },
+            header: {
+              display: 'none',
+            },
           }}
         >
-          {collapsed ? "JE" : "JAFA ENERGY"}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={getSelectedKeys()}
-          openKeys={openKeys}
-          onOpenChange={handleMenuOpenChange}
-          items={sidebarItems}
-        />
-      </Sider>
+          <div style={{ position: 'relative' }}>
+            <Button
+              type="text"
+              icon={<CloseOutlined />}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                color: '#fff',
+                zIndex: 10,
+              }}
+            />
+            <SidebarContent />
+          </div>
+        </Drawer>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          width={260}
+          style={{
+            position: "relative",
+            zIndex: 10,
+            background:
+              "linear-gradient(180deg, rgba(6, 78, 59, 0.95) 0%, rgba(4, 47, 46, 0.95) 100%)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "2px 0 8px rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          <SidebarContent />
+        </Sider>
+      )}
       <Layout
         style={{ position: "relative", zIndex: 1, background: "transparent" }}
       >
         <Header
           style={{
-            padding: "0 16px",
+            padding: isMobile ? "0 12px" : "0 16px",
             background: "rgba(255, 255, 255, 0.8)",
             backdropFilter: "blur(12px)",
             display: "flex",
@@ -222,28 +292,32 @@ const UserLayout: React.FC = () => {
             justifyContent: "space-between",
             boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
             borderBottom: "1px solid rgba(16, 185, 129, 0.1)",
+            height: isMobile ? 56 : 64,
           }}
         >
           <Button
             type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
+            icon={isMobile ? <MenuUnfoldOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+            onClick={() => isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)}
             style={{
               fontSize: "16px",
-              width: 64,
-              height: 64,
+              width: isMobile ? 48 : 64,
+              height: isMobile ? 48 : 64,
             }}
           />
-          <Space>
-            <Text style={{ fontWeight: 500, color: "#047857" }}>
-              Welcome, {user?.firstName || "User"} {user?.lastName || ""}
-            </Text>
+          <Space size={isMobile ? "small" : "middle"}>
+            {!isMobile && (
+              <Text style={{ fontWeight: 500, color: "#047857" }}>
+                Welcome, {user?.firstName || "User"} {user?.lastName || ""}
+              </Text>
+            )}
             <Dropdown
               menu={{ items: userMenuItems }}
               placement="bottomRight"
               trigger={["click"]}
             >
               <Avatar
+                size={isMobile ? "small" : "default"}
                 style={{
                   cursor: "pointer",
                   backgroundColor: "#10b981",
@@ -253,43 +327,45 @@ const UserLayout: React.FC = () => {
                 icon={<UserOutlined />}
               />
             </Dropdown>
-            <Button
-              onClick={handleLogout}
-              title="Logout"
-              style={{
-                backgroundColor: "#10b981",
-                borderColor: "#10b981",
-                color: "#fff",
-                borderRadius: "8px",
-                fontWeight: 500,
-                boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#059669";
-                e.currentTarget.style.borderColor = "#059669";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "#10b981";
-                e.currentTarget.style.borderColor = "#10b981";
-              }}
-            >
-              Logout
-            </Button>
+            {!isMobile && (
+              <Button
+                onClick={handleLogout}
+                title="Logout"
+                style={{
+                  backgroundColor: "#10b981",
+                  borderColor: "#10b981",
+                  color: "#fff",
+                  borderRadius: "8px",
+                  fontWeight: 500,
+                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#059669";
+                  e.currentTarget.style.borderColor = "#059669";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#10b981";
+                  e.currentTarget.style.borderColor = "#10b981";
+                }}
+              >
+                Logout
+              </Button>
+            )}
           </Space>
         </Header>
         <Content
           style={{
-            margin: "16px",
+            margin: isMobile ? "8px" : "16px",
             padding: 0,
             minHeight: 280,
             background: "rgba(255, 255, 255, 0.6)",
             backdropFilter: "blur(12px)",
-            borderRadius: 12,
+            borderRadius: isMobile ? 8 : 12,
             overflow: "auto",
             border: "1px solid rgba(16, 185, 129, 0.1)",
           }}
         >
-          <div style={{ padding: "24px" }}>
+          <div style={{ padding: isMobile ? "12px" : "24px" }}>
             <Outlet />
           </div>
         </Content>
