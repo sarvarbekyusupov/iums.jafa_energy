@@ -52,12 +52,20 @@ jobs:
             docker stop erp-frontend || true
             docker rm erp-frontend || true
 
-            # Run new container
+            # Run new container.
+            # Publish on the docker bridge gateway only, not 0.0.0.0: iums-nginx sits on the
+            # compose network and reaches this container through host.docker.internal, which
+            # resolves to 172.17.0.1. Binding there keeps nginx working while taking the
+            # plain-HTTP copy of the app off the internet.
             docker run -d \
               --name erp-frontend \
               --restart unless-stopped \
-              -p 5000:5000 \
+              -p 172.17.0.1:5000:5000 \
               ${{ secrets.DOCKER_USERNAME }}/erp-frontend:latest
+
+            # The port is no longer reachable from the runner, so check it from the server.
+            sleep 5
+            curl -fsS -o /dev/null http://172.17.0.1:5000/health && echo "erp-frontend reachable from the bridge gateway"
 
             # Clean up old images
             docker image prune -af --filter "until=24h"
@@ -67,6 +75,15 @@ jobs:
 
       - name: Verify deployment
         run: |
-          echo "Waiting for application to start..."
-          sleep 10
-          curl -f http://3.121.174.54:5000/health || echo "Health check failed, but deployment may still be in progress"
+          # Check the path real users take (nginx -> erp-frontend), not the raw container port:
+          # that port is bound to the docker bridge gateway and is unreachable from here.
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS -o /dev/null --max-time 15 https://jafaiums.uz/; then
+              echo "https://jafaiums.uz/ is serving the app"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying in 10s"
+            sleep 10
+          done
+          echo "jafaiums.uz did not serve the app after the deploy"
+          exit 1
