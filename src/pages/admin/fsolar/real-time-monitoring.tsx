@@ -16,6 +16,7 @@ import {
   Badge,
   Divider,
   Switch,
+  Empty,
 } from 'antd';
 import {
   ThunderboltOutlined,
@@ -34,10 +35,15 @@ import {
   DatabaseOutlined,
 } from '@ant-design/icons';
 import { fsolarDeviceService } from '../../../service/fsolar';
-import fsolarService from '../../../service/fsolar.service';
+import fsolarService, { energyRowToVendorPoint, type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
+import DataAsOf from '../../../components/DataAsOf';
 
 const { Title, Text } = Typography;
+
+// Stored rows land every 5 minutes, so polling faster than once a minute is wasted; live vendor stays at 5 s.
+const DB_REFRESH_MS = 60_000;
+const LIVE_REFRESH_MS = 5_000;
 
 interface DeviceMetrics {
   deviceSn: string;
@@ -69,151 +75,106 @@ interface DeviceMetrics {
 
 const RealTimeMonitoring: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [metrics, setMetrics] = useState<DeviceMetrics | null>(null);
+  /** Instant of the stored row behind `metrics` (stored mode only). */
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
+  /** True when the store has no energy row for the selected device (stored mode only). */
+  const [noStoredData, setNoStoredData] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Fetch devices
+  // Fetch devices: stored table in stored mode, vendor list in live mode
   const fetchDevices = async () => {
     try {
-      console.log('📋 Fetching device list...');
-      const result = await fsolarDeviceService.getAllDevices();
-      console.log('📋 Got devices:', result);
-      console.log('📋 Device count:', result.length);
-      setDevices(result);
-      if (result.length > 0 && !selectedDevice) {
-        console.log('📋 Auto-selecting first device:', result[0].deviceSn);
-        setSelectedDevice(result[0].deviceSn);
+      let list: Device[];
+      if (useDbSource) {
+        const result = await fsolarService.getDbDevices({ limit: 100 });
+        const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
+        list = rows.map((d) => ({
+          id: d.id,
+          deviceSn: d.deviceSn,
+          deviceType: d.deviceType || '',
+          deviceName: d.name || d.deviceSn,
+          status: d.status || 'unknown',
+        }));
       } else {
-        console.log('📋 No auto-selection (already selected or no devices)');
+        list = await fsolarDeviceService.getAllDevices();
       }
-    } catch (error) {
-      console.error('❌ Failed to fetch devices', error);
+      setDevices(list);
+      // Keep the current selection when the new list still has it, otherwise fall back to the first device.
+      if (list.length > 0 && !list.some((d) => d.deviceSn === selectedDevice)) {
+        setSelectedDevice(list[0].deviceSn);
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to fetch devices');
     }
   };
 
-  // Fetch real-time metrics
+  // Fetch metrics: newest stored row in stored mode, vendor basic-info in live mode
   const fetchMetrics = async (deviceSn: string) => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching metrics for device:', deviceSn);
 
       if (useDbSource) {
-        // Use database API - get latest energy reading
-        const result: any = await fsolarService.getDbDeviceEnergyLatest(deviceSn);
-        console.log('📦 DB API Response:', result);
-
-        if (result.data) {
-          // Map DB energy data to metrics format
-          const energyData = result.data;
-          setMetrics({
-            deviceSn: energyData.deviceSn || deviceSn,
-            dataTimeStr: energyData.dataTime || new Date().toISOString(),
-            timeZone: energyData.timeZone || '',
-            pvPower: energyData.pvPower?.toString() || '0',
-            pvTotalPower: energyData.pvTotalPower?.toString() || '0',
-            acTotalOutActPower: energyData.acTotalOutActPower?.toString() || '0',
-            acTtlInpower: energyData.acTtlInpower?.toString() || '0',
-            meterPower: energyData.meterPower?.toString() || '0',
-            emsPower: energyData.emsPower?.toString() || '0',
-            emsSoc: energyData.emsSoc?.toString() || '0',
-            emsVoltage: energyData.emsVoltage?.toString() || '0',
-            emsCurrent: energyData.emsCurrent?.toString() || '0',
-            acRInVolt: energyData.acRInVolt?.toString() || '0',
-            acROutVolt: energyData.acROutVolt?.toString() || '0',
-            acRInCurr: energyData.acRInCurr?.toString() || '0',
-            acROutCurr: energyData.acROutCurr?.toString() || '0',
-            acRInFreq: energyData.acRInFreq?.toString() || '0',
-            pvVolt: energyData.pvVolt?.toString() || '0',
-            pvInCurr: energyData.pvInCurr?.toString() || '0',
-            pv2Volt: energyData.pv2Volt?.toString() || '0',
-            pv2InCurr: energyData.pv2InCurr?.toString() || '0',
-            tempMax: energyData.tempMax?.toString() || '0',
-            devTempMax: energyData.devTempMax?.toString() || '0',
-            ePvToday: energyData.ePvToday?.toString() || '0',
-            workMode: energyData.workMode?.toString() || '0',
-          } as DeviceMetrics);
+        const result = await fsolarService.getDbDeviceEnergyLatest(deviceSn);
+        const row = result?.data;
+        if (!row) {
+          setMetrics(null);
+          setDataAsOf(null);
+          setNoStoredData(true);
+          return;
         }
+        setNoStoredData(false);
+        setDataAsOf(row.timestamp);
+        // energyRowToVendorPoint fills every DeviceMetrics key (rawData first, entity columns as fallback),
+        // but its index-signature type does not structurally overlap, so go through unknown.
+        setMetrics(energyRowToVendorPoint(row) as unknown as DeviceMetrics);
       } else {
-        // Use getDeviceBasicInfo for real-time data
         const result: any = await fsolarDeviceService.getDeviceBasicInfo(deviceSn);
-
-        console.log('📦 API Response:', result);
-        console.log('📦 Result type:', typeof result);
-
-        // The basic info API returns the device metrics directly
+        setNoStoredData(false);
+        setDataAsOf(null);
         if (result) {
-          console.log('✅ Got device data:', result);
           setMetrics(result as DeviceMetrics);
-          console.log('✅ Metrics set successfully!');
-        } else {
-          console.warn('⚠️ No data in result');
         }
       }
     } catch (error: any) {
-      console.error('❌ Fetch metrics error:', error);
-      console.error('❌ Error response:', error?.response?.data);
-      message.error('Failed to fetch device metrics');
+      message.error(error?.response?.data?.message || 'Failed to fetch device metrics');
     } finally {
       setLoading(false);
-      console.log('🏁 Fetch metrics completed');
     }
   };
 
   useEffect(() => {
-    console.log('🚀 Component mounted, fetching devices...');
     fetchDevices();
-  }, []);
+  }, [useDbSource]);
 
   useEffect(() => {
-    console.log('📍 Selected device changed:', selectedDevice);
     if (selectedDevice) {
       fetchMetrics(selectedDevice);
     }
-  }, [selectedDevice]);
+  }, [selectedDevice, useDbSource]);
 
   useEffect(() => {
-    console.log('🔄 Auto-refresh changed:', autoRefresh);
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
-      console.log('⏱️ Auto-refresh triggered');
       if (selectedDevice) {
         fetchMetrics(selectedDevice);
       }
-    }, 5000);
+    }, useDbSource ? DB_REFRESH_MS : LIVE_REFRESH_MS);
 
-    return () => {
-      console.log('🛑 Clearing auto-refresh interval');
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [selectedDevice, autoRefresh, useDbSource]);
 
-  console.log('🎨 Rendering component, metrics:', metrics ? 'EXISTS' : 'NULL', 'loading:', loading);
-
-  if (!metrics) {
-    console.log('⏳ Showing loading screen because metrics is null');
-    return (
-      <div>
-        <Title level={2}>Fsolar Real-time Monitoring</Title>
-        <Card loading={loading}>
-          <Text type="secondary">Loading device metrics...</Text>
-        </Card>
-      </div>
-    );
-  }
-
-  console.log('✅ Rendering full dashboard with metrics');
-
-  const soc = parseFloat(metrics.emsSoc || '0');
-  const temp = parseFloat(metrics.tempMax || '0');
-  const devTemp = parseFloat(metrics.devTempMax || '0');
-  const pvPower = parseFloat(metrics.pvTotalPower || '0');
-  const batteryPower = parseFloat(metrics.emsPower || '0');
-  const gridPower = parseFloat(metrics.acTtlInpower || '0');
-  const loadPower = parseFloat(metrics.acTotalOutActPower || '0');
+  const soc = parseFloat(metrics?.emsSoc || '0');
+  const temp = parseFloat(metrics?.tempMax || '0');
+  const devTemp = parseFloat(metrics?.devTempMax || '0');
+  const pvPower = parseFloat(metrics?.pvTotalPower || '0');
+  const batteryPower = parseFloat(metrics?.emsPower || '0');
+  const gridPower = parseFloat(metrics?.acTtlInpower || '0');
+  const loadPower = parseFloat(metrics?.acTotalOutActPower || '0');
 
   const getBatteryColor = (soc: number) => {
     if (soc > 70) return '#52c41a';
@@ -228,6 +189,9 @@ const RealTimeMonitoring: React.FC = () => {
   };
 
   const getSystemStatus = () => {
+    if (!metrics) {
+      return { status: 'default', text: 'No data', icon: <WarningOutlined /> };
+    }
     const issues = [];
     if (soc < 20) issues.push('Low battery');
     if (temp > 70 || devTemp > 70) issues.push('High temperature');
@@ -243,64 +207,105 @@ const RealTimeMonitoring: React.FC = () => {
 
   const systemStatus = getSystemStatus();
 
-  return (
-    <div>
-      {/* Header */}
-      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Col>
-          <Title level={2} style={{ margin: 0 }}>
-            <DashboardOutlined /> Real-time Monitoring
-          </Title>
-        </Col>
-        <Col>
-          <Badge status={systemStatus.status as any} text={systemStatus.text} />
-        </Col>
-      </Row>
-
-      {/* Controls */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Select
-            style={{ width: 300 }}
-            value={selectedDevice}
-            onChange={setSelectedDevice}
-            placeholder="Select device"
-          >
-            {devices.map((device) => (
-              <Select.Option key={device.deviceSn} value={device.deviceSn}>
-                {device.deviceName || device.deviceSn}
-              </Select.Option>
-            ))}
-          </Select>
-          <Divider type="vertical" />
-          <Switch
-            checked={useDbSource}
-            onChange={setUseDbSource}
-            checkedChildren={<DatabaseOutlined />}
-            unCheckedChildren={<CloudOutlined />}
-          />
-          <Tag color={useDbSource ? 'blue' : 'green'}>
-            {useDbSource ? 'Database' : 'Real-time API'}
-          </Tag>
-          <Divider type="vertical" />
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => selectedDevice && fetchMetrics(selectedDevice)}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            type={autoRefresh ? 'primary' : 'default'}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            Auto: {autoRefresh ? 'ON' : 'OFF'}
-          </Button>
+  const controls = (
+    <Card size="small" style={{ marginBottom: 16 }}>
+      <Space wrap>
+        <Select
+          style={{ width: 300 }}
+          value={selectedDevice || undefined}
+          onChange={setSelectedDevice}
+          placeholder="Select device"
+        >
+          {devices.map((device) => (
+            <Select.Option key={device.deviceSn} value={device.deviceSn}>
+              {/* Both FSolar devices are named "Stand of LAB", so the serial has to stay visible */}
+              {device.deviceName && device.deviceName !== device.deviceSn
+                ? `${device.deviceName} · ${device.deviceSn}`
+                : device.deviceSn}
+            </Select.Option>
+          ))}
+        </Select>
+        <Divider type="vertical" />
+        <Switch
+          checked={useDbSource}
+          onChange={setUseDbSource}
+          checkedChildren={<DatabaseOutlined />}
+          unCheckedChildren={<CloudOutlined />}
+        />
+        <Tag color={useDbSource ? 'blue' : 'green'}>
+          {useDbSource ? 'Stored data' : 'Live vendor API'}
+        </Tag>
+        <Divider type="vertical" />
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={() => selectedDevice && fetchMetrics(selectedDevice)}
+          loading={loading}
+        >
+          Refresh
+        </Button>
+        <Button
+          type={autoRefresh ? 'primary' : 'default'}
+          onClick={() => setAutoRefresh(!autoRefresh)}
+        >
+          Auto: {autoRefresh ? 'ON' : 'OFF'} ({useDbSource ? '60 s' : '5 s'})
+        </Button>
+        {metrics && (
           <Text type="secondary">
             {metrics.dataTimeStr} ({metrics.timeZone})
           </Text>
+        )}
+      </Space>
+    </Card>
+  );
+
+  const header = (
+    <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+      <Col>
+        <Title level={2} style={{ margin: 0 }}>
+          <DashboardOutlined /> Real-time Monitoring
+        </Title>
+      </Col>
+      <Col>
+        <Space>
+          {useDbSource && <DataAsOf timestamp={dataAsOf} />}
+          <Badge status={systemStatus.status as any} text={systemStatus.text} />
         </Space>
-      </Card>
+      </Col>
+    </Row>
+  );
+
+  if (!metrics) {
+    return (
+      <div>
+        {header}
+        {controls}
+        <Card loading={loading && !noStoredData}>
+          {useDbSource && noStoredData ? (
+            <Empty
+              description={
+                <span>
+                  No stored readings yet for this device
+                  <br />
+                  <Text type="secondary">
+                    The 5-minute sync has not stored a row for it. Switch to Live vendor API to query the vendor directly.
+                  </Text>
+                </span>
+              }
+            />
+          ) : devices.length === 0 && !loading ? (
+            <Empty description={useDbSource ? 'No devices synced yet' : 'No devices returned by the vendor'} />
+          ) : (
+            <Text type="secondary">Loading device metrics...</Text>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {header}
+      {controls}
 
       {/* System Alert */}
       {systemStatus.status === 'warning' && systemStatus.issues && (

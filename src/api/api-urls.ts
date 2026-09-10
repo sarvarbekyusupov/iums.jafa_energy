@@ -147,6 +147,26 @@ export class ApiUrls {
     GET_COMPARISON: `${this.BASE_URL}/unified-solar/comparison`,
   };
 
+  // SYNC HEALTH (freshness of stored vendor data)
+  public static readonly SYNC_HEALTH = {
+    HEALTH: `${this.BASE_URL}/sync/health`,
+    PROVIDER: (provider: string) => `${this.BASE_URL}/sync/health/${provider}`,
+  };
+
+  // HOPECLOUD DATABASE READS (stored data, served even when the vendor API is down)
+  public static readonly HOPECLOUD_DB = {
+    BASE: `${this.BASE_URL}/hopecloud/db`,
+    STATIONS: `${this.BASE_URL}/hopecloud/db/stations`,
+    STATION_DAILY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/daily-stats`,
+    STATION_MONTHLY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/monthly-stats`,
+    STATION_YEARLY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/yearly-stats`,
+    STATION_HISTORICAL_POWER: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/historical-power`,
+    EQUIPMENT_HISTORICAL: (deviceSn: string) => `${this.BASE_URL}/hopecloud/db/equipment/${deviceSn}/historical`,
+    EQUIPMENT_DAILY_STATS: (identifier: string) => `${this.BASE_URL}/hopecloud/db/equipment/${identifier}/daily-stats`,
+    EQUIPMENT_MONTHLY_STATS: (identifier: string) => `${this.BASE_URL}/hopecloud/db/equipment/${identifier}/monthly-stats`,
+    EQUIPMENT_YEARLY_STATS: (identifier: string) => `${this.BASE_URL}/hopecloud/db/equipment/${identifier}/yearly-stats`,
+  };
+
   // USER STATIONS MANAGEMENT (Admin only)
   public static readonly USER_STATIONS = {
     BASE: `${this.BASE_URL}/user-stations`,

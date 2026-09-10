@@ -39,6 +39,17 @@ import type {
 import { apiClient } from './api-client';
 import { ApiUrls } from '../api/api-urls';
 
+/** Extra keys the /hopecloud/db (stored data) routes add on top of the live response shapes. */
+export interface HopeCloudDbMeta {
+  /** Newest stored row behind this response (ISO), null when nothing is stored yet. */
+  dataAsOf?: string | null;
+  /** Which table the rows came from, e.g. 'db', 'equipment_readings', 'site_kpis'. */
+  source?: string;
+}
+export type HopeCloudDbResponse<T> = HopeCloudApiResponse<T> & HopeCloudDbMeta;
+export type HopeCloudDbStationHistoricalResponse = HopeCloudStationHistoricalResponse & HopeCloudDbMeta;
+export type HopeCloudDbEquipmentHistoricalResponse = HopeCloudEquipmentHistoricalResponse & HopeCloudDbMeta;
+
 class HopeCloudService {
   // Health and Status endpoints
   async getHealth(): Promise<HopeCloudHealthStatus> {
@@ -437,6 +448,91 @@ class HopeCloudService {
   // Station creation
   async createPowerStation(data: CreateHopeCloudStationDto): Promise<HopeCloudApiResponse<any>> {
     const response = await apiClient.post(ApiUrls.HOPECLOUD.CREATE_STATION, data);
+    return response.data;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stored data (/hopecloud/db): same shapes as the live routes above, read from
+  // our own database so they keep working when the vendor API is down.
+  // ---------------------------------------------------------------------------
+
+  async getDbStations(): Promise<HopeCloudDbResponse<HopeCloudStation[]>> {
+    const response = await apiClient.get(ApiUrls.HOPECLOUD_DB.STATIONS);
+    return response.data;
+  }
+
+  async getDbStationDailyStats(plantId: string, filters: HopeCloudStatisticsFilters): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.STATION_DAILY_STATS(plantId)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbStationMonthlyStats(plantId: string, filters: HopeCloudStatisticsFilters): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.STATION_MONTHLY_STATS(plantId)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbStationYearlyStats(plantId: string, filters: HopeCloudStatisticsFilters): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.STATION_YEARLY_STATS(plantId)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbStationHistoricalPower(plantId: string, date: string): Promise<HopeCloudDbStationHistoricalResponse> {
+    const params = new URLSearchParams();
+    params.append('time', date);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.STATION_HISTORICAL_POWER(plantId)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbEquipmentHistoricalData(deviceSn: string, date: string, options?: HopeCloudHistoricalOptions): Promise<HopeCloudDbEquipmentHistoricalResponse> {
+    const params = new URLSearchParams();
+    params.append('time', date);
+    if (options?.sn) params.append('sn', options.sn);
+    if (options?.id) params.append('id', options.id);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.EQUIPMENT_HISTORICAL(deviceSn)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbEquipmentDailyStats(identifier: string, filters: { startTime: string; endTime: string; type?: 'id' | 'sn' }): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+    if (filters.type) params.append('type', filters.type);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.EQUIPMENT_DAILY_STATS(identifier)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbEquipmentMonthlyStats(identifier: string, filters: { startTime: string; endTime: string; type?: 'id' | 'sn' }): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+    if (filters.type) params.append('type', filters.type);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.EQUIPMENT_MONTHLY_STATS(identifier)}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getDbEquipmentYearlyStats(identifier: string, filters: { startTime: string; endTime: string; type?: 'id' | 'sn' }): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
+    const params = new URLSearchParams();
+    params.append('startTime', filters.startTime);
+    params.append('endTime', filters.endTime);
+    if (filters.type) params.append('type', filters.type);
+
+    const response = await apiClient.get(`${ApiUrls.HOPECLOUD_DB.EQUIPMENT_YEARLY_STATS(identifier)}?${params.toString()}`);
     return response.data;
   }
 }

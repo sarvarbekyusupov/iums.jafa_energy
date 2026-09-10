@@ -12,7 +12,9 @@ import {
   Collapse,
   Table,
   Tag,
-  Select
+  Select,
+  Switch,
+  Empty
 } from 'antd';
 import { 
   LineChart, 
@@ -35,11 +37,18 @@ import { hopeCloudService } from '../service';
 import type { 
   HopeCloudEquipmentHistoricalData, 
   HopeCloudEquipmentParameter,
-  HopeCloudHistoricalOptions 
+  HopeCloudHistoricalOptions
 } from '../types/hopecloud';
+import DataAsOf from './DataAsOf';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
+
+const NO_STORED_DATA_TEXT = 'No stored history for this date yet. Run a backfill from Sync Data, or switch to Live HopeCloud.';
+
+/** Newest `time` in a list of rows; the fallback freshness stamp when the API sends no dataAsOf. */
+const newestTime = (rows: Array<{ time?: string }>): string | null =>
+  rows.reduce<string | null>((max, row) => (row.time && (!max || row.time > max) ? row.time : max), null);
 
 interface HopeCloudEquipmentHistoryProps {
   deviceSn: string;
@@ -72,6 +81,9 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(dayjs().subtract(1, 'day'));
+  // Data source: our database (default, works when the vendor API is down) or live HopeCloud.
+  const [useDbSource, setUseDbSource] = useState(true);
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [selectedParameters, setSelectedParameters] = useState<string[]>([
     'acActivePower',
     'dcInputPower',
@@ -137,10 +149,14 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
       if (inverterSn) options.sn = inverterSn;
       if (inverterId) options.id = inverterId;
 
-      const response = await hopeCloudService.getEquipmentHistoricalData(deviceSn, dateString, options);
+      const response = useDbSource
+        ? await hopeCloudService.getDbEquipmentHistoricalData(deviceSn, dateString, options)
+        : await hopeCloudService.getEquipmentHistoricalData(deviceSn, dateString, options);
 
       if (response.status === 'success' && response.data) {
         setHistoricalData(response.data);
+        // dataAsOf only exists on the /hopecloud/db responses; the live types do not declare it
+        setDataAsOf((response as { dataAsOf?: string | null }).dataAsOf || newestTime(response.data));
       } else {
         throw new Error('Failed to fetch equipment historical data');
       }
@@ -155,7 +171,7 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
 
   useEffect(() => {
     fetchEquipmentData();
-  }, [deviceSn, selectedDate, inverterSn, inverterId]);
+  }, [deviceSn, selectedDate, inverterSn, inverterId, useDbSource]);
 
   const extractParameters = (parameterKeys: string[]): ProcessedParameter[] => {
     return historicalData.map(entry => {
@@ -275,6 +291,13 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
         title={`Equipment Historical Data - ${equipmentName || deviceSn}`}
         extra={
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            {useDbSource && <DataAsOf timestamp={dataAsOf} compact />}
+            <Switch
+              checked={useDbSource}
+              onChange={setUseDbSource}
+              checkedChildren="Stored data"
+              unCheckedChildren="Live HopeCloud"
+            />
             <DatePicker
               value={selectedDate}
               onChange={(date) => date && setSelectedDate(date)}
@@ -392,6 +415,8 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
               ]}
             />
           </>
+        ) : useDbSource && !error ? (
+          <Empty description={NO_STORED_DATA_TEXT} style={{ padding: '50px 0' }} />
         ) : (
           <div style={{ textAlign: 'center', padding: '50px 0' }}>
             <div>No equipment data available for {selectedDate.format('YYYY-MM-DD')}</div>

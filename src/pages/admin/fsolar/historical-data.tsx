@@ -48,11 +48,16 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { fsolarDeviceService } from '../../../service/fsolar';
-import fsolarService from '../../../service/fsolar.service';
+import fsolarService, { energyRowToVendorPoint, type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
+import DataAsOf from '../../../components/DataAsOf';
 import dayjs, { Dayjs } from 'dayjs';
 
 const { Title, Text } = Typography;
+
+// Stored rows carry 'YYYY-MM-DD HH:mm:ss'; the vendor history endpoint returns 'HH:mm:ss'. Handle both.
+const timeOnly = (dataTimeStr: string): string =>
+  dataTimeStr && dataTimeStr.includes(' ') ? dataTimeStr.split(' ')[1] : dataTimeStr || '';
 
 interface HistoryRecord {
   deviceSn: string;
@@ -89,27 +94,43 @@ interface HistoryRecord {
 
 const HistoricalData: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
+  /** Newest stored row instant for the selected day (stored mode only). */
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 288, // 24 hours * 12 records per hour (5-min intervals)
     total: 0,
   });
 
-  // Fetch devices
+  // Fetch devices: stored table in stored mode, vendor list in live mode
   const fetchDevices = async () => {
     try {
-      const result = await fsolarDeviceService.getAllDevices();
-      setDevices(result);
-      if (result.length > 0 && !selectedDevice) {
-        setSelectedDevice(result[0].deviceSn);
+      let list: Device[];
+      if (useDbSource) {
+        const result = await fsolarService.getDbDevices({ limit: 100 });
+        const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
+        list = rows.map((d) => ({
+          id: d.id,
+          deviceSn: d.deviceSn,
+          deviceType: d.deviceType || '',
+          deviceName: d.name || d.deviceSn,
+          status: d.status || 'unknown',
+        }));
+      } else {
+        list = await fsolarDeviceService.getAllDevices();
       }
-    } catch (error) {
-      console.error('Failed to fetch devices', error);
+      setDevices(list);
+      // Keep the current selection when the new list still has it, otherwise fall back to the first device.
+      if (list.length > 0 && !list.some((d) => d.deviceSn === selectedDevice)) {
+        setSelectedDevice(list[0].deviceSn);
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to fetch devices');
     }
   };
 
@@ -121,17 +142,20 @@ const HistoricalData: React.FC = () => {
       setLoading(true);
 
       if (useDbSource) {
-        // Use database API - daily granularity
-        const response: any = await fsolarService.getDbDeviceHistory(selectedDevice, {
-          granularity: 'daily',
-          limit: pagination.pageSize,
+        // Stored 5-minute points for the selected local day, oldest first.
+        const response = await fsolarService.getDbDeviceEnergy(selectedDevice, {
+          date: selectedDate.format('YYYY-MM-DD'),
+          limit: 300,
         });
 
-        const dbData = Array.isArray(response.data) ? response.data : [];
-        setHistoryData(dbData);
-        setPagination({ ...pagination, current: page, total: dbData.length });
+        const rows = Array.isArray(response?.data) ? response.data : [];
+        const mapped = rows.map((row) => energyRowToVendorPoint(row) as unknown as HistoryRecord);
+        setHistoryData(mapped);
+        setDataAsOf(response?.dataAsOf || (rows.length ? rows[rows.length - 1].timestamp : null));
+        setPagination({ ...pagination, current: 1, total: mapped.length });
       } else {
-        // Use real-time API
+        setDataAsOf(null);
+        // Live vendor API
         const dateStr = selectedDate.format('YYYY-MM-DD') + ' 00:00:00';
         const response: any = await fsolarDeviceService.getDeviceHistory(
           selectedDevice,
@@ -164,7 +188,7 @@ const HistoricalData: React.FC = () => {
 
   useEffect(() => {
     fetchDevices();
-  }, []);
+  }, [useDbSource]);
 
   useEffect(() => {
     if (selectedDevice) {
@@ -173,6 +197,11 @@ const HistoricalData: React.FC = () => {
   }, [selectedDevice, selectedDate, useDbSource]);
 
   const handleTableChange = (newPagination: any) => {
+    if (useDbSource) {
+      // Stored mode already holds the whole day in memory: paginate locally.
+      setPagination({ ...pagination, current: newPagination.current, pageSize: newPagination.pageSize });
+      return;
+    }
     fetchHistoryData(newPagination.current);
   };
 
@@ -196,8 +225,8 @@ const HistoricalData: React.FC = () => {
     const hourlyData: { [key: string]: HistoryRecord[] } = {};
 
     historyData.forEach(record => {
-      // Extract hour from time string (format: "HH:MM:SS")
-      const hour = record.dataTimeStr.split(':')[0];
+      // Extract hour from the time part ("HH:MM:SS" live, "YYYY-MM-DD HH:MM:SS" stored)
+      const hour = timeOnly(record.dataTimeStr).split(':')[0];
       const hourKey = `${hour}:00`;
 
       if (!hourlyData[hourKey]) {
@@ -254,6 +283,7 @@ const HistoricalData: React.FC = () => {
       key: 'time',
       fixed: 'left' as const,
       width: 100,
+      render: (val: string) => timeOnly(val),
     },
     {
       title: 'Battery SOC (%)',
@@ -372,7 +402,10 @@ const HistoricalData: React.FC = () => {
             </Space>
           </Col>
           <Col>
-            <Badge count={pagination.total} showZero overflowCount={999999} style={{ backgroundColor: '#52c41a' }} />
+            <Space>
+              {useDbSource && <DataAsOf timestamp={dataAsOf} />}
+              <Badge count={pagination.total} showZero overflowCount={999999} style={{ backgroundColor: '#52c41a' }} />
+            </Space>
           </Col>
         </Row>
       </Card>
@@ -400,7 +433,10 @@ const HistoricalData: React.FC = () => {
               >
                 {devices.map((device) => (
                   <Select.Option key={device.deviceSn} value={device.deviceSn}>
-                    {device.deviceName || device.deviceSn}
+                    {/* Both FSolar devices are named "Stand of LAB", so the serial has to stay visible */}
+                    {device.deviceName && device.deviceName !== device.deviceSn
+                      ? `${device.deviceName} · ${device.deviceSn}`
+                      : device.deviceSn}
                   </Select.Option>
                 ))}
               </Select>
@@ -433,7 +469,7 @@ const HistoricalData: React.FC = () => {
                   unCheckedChildren={<CloudOutlined />}
                 />
                 <Tag color={useDbSource ? 'blue' : 'green'}>
-                  {useDbSource ? 'Database' : 'Real-time API'}
+                  {useDbSource ? 'Stored data' : 'Live vendor API'}
                 </Tag>
               </Space>
             </Space>
@@ -791,11 +827,21 @@ const HistoricalData: React.FC = () => {
           <Card>
             <Empty
               description={
-                <span>
-                  No historical data available for selected date.
-                  <br />
-                  Try selecting a different date or device.
-                </span>
+                useDbSource ? (
+                  <span>
+                    No stored data for this date
+                    <br />
+                    <Text type="secondary">
+                      Nothing was synced for this device on {selectedDate.format('YYYY-MM-DD')}. Switch to Live vendor API to query the vendor directly.
+                    </Text>
+                  </span>
+                ) : (
+                  <span>
+                    No historical data available for selected date.
+                    <br />
+                    Try selecting a different date or device.
+                  </span>
+                )
               }
             />
           </Card>

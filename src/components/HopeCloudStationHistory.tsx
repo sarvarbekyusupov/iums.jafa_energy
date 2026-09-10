@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs } from 'antd';
+import { Card, DatePicker, Button, Spin, message, Row, Col, Statistic, Alert, Tabs, Switch, Empty, Space } from 'antd';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, ClockCircleOutlined, CalendarOutlined, BarChartOutlined } from '@ant-design/icons';
 import { hopeCloudService } from '../service';
 import type { HopeCloudStationHistoricalPower, HopeCloudStatistics } from '../types/hopecloud';
+import DataAsOf from './DataAsOf';
 import dayjs from 'dayjs';
+
+const NO_STORED_DATA_TEXT = 'No stored history for this date yet. Run a backfill from Sync Data, or switch to Live HopeCloud.';
+
+/** Newest `time` in a list of rows; the fallback freshness stamp when the API sends no dataAsOf. */
+const newestTime = (rows: unknown[]): string | null =>
+  rows.reduce<string | null>((max, row) => {
+    const time = (row as { time?: unknown } | null)?.time;
+    return typeof time === 'string' && (!max || time > max) ? time : max;
+  }, null);
 
 interface HopeCloudStationHistoryProps {
   stationId: string;
@@ -30,6 +40,10 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
   stationName
 }) => {
   const [activeTab, setActiveTab] = useState<ViewType>('hourly');
+
+  // Data source: our database (default, works when the vendor API is down) or live HopeCloud.
+  const [useDbSource, setUseDbSource] = useState(true);
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
 
   // Hourly data state
   const [historicalData, setHistoricalData] = useState<HopeCloudStationHistoricalPower[]>([]);
@@ -100,10 +114,14 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
 
     try {
       const dateString = selectedDate.format('YYYY-MM-DD');
-      const response = await hopeCloudService.getStationHistoricalPower(stationId, dateString);
-      
+      const response = useDbSource
+        ? await hopeCloudService.getDbStationHistoricalPower(stationId, dateString)
+        : await hopeCloudService.getStationHistoricalPower(stationId, dateString);
+
       if (response.status === 'success' && response.data) {
         setHistoricalData(response.data);
+        // dataAsOf only exists on the /hopecloud/db responses; the live types do not declare it
+        setDataAsOf((response as { dataAsOf?: string | null }).dataAsOf || newestTime(response.data));
       } else {
         throw new Error('Failed to fetch historical data');
       }
@@ -126,6 +144,18 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
       let response;
       let filters;
       const currentRange = getCurrentDateRange();
+      // Stored and live routes share request and response shapes, so only the method differs.
+      const api = useDbSource
+        ? {
+            daily: hopeCloudService.getDbStationDailyStats.bind(hopeCloudService),
+            monthly: hopeCloudService.getDbStationMonthlyStats.bind(hopeCloudService),
+            yearly: hopeCloudService.getDbStationYearlyStats.bind(hopeCloudService),
+          }
+        : {
+            daily: hopeCloudService.getStationDailyStats.bind(hopeCloudService),
+            monthly: hopeCloudService.getStationMonthlyStats.bind(hopeCloudService),
+            yearly: hopeCloudService.getStationYearlyStats.bind(hopeCloudService),
+          };
 
       // Use user-selected date range but format appropriately for each tab
       switch (activeTab) {
@@ -134,7 +164,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
             startTime: currentRange.startDate.format('YYYY-MM-DD'),
             endTime: currentRange.endDate.format('YYYY-MM-DD'),
           };
-          response = await hopeCloudService.getStationDailyStats(stationId, filters);
+          response = await api.daily(stationId, filters);
           break;
         case 'monthly':
           filters = {
@@ -142,26 +172,28 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
             endTime: currentRange.endDate.format('YYYY-MM'),
           };
           console.log('Monthly date range:', filters);
-          response = await hopeCloudService.getStationMonthlyStats(stationId, filters);
+          response = await api.monthly(stationId, filters);
           break;
         case 'yearly':
           filters = {
             startTime: currentRange.startDate.format('YYYY'),
             endTime: currentRange.endDate.format('YYYY'),
           };
-          response = await hopeCloudService.getStationYearlyStats(stationId, filters);
+          response = await api.yearly(stationId, filters);
           break;
         default:
           filters = {
             startTime: currentRange.startDate.format('YYYY-MM-DD'),
             endTime: currentRange.endDate.format('YYYY-MM-DD'),
           };
-          response = await hopeCloudService.getStationDailyStats(stationId, filters);
+          response = await api.daily(stationId, filters);
       }
 
       if (response.status === 'success' && response.data) {
         console.log(`${activeTab} API Response:`, response.data);
         setStatsData(response.data);
+        // dataAsOf only exists on the /hopecloud/db responses; the live types do not declare it
+        setDataAsOf((response as { dataAsOf?: string | null }).dataAsOf || newestTime(response.data));
       } else {
         throw new Error('Failed to fetch station statistics');
       }
@@ -174,14 +206,14 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
     }
   };
 
-  // Fetch data when tab changes or stationId changes
+  // Fetch data when tab, station or data source changes
   useEffect(() => {
     if (activeTab === 'hourly') {
       fetchHistoricalData();
     } else {
       fetchStatsData();
     }
-  }, [stationId, activeTab]);
+  }, [stationId, activeTab, useDbSource]);
 
   // Fetch hourly data when selectedDate changes
   useEffect(() => {
@@ -371,7 +403,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                 title={
                   <span>
                     Hourly Power Output - {selectedDate.format('YYYY-MM-DD')}
-                    {selectedDate.isSame(dayjs(), 'day') && (
+                    {!useDbSource && selectedDate.isSame(dayjs(), 'day') && (
                       <span style={{ color: '#52c41a', marginLeft: 8, fontSize: '12px' }}>
                         (Live Data)
                       </span>
@@ -411,6 +443,8 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                 </ResponsiveContainer>
               </Card>
             </>
+          ) : useDbSource && !error ? (
+            <Empty description={NO_STORED_DATA_TEXT} style={{ padding: '50px 0' }} />
           ) : (
             <div style={{ textAlign: 'center', padding: '50px 0' }}>
               <div>No hourly data available for {selectedDate.format('YYYY-MM-DD')}</div>
@@ -588,6 +622,8 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                 </ResponsiveContainer>
               </Card>
             </>
+          ) : useDbSource && !statsError ? (
+            <Empty description={NO_STORED_DATA_TEXT} style={{ padding: '50px 0' }} />
           ) : (
             <div style={{ textAlign: 'center', padding: '50px 0' }}>
               <div>No {activeTab} statistics available for selected period</div>
@@ -639,7 +675,20 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
 
   return (
     <div>
-      <Card title={`Station History - ${stationName || stationId}`}>
+      <Card
+        title={`Station History - ${stationName || stationId}`}
+        extra={
+          <Space>
+            {useDbSource && <DataAsOf timestamp={dataAsOf} compact />}
+            <Switch
+              checked={useDbSource}
+              onChange={setUseDbSource}
+              checkedChildren="Stored data"
+              unCheckedChildren="Live HopeCloud"
+            />
+          </Space>
+        }
+      >
         <Tabs
           activeKey={activeTab}
           onChange={(key) => setActiveTab(key as ViewType)}

@@ -23,17 +23,59 @@ import {
   DatabaseOutlined,
   CloudOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import solisCloudService from '../../../service/soliscloud.service';
+import DataAsOf from '../../../components/DataAsOf';
 import type { StationDetail, InverterDetail, CollectorDetail } from '../../../types/soliscloud';
 
 const { Title, Text } = Typography;
+
+// Handle both string and number values from API/DB (decimal columns arrive as strings today)
+const parseValue = (val: any): number => {
+  if (typeof val === 'string') return parseFloat(val) || 0;
+  return val || 0;
+};
+
+const formatTs = (ts: any): string | undefined => (ts ? dayjs(ts).format('YYYY-MM-DD HH:mm:ss') : undefined);
+
+// DB row (SolisCloudStation entity) uses different keys than the vendor detail; map onto the vendor shape the page renders.
+const normalizeDbStation = (s: any): StationDetail => ({
+  ...s,
+  stationName: s.name,
+  capacity: parseValue(s.installedCapacity),
+  capacityStr: 'kWp',
+  cityStr: s.city,
+  countryStr: s.country,
+  timeZone: s.timezone,
+  currencyUnit: s.currency,
+  pac: parseValue(s.pac),
+  eToday: parseValue(s.eToday),
+  eMonth: parseValue(s.eMonth),
+  eYear: parseValue(s.eYear),
+  eTotal: parseValue(s.eTotal),
+  state: Number(s.state),
+  updateDate: formatTs(s.lastSyncedAt),
+});
+
+// DB row (SolisCloudInverter entity) -> the fields the inverter cards below read (inverterSn, inverterModel, ...)
+const normalizeDbInverter = (i: any): InverterDetail => ({
+  ...i,
+  inverterSn: i.sn,
+  inverterModel: i.model,
+  pac: parseValue(i.pac),
+  eToday: parseValue(i.eToday),
+  eTotal: parseValue(i.eTotal),
+  // null from the DB must become undefined so the "Battery SOC" line stays hidden for non-battery inverters
+  batteryCapacitySoc: i.batteryCapacitySoc == null ? undefined : parseValue(i.batteryCapacitySoc),
+  state: Number(i.state),
+});
 
 const StationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<StationDetail | null>(null);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
   const [invertersLoading, setInvertersLoading] = useState(false);
   const [inverters, setInverters] = useState<InverterDetail[]>([]);
   const [collectorsLoading, setCollectorsLoading] = useState(false);
@@ -56,11 +98,6 @@ const StationDetailPage: React.FC = () => {
     }
   }, [id, useDbSource]);
 
-  const parseValue = (val: any): number => {
-    if (typeof val === 'string') return parseFloat(val) || 0;
-    return val || 0;
-  };
-
   const fetchDetail = async () => {
     if (!id) return;
 
@@ -68,7 +105,16 @@ const StationDetailPage: React.FC = () => {
       setLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbStation(id);
-        setDetail(response.data || response);
+        const station = normalizeDbStation(response.data || response);
+        // lastSyncedAt is when our sync ran; the newest stored reading is the true data time
+        try {
+          const latest = await solisCloudService.getDbStationLatestReading(id);
+          const ts = latest?.data?.dataTimestamp;
+          if (ts) station.dataTimestamp = formatTs(ts);
+        } catch {
+          // optional; leave dataTimestamp empty
+        }
+        setDetail(station);
       } else {
         const response = await solisCloudService.getStationDetail({ id });
         setDetail(response);
@@ -85,12 +131,17 @@ const StationDetailPage: React.FC = () => {
 
     try {
       setInvertersLoading(true);
-      const response = await solisCloudService.getInvertersDetailList({
-        stationId: id,
-        pageNo: 1,
-        pageSize: 100,
-      });
-      setInverters(response.records || []);
+      if (useDbSource) {
+        const response = await solisCloudService.getDbInverters({ stationId: id, limit: 100 });
+        setInverters((response.data?.records || []).map(normalizeDbInverter));
+      } else {
+        const response = await solisCloudService.getInvertersDetailList({
+          stationId: id,
+          pageNo: 1,
+          pageSize: 100,
+        });
+        setInverters(response.records || []);
+      }
     } catch (error: any) {
       console.error('Failed to fetch inverters:', error);
     } finally {
@@ -269,8 +320,9 @@ const StationDetailPage: React.FC = () => {
                   unCheckedChildren={<CloudOutlined />}
                 />
                 <Tag color={useDbSource ? 'blue' : 'green'}>
-                  {useDbSource ? 'Database' : 'Real-time API'}
+                  {useDbSource ? 'Stored data' : 'Live SolisCloud API'}
                 </Tag>
+                {useDbSource && <DataAsOf label="Synced" timestamp={detail.lastSyncedAt} />}
               </Space>
               <Button
                 icon={<EditOutlined />}

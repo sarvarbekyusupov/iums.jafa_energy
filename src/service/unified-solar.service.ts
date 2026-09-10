@@ -1,5 +1,6 @@
 import { apiClient } from './api-client';
 import { ApiUrls } from '../api/api-urls';
+import type { ProviderSyncHealth, SyncStatus } from './sync-health.service';
 
 export interface UnifiedSolarData {
   provider: 'HopeCloud' | 'SolisCloud' | 'FSolar';
@@ -29,7 +30,11 @@ export interface UnifiedSolarData {
     critical: number;
     warning: number;
   };
-  lastUpdate: string;
+  /** Newest data point we hold for this provider (ISO); null when nothing is stored yet */
+  lastUpdate: string | null;
+  syncStatus: SyncStatus;
+  /** True when the vendor sync is behind and the numbers are the last stored values */
+  stale: boolean;
 }
 
 export interface UnifiedSolarSummary {
@@ -42,7 +47,26 @@ export interface UnifiedSolarSummary {
   totalCurrentPower: number;
   totalActiveAlarms: number;
   providers: UnifiedSolarData[];
-  lastUpdate: string;
+  /** Oldest contributing provider's newest data point (ISO); null when nothing is stored yet */
+  lastUpdate: string | null;
+  /** True when any contributing provider is not fresh */
+  stale: boolean;
+  providersHealth?: ProviderSyncHealth[];
+}
+
+/** Freshness keys added by the backend; older backends omit them, so every field is optional. */
+interface ProviderFreshnessBlock {
+  dataAsOf?: string | null;
+  syncStatus?: SyncStatus;
+  stale?: boolean;
+}
+
+function freshnessFrom(block: ProviderFreshnessBlock | undefined): Pick<UnifiedSolarData, 'lastUpdate' | 'syncStatus' | 'stale'> {
+  return {
+    lastUpdate: block?.dataAsOf ?? null,
+    syncStatus: block?.syncStatus ?? 'unknown',
+    stale: block?.stale ?? false,
+  };
 }
 
 class UnifiedSolarService {
@@ -58,8 +82,6 @@ class UnifiedSolarService {
 
       // Transform backend response to match frontend structure
       const providers: UnifiedSolarData[] = [];
-
-      console.log('🔍 Backend raw data:', JSON.stringify(backendData, null, 2));
 
       // HopeCloud data - only add if user has stations
       if (backendData.hopecloud && backendData.hopecloud.totalStations > 0) {
@@ -91,7 +113,7 @@ class UnifiedSolarService {
             critical: 0,
             warning: 0,
           },
-          lastUpdate: new Date().toISOString(),
+          ...freshnessFrom(backendData.hopecloud),
         });
       }
 
@@ -125,7 +147,7 @@ class UnifiedSolarService {
             critical: 0,
             warning: 0,
           },
-          lastUpdate: new Date().toISOString(),
+          ...freshnessFrom(backendData.soliscloud),
         });
       }
 
@@ -164,7 +186,7 @@ class UnifiedSolarService {
             critical: 0,
             warning: 0,
           },
-          lastUpdate: new Date().toISOString(),
+          ...freshnessFrom(backendData.fsolar),
         });
       }
 
@@ -179,7 +201,13 @@ class UnifiedSolarService {
         totalCurrentPower: backendData.summary?.totalPower || 0,
         totalActiveAlarms: backendData.summary?.totalAlarms || 0,
         providers,
-        lastUpdate: new Date().toISOString(),
+        // Honest timestamp: the backend reports the oldest contributing provider's newest row,
+        // never "now". Older backends omit it, so fall back to null / not stale.
+        lastUpdate: backendData.summary?.dataAsOf ?? null,
+        stale: backendData.summary?.stale ?? false,
+        providersHealth: Array.isArray(backendData.summary?.providersHealth)
+          ? (backendData.summary.providersHealth as ProviderSyncHealth[])
+          : undefined,
       };
     } catch (error) {
       console.error('Error fetching unified solar data:', error);

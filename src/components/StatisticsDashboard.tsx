@@ -12,6 +12,7 @@ import {
   message,
   Spin,
   Empty,
+  Switch,
 } from 'antd';
 import {
   BarChartOutlined,
@@ -25,8 +26,15 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
 import { hopeCloudService } from '../service';
+import DataAsOf from './DataAsOf';
 
 const { RangePicker } = DatePicker;
+
+const NO_STORED_DATA_TEXT = 'No stored history for this date yet. Run a backfill from Sync Data, or switch to Live HopeCloud.';
+
+/** Newest `time` in a list of rows; the fallback freshness stamp when the API sends no dataAsOf. */
+const newestTime = (rows: Array<{ time?: string }>): string | null =>
+  rows.reduce<string | null>((max, row) => (row.time && (!max || row.time > max) ? row.time : max), null);
 
 interface StatsData {
   time: string;
@@ -53,6 +61,9 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [loading, setLoading] = useState(false);
+  // Data source: our database (default, works when the vendor API is down) or live HopeCloud.
+  const [useDbSource, setUseDbSource] = useState(true);
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [stationData, setStationData] = useState<StatsData[]>([]);
   const [equipmentData, setEquipmentData] = useState<StatsData[]>([]);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
@@ -120,19 +131,37 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
 
     try {
       const promises = [];
+      // Stored and live routes share request and response shapes, so only the method differs.
+      const api = useDbSource
+        ? {
+            stationDaily: hopeCloudService.getDbStationDailyStats.bind(hopeCloudService),
+            stationMonthly: hopeCloudService.getDbStationMonthlyStats.bind(hopeCloudService),
+            stationYearly: hopeCloudService.getDbStationYearlyStats.bind(hopeCloudService),
+            equipmentDaily: hopeCloudService.getDbEquipmentDailyStats.bind(hopeCloudService),
+            equipmentMonthly: hopeCloudService.getDbEquipmentMonthlyStats.bind(hopeCloudService),
+            equipmentYearly: hopeCloudService.getDbEquipmentYearlyStats.bind(hopeCloudService),
+          }
+        : {
+            stationDaily: hopeCloudService.getStationDailyStats.bind(hopeCloudService),
+            stationMonthly: hopeCloudService.getStationMonthlyStats.bind(hopeCloudService),
+            stationYearly: hopeCloudService.getStationYearlyStats.bind(hopeCloudService),
+            equipmentDaily: hopeCloudService.getEquipmentDailyStats.bind(hopeCloudService),
+            equipmentMonthly: hopeCloudService.getEquipmentMonthlyStats.bind(hopeCloudService),
+            equipmentYearly: hopeCloudService.getEquipmentYearlyStats.bind(hopeCloudService),
+          };
 
       // Fetch station data if stationId is provided
       if (stationId) {
         let stationPromise;
         switch (activeTab) {
           case 'daily':
-            stationPromise = hopeCloudService.getStationDailyStats(stationId, dateParams);
+            stationPromise = api.stationDaily(stationId, dateParams);
             break;
           case 'monthly':
-            stationPromise = hopeCloudService.getStationMonthlyStats(stationId, dateParams);
+            stationPromise = api.stationMonthly(stationId, dateParams);
             break;
           case 'yearly':
-            stationPromise = hopeCloudService.getStationYearlyStats(stationId, dateParams);
+            stationPromise = api.stationYearly(stationId, dateParams);
             break;
         }
         promises.push(stationPromise);
@@ -144,22 +173,27 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
         const equipmentParams = { ...dateParams, type: 'sn' as const };
         switch (activeTab) {
           case 'daily':
-            equipmentPromise = hopeCloudService.getEquipmentDailyStats(equipmentSn, equipmentParams);
+            equipmentPromise = api.equipmentDaily(equipmentSn, equipmentParams);
             break;
           case 'monthly':
-            equipmentPromise = hopeCloudService.getEquipmentMonthlyStats(equipmentSn, equipmentParams);
+            equipmentPromise = api.equipmentMonthly(equipmentSn, equipmentParams);
             break;
           case 'yearly':
-            equipmentPromise = hopeCloudService.getEquipmentYearlyStats(equipmentSn, equipmentParams);
+            equipmentPromise = api.equipmentYearly(equipmentSn, equipmentParams);
             break;
         }
         promises.push(equipmentPromise);
       }
 
       const results = await Promise.allSettled(promises);
-      
+
       const stationIndex = 0;
       const equipmentIndex = stationId ? 1 : 0;
+      let asOf: string | null = null;
+      const noteAsOf = (response: any, rows: StatsData[]) => {
+        // Prefer the backend stamp; fall back to the newest row when it is missing (live mode).
+        asOf = asOf || response?.dataAsOf || newestTime(rows);
+      };
 
       // Process station results
       if (stationId && results[stationIndex]) {
@@ -167,23 +201,26 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
         if (stationResult.status === 'fulfilled') {
           const data = extractStatsData(stationResult.value, 'station');
           setStationData(data);
+          noteAsOf(stationResult.value, data);
         } else {
           console.error('Station data fetch failed:', stationResult.reason);
           setStationData([]);
         }
       }
-      
+
       // Process equipment results
       if (equipmentSn && results[equipmentIndex]) {
         const equipmentResult = results[equipmentIndex];
         if (equipmentResult.status === 'fulfilled') {
           const data = extractStatsData(equipmentResult.value, 'equipment');
           setEquipmentData(data);
+          noteAsOf(equipmentResult.value, data);
         } else {
           console.error('Equipment data fetch failed:', equipmentResult.reason);
           setEquipmentData([]);
         }
       }
+      setDataAsOf(asOf);
     } catch (error) {
       console.error('Failed to fetch statistics:', error);
       message.error('Failed to load statistics data');
@@ -216,7 +253,7 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
     if (open) {
       fetchStats();
     }
-  }, [activeTab, dateRange, open, stationId, equipmentSn]);
+  }, [activeTab, dateRange, open, stationId, equipmentSn, useDbSource]);
 
   // Calculate totals and statistics
   const calculateStats = (data: StatsData[]) => {
@@ -328,9 +365,18 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
   return (
     <Modal
       title={
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <BarChartOutlined style={{ marginRight: 8 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 40 }}>
+          <BarChartOutlined />
           {title}
+          <Space style={{ marginLeft: 'auto' }}>
+            {useDbSource && <DataAsOf timestamp={dataAsOf} compact />}
+            <Switch
+              checked={useDbSource}
+              onChange={setUseDbSource}
+              checkedChildren="Stored data"
+              unCheckedChildren="Live HopeCloud"
+            />
+          </Space>
         </div>
       }
       open={open}
@@ -541,7 +587,7 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <Empty description="No data available for the selected period" />
+            <Empty description={useDbSource ? NO_STORED_DATA_TEXT : 'No data available for the selected period'} />
           )}
         </Card>
 
