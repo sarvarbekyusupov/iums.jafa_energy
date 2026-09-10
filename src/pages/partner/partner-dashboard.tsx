@@ -14,9 +14,12 @@ import {
   Progress,
   Table,
   Empty,
+  Button,
+  message,
 } from 'antd';
 import {
   ThunderboltOutlined,
+  ReloadOutlined,
   DashboardOutlined,
   AlertOutlined,
   DatabaseOutlined,
@@ -31,6 +34,10 @@ import {
 import { useOutletContext } from 'react-router-dom';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary, UnifiedSolarData } from '../../service/unified-solar.service';
+import { hopeCloudService } from '../../service/hopecloud.service';
+import { solisCloudService } from '../../service/soliscloud.service';
+import fsolarService from '../../service/fsolar.service';
+import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 
@@ -44,6 +51,7 @@ const PartnerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [solarData, setSolarData] = useState<UnifiedSolarSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [vendorRefreshing, setVendorRefreshing] = useState(false);
   const { availableProviders } = useOutletContext<PartnerContext>();
 
   useEffect(() => {
@@ -76,6 +84,12 @@ const PartnerDashboard: React.FC = () => {
         totalEnergyLifetime: filteredProviders.reduce((sum, p) => sum + p.energy.total, 0),
         totalCurrentPower: filteredProviders.reduce((sum, p) => sum + p.power.current, 0),
         totalActiveAlarms: filteredProviders.reduce((sum, p) => sum + p.alarms.active, 0),
+        // Freshness must describe only the providers this partner sees, not hidden ones.
+        stale: filteredProviders.some(p => p.stale),
+        lastUpdate: filteredProviders
+          .map(p => p.lastUpdate)
+          .filter((t): t is string => !!t)
+          .sort()[0] ?? null,
       };
 
       setSolarData(filteredData);
@@ -84,6 +98,31 @@ const PartnerDashboard: React.FC = () => {
       setError(error?.message || 'Failed to load solar data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Best-effort: only the vendors this partner can see are triggered, and one failing must not block the others.
+  const refreshFromVendor = async () => {
+    setVendorRefreshing(true);
+    try {
+      const jobs: Promise<unknown>[] = [];
+      if (availableProviders.includes('hopecloud')) jobs.push(hopeCloudService.triggerRealtimeSync());
+      if (availableProviders.includes('soliscloud')) jobs.push(solisCloudService.triggerDbSync({ types: ['stations', 'inverters'] }));
+      if (availableProviders.includes('fsolar')) jobs.push(fsolarService.triggerDbSync({ types: ['energy'] }));
+      const results = await Promise.allSettled(jobs);
+      const accepted = results.filter(r => r.status === 'fulfilled').length;
+      await fetchDashboardData();
+      if (results.length === 0) {
+        message.info('No vendor assigned to refresh');
+      } else if (accepted === results.length) {
+        message.success(`All ${accepted} vendors accepted the refresh`);
+      } else if (accepted > 0) {
+        message.warning(`${accepted} of ${results.length} vendors accepted the refresh; the rest still show stored data`);
+      } else {
+        message.error('No vendor accepted the refresh; showing stored data');
+      }
+    } finally {
+      setVendorRefreshing(false);
     }
   };
 
@@ -164,18 +203,35 @@ const PartnerDashboard: React.FC = () => {
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: 'calc(100vh - 64px)' }}>
       <Space direction="vertical" size={24} style={{ width: '100%' }}>
         {/* Page Header */}
-        <div>
-          <Title level={2} style={{ margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <DashboardOutlined style={{ color: '#52c41a' }} />
-            Partner Dashboard
-          </Title>
-          <Text type="secondary">
-            Real-time monitoring of your assigned inverters
-          </Text>
-          <Text type="secondary" style={{ marginLeft: '16px', fontSize: '12px' }}>
-            Last updated: {new Date(solarData.lastUpdate).toLocaleString()}
-          </Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <Title level={2} style={{ margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <DashboardOutlined style={{ color: '#52c41a' }} />
+              Partner Dashboard
+            </Title>
+            <Space size="middle" wrap>
+              <Text type="secondary">
+                Monitoring of your assigned inverters
+              </Text>
+              <DataAsOf
+                timestamp={solarData.lastUpdate}
+                status={!solarData.stale && solarData.lastUpdate ? 'fresh' : undefined}
+              />
+            </Space>
+          </div>
+          <Button icon={<ReloadOutlined />} loading={vendorRefreshing} onClick={refreshFromVendor}>
+            Refresh from vendor
+          </Button>
         </div>
+        {solarData.stale && (
+          <Alert
+            type="warning"
+            showIcon
+            closable
+            message="Showing last stored data"
+            description={`The newest data we hold is from ${relativeAge(solarData.lastUpdate)}; the vendor connection is behind. Numbers below are the most recent we have.`}
+          />
+        )}
 
         {/* Overall Statistics */}
         <Card title={<Space><FireOutlined /> Your System Statistics</Space>} bordered={false}>
@@ -261,10 +317,13 @@ const PartnerDashboard: React.FC = () => {
                 bordered={false}
                 style={{ height: '100%' }}
                 extra={
-                  <Badge
-                    status={provider.alarms.active > 0 ? 'error' : 'success'}
-                    text={provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
-                  />
+                  <Space size="small">
+                    {provider.lastUpdate && <DataAsOf compact timestamp={provider.lastUpdate} />}
+                    <Badge
+                      status={provider.alarms.active > 0 ? 'error' : 'success'}
+                      text={provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
+                    />
+                  </Space>
                 }
               >
                 <Space direction="vertical" size="middle" style={{ width: '100%' }}>

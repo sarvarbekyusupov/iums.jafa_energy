@@ -71,6 +71,7 @@ import { hopeCloudService } from '../../../service';
 import StatisticsDashboard from '../../../components/StatisticsDashboard';
 import HopeCloudStationHistory from '../../../components/HopeCloudStationHistory';
 import HopeCloudEquipmentHistory from '../../../components/HopeCloudEquipmentHistory';
+import DataAsOf from '../../../components/DataAsOf';
 import type {
   HopeCloudStation,
   HopeCloudAlarm,
@@ -163,14 +164,27 @@ const HopeCloudManagement: React.FC = () => {
   const [stationFilter, setStationFilter] = useState('');
   const [alarmFilter, setAlarmFilter] = useState('');
 
-  // Data source toggle (API/Database)
-  const [useDbSource, setUseDbSource] = useState(false);
-  
+  // Data source toggle: stored data (our DB, default) or the live HopeCloud API
+  const [useDbSource, setUseDbSource] = useState(true);
+  // Newest stored station row, reported by GET /hopecloud/db/stations
+  const [stationsDataAsOf, setStationsDataAsOf] = useState<string | null>(null);
+
+  // Stations come from our DB or the vendor API depending on the toggle; both resolve to the same HopeCloudStation shape.
+  const loadStations = async (): Promise<HopeCloudStation[]> => {
+    if (useDbSource) {
+      const response = await hopeCloudService.getDbStations();
+      setStationsDataAsOf(response.dataAsOf ?? null);
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    setStationsDataAsOf(null);
+    const response = await hopeCloudService.getStations({ pageIndex: 1, pageSize: 50 });
+    return Array.isArray(response.data?.records) ? response.data.records : [];
+  };
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      
+
       // Get health status first
       const health = await hopeCloudService.getHealth();
       setHealthStatus(health);
@@ -199,17 +213,23 @@ const HopeCloudManagement: React.FC = () => {
       //   console.warn('Could not fetch auth validation:', error);
       // }
 
+      if (health.status !== 'healthy' && useDbSource) {
+        // Vendor API is down: stored stations are still readable, the live-only lists are not.
+        loadStations().then(setStations).catch(error => {
+          console.warn('Error fetching stored stations:', error);
+        });
+      }
+
       if (health.status === 'healthy') {
         // Fetch all data in parallel
         Promise.all([
-          hopeCloudService.getStations({ pageIndex: 1, pageSize: 50 }),
+          loadStations(),
           hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
           hopeCloudService.getSubOwners({ pageIndex: 1, pageSize: 20 }),
           hopeCloudService.getChannelProviders({ pageIndex: 1, pageSize: 20 }),
           hopeCloudService.getChannelTree(),
           hopeCloudService.getStationConfigTypes(),
-        ]).then(([stationsResponse, alarmsResponse, ownersResponse, providersResponse, treeResponse, configTypesResponse]) => {
-          const stationsData = Array.isArray(stationsResponse.data?.records) ? stationsResponse.data.records : [];
+        ]).then(([stationsData, alarmsResponse, ownersResponse, providersResponse, treeResponse, configTypesResponse]) => {
           const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
           const ownersData = Array.isArray((ownersResponse.data as any)?.records) ? (ownersResponse.data as any).records : (Array.isArray(ownersResponse.data) ? ownersResponse.data : []);
           const providersData = Array.isArray((providersResponse.data as any)?.records) ? (providersResponse.data as any).records : (Array.isArray(providersResponse.data) ? providersResponse.data : []);
@@ -541,9 +561,10 @@ const HopeCloudManagement: React.FC = () => {
     setStatisticsDashboardTitle('');
   };
 
+  // Re-fetch when the stored/live toggle changes
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [useDbSource]);
 
 
   const isHealthy = healthStatus?.status === 'healthy';
@@ -802,7 +823,7 @@ const HopeCloudManagement: React.FC = () => {
             </Col>
             <Col>
               <Space size="large">
-                <Tooltip title={useDbSource ? "Switch to Real-time API" : "Switch to Database"}>
+                <Tooltip title={useDbSource ? "Switch to Live HopeCloud API" : "Switch to stored data"}>
                   <Space>
                     <CloudServerOutlined style={{ color: useDbSource ? '#bfbfbf' : DESIGN_TOKENS.status.success, fontSize: 20 }} />
                     <Switch
@@ -815,8 +836,9 @@ const HopeCloudManagement: React.FC = () => {
                   </Space>
                 </Tooltip>
                 <Tag color={useDbSource ? 'blue' : 'green'} style={{ padding: '4px 12px', fontSize: 14 }}>
-                  {useDbSource ? 'Database' : 'Real-time API'}
+                  {useDbSource ? 'Stored data' : 'Live HopeCloud API'}
                 </Tag>
+                {useDbSource && <DataAsOf timestamp={stationsDataAsOf} />}
               </Space>
             </Col>
           </Row>

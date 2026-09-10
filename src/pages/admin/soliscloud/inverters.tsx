@@ -15,9 +15,28 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
+import DataAsOf from '../../../components/DataAsOf';
 import type { Inverter } from '../../../types/soliscloud';
 
 const { Title, Text } = Typography;
+
+// Handle both string and number values from API/DB (decimal columns arrive as strings today)
+const parseValue = (val: any): number => {
+  if (typeof val === 'string') return parseFloat(val) || 0;
+  return val || 0;
+};
+
+// DB row (SolisCloudInverter entity) uses eToday/eTotal/ratedPower; the table columns read the vendor keys etoday/etotal/power.
+const normalizeDbInverter = (i: any): Inverter => ({
+  ...i,
+  pac: parseValue(i.pac),
+  etoday: parseValue(i.eToday),
+  etotal: parseValue(i.eTotal),
+  power: i.ratedPower == null ? undefined : parseValue(i.ratedPower),
+  // null from the DB must become undefined so the SOC column shows '-' for non-battery inverters
+  batteryCapacitySoc: i.batteryCapacitySoc == null ? undefined : parseValue(i.batteryCapacitySoc),
+  state: Number(i.state),
+});
 
 const SolisCloudInverters: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +49,7 @@ const SolisCloudInverters: React.FC = () => {
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<any>(null);
   const [isWarrantyModalVisible, setIsWarrantyModalVisible] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
 
   useEffect(() => {
     fetchInverters();
@@ -51,7 +70,7 @@ const SolisCloudInverters: React.FC = () => {
           limit: pagination.pageSize,
         });
 
-        const records = response.data?.records || [];
+        const records = (response.data?.records || []).map(normalizeDbInverter);
         setInverters(records);
         setFilteredInverters(records);
         setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
@@ -182,58 +201,37 @@ const SolisCloudInverters: React.FC = () => {
       dataIndex: 'power',
       key: 'power',
       width: 100,
-      render: (power: number) => `${power || 0} kW`,
-      sorter: (a: Inverter, b: Inverter) => (a.power || 0) - (b.power || 0),
+      render: (power: any) => `${parseValue(power)} kW`,
+      sorter: (a: Inverter, b: Inverter) => parseValue(a.power) - parseValue(b.power),
     },
     {
       title: 'Current Output',
       dataIndex: 'pac',
       key: 'pac',
       width: 130,
-      render: (pac: any) => {
-        const value = typeof pac === 'string' ? parseFloat(pac) : pac;
-        return (
-          <Space>
-            <ThunderboltOutlined style={{ color: '#faad14' }} />
-            <Text>{value ? value.toFixed(2) : '0.00'} kW</Text>
-          </Space>
-        );
-      },
-      sorter: (a: Inverter, b: Inverter) => {
-        const aVal = typeof a.pac === 'string' ? parseFloat(a.pac) : (a.pac || 0);
-        const bVal = typeof b.pac === 'string' ? parseFloat(b.pac) : (b.pac || 0);
-        return aVal - bVal;
-      },
+      render: (pac: any) => (
+        <Space>
+          <ThunderboltOutlined style={{ color: '#faad14' }} />
+          <Text>{parseValue(pac).toFixed(2)} kW</Text>
+        </Space>
+      ),
+      sorter: (a: Inverter, b: Inverter) => parseValue(a.pac) - parseValue(b.pac),
     },
     {
       title: "Today's Energy",
       dataIndex: 'etoday',
       key: 'etoday',
       width: 130,
-      render: (etoday: any) => {
-        const value = typeof etoday === 'string' ? parseFloat(etoday) : etoday;
-        return `${value ? value.toFixed(2) : '0.00'} kWh`;
-      },
-      sorter: (a: Inverter, b: Inverter) => {
-        const aVal = typeof a.etoday === 'string' ? parseFloat(a.etoday) : (a.etoday || 0);
-        const bVal = typeof b.etoday === 'string' ? parseFloat(b.etoday) : (b.etoday || 0);
-        return aVal - bVal;
-      },
+      render: (etoday: any) => `${parseValue(etoday).toFixed(2)} kWh`,
+      sorter: (a: Inverter, b: Inverter) => parseValue(a.etoday) - parseValue(b.etoday),
     },
     {
       title: 'Total Energy',
       dataIndex: 'etotal',
       key: 'etotal',
       width: 130,
-      render: (etotal: any) => {
-        const value = typeof etotal === 'string' ? parseFloat(etotal) : etotal;
-        return `${value ? value.toFixed(2) : '0.00'} kWh`;
-      },
-      sorter: (a: Inverter, b: Inverter) => {
-        const aVal = typeof a.etotal === 'string' ? parseFloat(a.etotal) : (a.etotal || 0);
-        const bVal = typeof b.etotal === 'string' ? parseFloat(b.etotal) : (b.etotal || 0);
-        return aVal - bVal;
-      },
+      render: (etotal: any) => `${parseValue(etotal).toFixed(2)} kWh`,
+      sorter: (a: Inverter, b: Inverter) => parseValue(a.etotal) - parseValue(b.etotal),
     },
     {
       title: 'Warranty',
@@ -281,7 +279,7 @@ const SolisCloudInverters: React.FC = () => {
           <Text>{soc}%</Text>
         </Space>
       ) : '-',
-      sorter: (a: Inverter, b: Inverter) => (a.batteryCapacitySoc || 0) - (b.batteryCapacitySoc || 0),
+      sorter: (a: Inverter, b: Inverter) => parseValue(a.batteryCapacitySoc) - parseValue(b.batteryCapacitySoc),
     },
   ];
 
@@ -289,11 +287,12 @@ const SolisCloudInverters: React.FC = () => {
   const offlineInverters = inverters.filter(i => i.state === 2).length;
   const alarmInverters = inverters.filter(i => i.state === 3).length;
 
-  // Handle both string and number values from API/DB
-  const parseValue = (val: any): number => {
-    if (typeof val === 'string') return parseFloat(val) || 0;
-    return val || 0;
-  };
+  // Newest sync time over the loaded rows; vendor rows carry no lastSyncedAt so this stays null in live mode
+  const lastSyncedAt = inverters.reduce<string | null>((max, i: any) => {
+    const ts = i.lastSyncedAt;
+    if (!ts) return max;
+    return !max || Date.parse(ts) > Date.parse(max) ? ts : max;
+  }, null);
 
   const totalPower = inverters.reduce((sum, i) => sum + parseValue(i.pac), 0);
   const totalEnergyToday = inverters.reduce((sum, i) => sum + parseValue(i.etoday), 0);
@@ -328,7 +327,8 @@ const SolisCloudInverters: React.FC = () => {
           </Col>
           <Col>
             <Space size="large">
-              <Tooltip title={useDbSource ? "Switch to Real-time API Data" : "Switch to Database (Synced) Data"}>
+              {useDbSource && <DataAsOf label="Synced" timestamp={lastSyncedAt} />}
+              <Tooltip title={useDbSource ? "Switch to live SolisCloud API" : "Switch to stored data (synced every 5 min)"}>
                 <Space>
                   <CloudOutlined style={{ color: useDbSource ? '#bfbfbf' : '#1890ff' }} />
                   <Switch
@@ -341,7 +341,7 @@ const SolisCloudInverters: React.FC = () => {
                 </Space>
               </Tooltip>
               <Tag color={useDbSource ? 'blue' : 'green'}>
-                {useDbSource ? 'Database' : 'Real-time API'}
+                {useDbSource ? 'Stored data' : 'Live SolisCloud API'}
               </Tag>
             </Space>
           </Col>

@@ -35,17 +35,59 @@ import {
   CloudServerOutlined,
   CloudOutlined,
   SyncOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarDeviceService } from '../../../service/fsolar';
-import fsolarService from '../../../service/fsolar.service';
+import fsolarService, { type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
+import DataAsOf, { freshnessOf } from '../../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 
+const DB_EMPTY_TEXT = 'No devices synced yet — trigger a sync from the source toggle or wait for the 5-minute job';
+
+// fsolar_devices.device_type enum -> vendor deviceType code the columns already render.
+const DB_TYPE_TO_VENDOR: Record<string, string> = {
+  inverter: 'INV',
+  battery: 'BP',
+  meter: 'Meter',
+  collector: 'Collector',
+};
+
+/**
+ * Map a stored fsolar_devices row to the vendor list shape the table columns read.
+ * `status` is decided later from the freshness of the device's latest energy row (no reliable status column).
+ */
+const normalizeDbDevice = (d: FsolarDbDevice): Device => {
+  const list = d.metadata?.list || {};
+  const basic = d.metadata?.basic || {};
+  return {
+    ...list,
+    id: d.id,
+    deviceSn: d.deviceSn,
+    deviceName: d.name || list.plantName || '',
+    deviceType: basic.deviceType || DB_TYPE_TO_VENDOR[d.deviceType || ''] || d.deviceType || '',
+    status: 'unknown',
+    model: d.model || basic.deviceModel || null,
+    ratedPower: d.ratedPower ?? basic.ratedPower ?? null,
+    plantId: list.plantId || d.stationCode,
+    plantName: list.plantName || d.name,
+    stationCode: d.stationCode,
+    location: d.location,
+    manufacturer: d.manufacturer,
+    installDate: d.installationDate,
+    firmwareVersion: d.firmwareVersion || basic.firmwareVersion || null,
+    lastSyncedAt: d.lastSyncedAt,
+    // Stored vendor basic-info so the details modal needs no vendor call in stored mode.
+    basic,
+  };
+};
+
 const DevicesManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -66,20 +108,31 @@ const DevicesManagement: React.FC = () => {
       setLoading(true);
 
       if (useDbSource) {
-        // Use database API
+        // Stored data: devices table plus each device's newest energy row for the online/unknown status.
         const result = await fsolarService.getDbDevices({
           page,
           limit: pageSize,
         });
-        const dbDevices = Array.isArray(result.data) ? result.data : [];
-        setDevices(dbDevices);
+        const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
+        const normalized = rows.map(normalizeDbDevice);
+        const latest = await Promise.all(
+          normalized.map((d) =>
+            fsolarService.getDbDeviceEnergyLatest(d.deviceSn).then((r) => r?.data ?? null).catch(() => null)
+          )
+        );
+        normalized.forEach((d, i) => {
+          const ts = latest[i]?.timestamp ?? null;
+          d.lastDataAt = ts;
+          d.status = freshnessOf(ts) === 'fresh' ? 'ON' : 'unknown';
+        });
+        setDevices(normalized);
         setPagination({
-          current: parseInt(result.pagination?.page) || page,
-          pageSize: parseInt(result.pagination?.limit) || pageSize,
-          total: parseInt(result.pagination?.total) || 0,
+          current: parseInt(String(result?.pagination?.page)) || page,
+          pageSize: parseInt(String(result?.pagination?.limit)) || pageSize,
+          total: parseInt(String(result?.pagination?.total)) || 0,
         });
       } else {
-        // Use real-time API
+        // Live vendor API
         const result = await fsolarDeviceService.getDeviceList({
           pageNum: page,
           pageSize,
@@ -101,6 +154,27 @@ const DevicesManagement: React.FC = () => {
   useEffect(() => {
     fetchDevices();
   }, [useDbSource]);
+
+  // Newest lastSyncedAt across the page: what the "Data as of" badge reports in stored mode.
+  const lastSyncedAt = devices.reduce<string | null>((max, d) => {
+    const ts = d.lastSyncedAt as string | null | undefined;
+    if (!ts) return max;
+    return !max || ts > max ? ts : max;
+  }, null);
+
+  // Manual sync of the devices + energy tables, then reload from the store.
+  const handleSyncNow = async () => {
+    try {
+      setSyncing(true);
+      await fsolarService.triggerDbSync({ types: ['devices', 'energy'] });
+      message.success('Sync completed');
+      await fetchDevices(pagination.current, pagination.pageSize);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Filter devices based on search and status
   useEffect(() => {
@@ -164,6 +238,22 @@ const DevicesManagement: React.FC = () => {
 
   // Handle view details
   const handleViewDetails = async (device: Device) => {
+    if (useDbSource) {
+      // Stored mode: the sync job already keeps the vendor basic-info in metadata.basic.
+      setSelectedDevice({
+        ...(device.basic || {}),
+        deviceSn: device.deviceSn,
+        deviceName: device.deviceName,
+        deviceType: device.deviceType,
+        deviceModel: device.basic?.deviceModel || device.model,
+        ratedPower: device.ratedPower,
+        manufacturer: device.manufacturer,
+        installDate: device.installDate,
+        status: device.basic?.status || device.status,
+      });
+      setDetailModalVisible(true);
+      return;
+    }
     try {
       setLoading(true);
       const details = await fsolarDeviceService.getDeviceBasicInfo(device.deviceSn);
@@ -182,6 +272,7 @@ const DevicesManagement: React.FC = () => {
       'ON': { status: 'success', text: 'Online', icon: <CheckCircleOutlined /> },
       'OF': { status: 'default', text: 'Offline', icon: <CloseCircleOutlined /> },
       'AL': { status: 'error', text: 'Alarm', icon: <WarningOutlined /> },
+      'unknown': { status: 'default', text: 'Unknown', icon: <ClockCircleOutlined /> },
     };
     const config = statusMap[status] || { status: 'processing', text: status, icon: null };
     return (
@@ -233,6 +324,38 @@ const DevicesManagement: React.FC = () => {
       onFilter: (value, record) => record.status === value,
       render: (status: string) => getStatusBadge(status),
     },
+    {
+      title: 'Model',
+      dataIndex: 'model',
+      key: 'model',
+      width: 150,
+      render: (model: string) => model ? <Text>{model}</Text> : <Text type="secondary">-</Text>,
+    },
+    {
+      title: 'Station',
+      key: 'station',
+      width: 160,
+      render: (_, record) =>
+        record.plantName || record.plantId ? (
+          <Space direction="vertical" size={0}>
+            {record.plantName && <Text style={{ fontSize: 12 }}>{record.plantName}</Text>}
+            {record.plantId && <Text type="secondary" style={{ fontSize: 11 }}>{record.plantId}</Text>}
+          </Space>
+        ) : (
+          <Text type="secondary">-</Text>
+        ),
+    },
+    ...(useDbSource
+      ? [
+          {
+            title: 'Last synced',
+            dataIndex: 'lastSyncedAt',
+            key: 'lastSyncedAt',
+            width: 130,
+            render: (ts: string | null) => <DataAsOf timestamp={ts} compact />,
+          } as ColumnsType<Device>[number],
+        ]
+      : []),
     {
       title: (
         <Tooltip title="Master Control Version">
@@ -465,8 +588,16 @@ const DevicesManagement: React.FC = () => {
                 unCheckedChildren={<CloudOutlined />}
               />
               <Tag color={useDbSource ? 'blue' : 'green'}>
-                {useDbSource ? 'Database' : 'Real-time API'}
+                {useDbSource ? 'Stored data' : 'Live vendor API'}
               </Tag>
+              {useDbSource && <DataAsOf timestamp={lastSyncedAt} />}
+              {useDbSource && (
+                <Tooltip title="Run the devices + energy sync now">
+                  <Button size="small" icon={<SyncOutlined />} onClick={handleSyncNow} loading={syncing}>
+                    Sync now
+                  </Button>
+                </Tooltip>
+              )}
             </Space>
             <Divider type="vertical" />
             <Button
@@ -492,6 +623,7 @@ const DevicesManagement: React.FC = () => {
           dataSource={filteredDevices}
           rowKey="deviceSn"
           loading={loading}
+          locale={useDbSource ? { emptyText: DB_EMPTY_TEXT } : undefined}
           pagination={{
             ...pagination,
             onChange: (page, pageSize) => {
@@ -501,12 +633,13 @@ const DevicesManagement: React.FC = () => {
             showTotal: (total) => `Total ${total} devices`,
             pageSizeOptions: ['10', '20', '50', '100'],
           }}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1800 }}
           size="middle"
           rowClassName={(record) =>
             record.status === 'AL' ? 'alarm-row' :
             record.status === 'OF' ? 'offline-row' :
-            'online-row'
+            record.status === 'ON' ? 'online-row' :
+            ''
           }
         />
       </Card>

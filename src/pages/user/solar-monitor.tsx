@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
+import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 
@@ -113,13 +114,24 @@ const SolarMonitor: React.FC = () => {
             My Solar Energy System
           </Title>
           <Text type="secondary" style={{ fontSize: '16px' }}>
-            Real-time monitoring of your solar power generation
+            Monitoring of your solar power generation
           </Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            Last updated: {new Date(solarData.lastUpdate).toLocaleString()}
-          </Text>
+          <div style={{ marginTop: 8 }}>
+            <DataAsOf
+              timestamp={solarData.lastUpdate}
+              status={!solarData.stale && solarData.lastUpdate ? 'fresh' : undefined}
+            />
+          </div>
         </div>
+        {solarData.stale && (
+          <Alert
+            type="warning"
+            showIcon
+            closable
+            message="Showing last stored data"
+            description={`The newest data we hold is from ${relativeAge(solarData.lastUpdate)}; the vendor connection is behind. Numbers below are the most recent we have.`}
+          />
+        )}
 
         {/* Main Statistics Cards */}
         <Row gutter={[24, 24]}>
@@ -255,10 +267,13 @@ const SolarMonitor: React.FC = () => {
                           {provider.provider}
                         </Text>
                       </Space>
-                      <Badge
-                        status={provider.alarms.active > 0 ? 'error' : 'success'}
-                        text={provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
-                      />
+                      <Space size="small" wrap>
+                        {provider.lastUpdate && <DataAsOf compact timestamp={provider.lastUpdate} />}
+                        <Badge
+                          status={provider.alarms.active > 0 ? 'error' : 'success'}
+                          text={provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
+                        />
+                      </Space>
                     </div>
 
                     <Row gutter={8}>

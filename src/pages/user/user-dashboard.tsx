@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../helpers/hooks/useAuth';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
+import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -105,11 +106,22 @@ const UserDashboard: React.FC = () => {
           <Text type="secondary" style={{ fontSize: isMobile ? '13px' : '14px' }}>
             Here's your solar energy system overview
           </Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: isMobile ? '11px' : '12px' }}>
-            Last updated: {new Date(solarData.lastUpdate).toLocaleString()}
-          </Text>
+          <div style={{ marginTop: 6 }}>
+            <DataAsOf
+              timestamp={solarData.lastUpdate}
+              status={!solarData.stale && solarData.lastUpdate ? 'fresh' : undefined}
+            />
+          </div>
         </div>
+        {solarData.stale && (
+          <Alert
+            type="warning"
+            showIcon
+            closable
+            message="Showing last stored data"
+            description={`The newest data we hold is from ${relativeAge(solarData.lastUpdate)}; the vendor connection is behind. Numbers below are the most recent we have.`}
+          />
+        )}
 
         {/* Key Metrics Cards */}
         <Row gutter={isMobile ? [12, 12] : [16, 16]}>
@@ -196,9 +208,12 @@ const UserDashboard: React.FC = () => {
                           {provider.provider}
                         </Text>
                       </Space>
-                      <Tag color={provider.alarms.active > 0 ? 'error' : 'success'} style={{ margin: 0, fontSize: isMobile ? '11px' : '12px' }}>
-                        {provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
-                      </Tag>
+                      <Space size="small" wrap>
+                        {provider.lastUpdate && <DataAsOf compact timestamp={provider.lastUpdate} />}
+                        <Tag color={provider.alarms.active > 0 ? 'error' : 'success'} style={{ margin: 0, fontSize: isMobile ? '11px' : '12px' }}>
+                          {provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
+                        </Tag>
+                      </Space>
                     </div>
 
                     <Row gutter={8}>

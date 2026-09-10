@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
+import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -103,11 +104,22 @@ const UserInvertersDetail: React.FC = () => {
           <Text type="secondary" style={{ fontSize: isMobile ? '13px' : '14px' }}>
             Detailed information about your solar energy systems
           </Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: isMobile ? '11px' : '12px' }}>
-            Last updated: {new Date(solarData.lastUpdate).toLocaleString()}
-          </Text>
+          <div style={{ marginTop: 6 }}>
+            <DataAsOf
+              timestamp={solarData.lastUpdate}
+              status={!solarData.stale && solarData.lastUpdate ? 'fresh' : undefined}
+            />
+          </div>
         </div>
+        {solarData.stale && (
+          <Alert
+            type="warning"
+            showIcon
+            closable
+            message="Showing last stored data"
+            description={`The newest data we hold is from ${relativeAge(solarData.lastUpdate)}; the vendor connection is behind. Numbers below are the most recent we have.`}
+          />
+        )}
 
         {/* Quick Summary */}
         <Row gutter={isMobile ? [12, 12] : [16, 16]}>
@@ -168,9 +180,12 @@ const UserInvertersDetail: React.FC = () => {
               </Space>
             }
             extra={
-              <Tag color={provider.alarms.active > 0 ? 'error' : 'success'} style={{ fontSize: isMobile ? '11px' : '12px' }}>
-                {provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
-              </Tag>
+              <Space size="small" wrap>
+                {provider.lastUpdate && <DataAsOf compact timestamp={provider.lastUpdate} />}
+                <Tag color={provider.alarms.active > 0 ? 'error' : 'success'} style={{ fontSize: isMobile ? '11px' : '12px' }}>
+                  {provider.alarms.active > 0 ? `${provider.alarms.active} Alarms` : 'Healthy'}
+                </Tag>
+              </Space>
             }
           >
             <Space direction="vertical" size={isMobile ? "middle" : "large"} style={{ width: '100%' }}>

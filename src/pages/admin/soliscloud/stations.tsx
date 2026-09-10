@@ -14,9 +14,30 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
+import DataAsOf from '../../../components/DataAsOf';
 import type { Station } from '../../../types/soliscloud';
 
 const { Title, Text } = Typography;
+
+// Handle both string and number values from API/DB (decimal columns arrive as strings today)
+const parseValue = (val: any): number => {
+  if (typeof val === 'string') return parseFloat(val) || 0;
+  return val || 0;
+};
+
+// DB rows (SolisCloudStation entity) use different keys than the vendor list; map them onto the vendor shape the page renders.
+const normalizeDbStation = (s: any): Station => ({
+  ...s,
+  stationName: s.name,
+  capacity: parseValue(s.installedCapacity),
+  capacityStr: 'kWp',
+  cityStr: s.city,
+  countryStr: s.country,
+  pac: parseValue(s.pac),
+  eToday: parseValue(s.eToday),
+  eTotal: parseValue(s.eTotal),
+  state: Number(s.state),
+});
 
 const SolisCloudStations: React.FC = () => {
   const navigate = useNavigate();
@@ -28,7 +49,7 @@ const SolisCloudStations: React.FC = () => {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [form] = Form.useForm();
-  const [useDbSource, setUseDbSource] = useState(false);
+  const [useDbSource, setUseDbSource] = useState(true);
 
   useEffect(() => {
     fetchStations();
@@ -49,7 +70,7 @@ const SolisCloudStations: React.FC = () => {
           limit: pagination.pageSize,
         });
 
-        const records = response.data?.records || [];
+        const records = (response.data?.records || []).map(normalizeDbStation);
         setStations(records);
         setFilteredStations(records);
         setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
@@ -170,37 +191,37 @@ const SolisCloudStations: React.FC = () => {
       dataIndex: 'capacity',
       key: 'capacity',
       width: 100,
-      render: (capacity: number) => `${capacity} kWp`,
-      sorter: (a: Station, b: Station) => a.capacity - b.capacity,
+      render: (capacity: any) => `${parseValue(capacity)} kWp`,
+      sorter: (a: Station, b: Station) => parseValue(a.capacity) - parseValue(b.capacity),
     },
     {
       title: 'Current Power',
       dataIndex: 'pac',
       key: 'pac',
       width: 130,
-      render: (pac: number) => (
+      render: (pac: any) => (
         <Space size={4}>
           <ThunderboltOutlined style={{ color: '#faad14' }} />
-          <span>{pac ? pac.toFixed(2) : '0.00'} kW</span>
+          <span>{parseValue(pac).toFixed(2)} kW</span>
         </Space>
       ),
-      sorter: (a: Station, b: Station) => (a.pac || 0) - (b.pac || 0),
+      sorter: (a: Station, b: Station) => parseValue(a.pac) - parseValue(b.pac),
     },
     {
       title: "Today's Energy",
       dataIndex: 'eToday',
       key: 'eToday',
       width: 120,
-      render: (eToday: number) => `${eToday ? eToday.toFixed(2) : '0.00'} kWh`,
-      sorter: (a: Station, b: Station) => (a.eToday || 0) - (b.eToday || 0),
+      render: (eToday: any) => `${parseValue(eToday).toFixed(2)} kWh`,
+      sorter: (a: Station, b: Station) => parseValue(a.eToday) - parseValue(b.eToday),
     },
     {
       title: 'Total Energy',
       dataIndex: 'eTotal',
       key: 'eTotal',
       width: 120,
-      render: (eTotal: number) => `${eTotal ? eTotal.toFixed(2) : '0.00'} kWh`,
-      sorter: (a: Station, b: Station) => (a.eTotal || 0) - (b.eTotal || 0),
+      render: (eTotal: any) => `${parseValue(eTotal).toFixed(2)} kWh`,
+      sorter: (a: Station, b: Station) => parseValue(a.eTotal) - parseValue(b.eTotal),
     },
     {
       title: 'Location',
@@ -219,11 +240,12 @@ const SolisCloudStations: React.FC = () => {
   const offlineStations = stations.filter(s => s.state === 2).length;
   const alarmStations = stations.filter(s => s.state === 3).length;
 
-  // Handle both string and number values from API/DB
-  const parseValue = (val: any): number => {
-    if (typeof val === 'string') return parseFloat(val) || 0;
-    return val || 0;
-  };
+  // Newest sync time over the loaded rows; vendor rows carry no lastSyncedAt so this stays null in live mode
+  const lastSyncedAt = stations.reduce<string | null>((max, s: any) => {
+    const ts = s.lastSyncedAt;
+    if (!ts) return max;
+    return !max || Date.parse(ts) > Date.parse(max) ? ts : max;
+  }, null);
 
   const totalCapacity = stations.reduce((sum, s) => sum + parseValue(s.capacity), 0);
   const totalPower = stations.reduce((sum, s) => sum + parseValue(s.pac), 0);
@@ -255,7 +277,8 @@ const SolisCloudStations: React.FC = () => {
           </Col>
           <Col>
             <Space size="large">
-              <Tooltip title={useDbSource ? "Switch to Real-time API Data" : "Switch to Database (Synced) Data"}>
+              {useDbSource && <DataAsOf label="Synced" timestamp={lastSyncedAt} />}
+              <Tooltip title={useDbSource ? "Switch to live SolisCloud API" : "Switch to stored data (synced every 5 min)"}>
                 <Space>
                   <CloudOutlined style={{ color: useDbSource ? '#bfbfbf' : '#52c41a' }} />
                   <Switch
@@ -268,7 +291,7 @@ const SolisCloudStations: React.FC = () => {
                 </Space>
               </Tooltip>
               <Tag color={useDbSource ? 'blue' : 'green'}>
-                {useDbSource ? 'Database' : 'Real-time API'}
+                {useDbSource ? 'Stored data' : 'Live SolisCloud API'}
               </Tag>
             </Space>
           </Col>
@@ -407,7 +430,7 @@ const SolisCloudStations: React.FC = () => {
                         return types[station.type - 1] || 'Unknown';
                       })()}
                     </Text>
-                    <Text strong>{station.capacity} kWp</Text>
+                    <Text strong>{parseValue(station.capacity)} kWp</Text>
                   </div>
 
                   {/* Power Metrics */}
@@ -419,19 +442,19 @@ const SolisCloudStations: React.FC = () => {
                             <ThunderboltOutlined style={{ color: '#faad14' }} />
                             <Text type="secondary" style={{ fontSize: 12 }}>Power</Text>
                           </Space>
-                          <Text strong>{station.pac ? station.pac.toFixed(2) : '0.00'} kW</Text>
+                          <Text strong>{parseValue(station.pac).toFixed(2)} kW</Text>
                         </div>
                       </Col>
                       <Col span={12}>
                         <div>
                           <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Today</Text>
-                          <Text strong style={{ fontSize: 13 }}>{station.eToday ? station.eToday.toFixed(2) : '0.00'} kWh</Text>
+                          <Text strong style={{ fontSize: 13 }}>{parseValue(station.eToday).toFixed(2)} kWh</Text>
                         </div>
                       </Col>
                       <Col span={12}>
                         <div>
                           <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Total</Text>
-                          <Text strong style={{ fontSize: 13 }}>{station.eTotal ? station.eTotal.toFixed(2) : '0.00'} kWh</Text>
+                          <Text strong style={{ fontSize: 13 }}>{parseValue(station.eTotal).toFixed(2)} kWh</Text>
                         </div>
                       </Col>
                     </Row>
