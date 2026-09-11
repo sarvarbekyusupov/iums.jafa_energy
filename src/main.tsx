@@ -4,6 +4,17 @@ import Router from "./routes/route.tsx";
 import "@ant-design/v5-patch-for-react-19";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// A tab opened before a deploy still holds the old index.html in memory, so the first
+// lazy-loaded route it visits asks for a chunk filename the new build no longer has.
+// Vite reports that as vite:preloadError; reload once to pick up the current index.html.
+// The sessionStorage flag stops a genuinely broken deploy from looping forever.
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  if (sessionStorage.getItem("chunk-reloaded")) return;
+  sessionStorage.setItem("chunk-reloaded", "1");
+  window.location.reload();
+});
+
 // Optimized QueryClient configuration
 const queryClient = new QueryClient({
   defaultOptions: {
