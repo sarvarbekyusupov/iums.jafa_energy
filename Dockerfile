@@ -1,7 +1,9 @@
 # Multi-stage build for React + Vite application
 
 # Stage 1: Build
-FROM node:20-alpine AS builder
+# Pinned: the floating node:20-alpine moved to a newer Alpine once already and broke the
+# backend build with no code change on our side.
+FROM node:20-alpine3.22 AS builder
 
 # Build argument for API URL
 ARG VITE_BASE_URL=https://jafaiums.uz
@@ -34,8 +36,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 5000
 
 # Health check
+# 127.0.0.1, not localhost: Alpine resolves localhost to ::1 first and the nginx below
+# listens on IPv4 only, so the check failed on a container that was serving fine.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5000 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5000 || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
