@@ -37,6 +37,18 @@ export interface StationForecast {
   totals: ForecastTotals;
 }
 
+export interface ForecastAccuracy {
+  windowDays: number;
+  /** Days that have both a frozen day-ahead prediction and a recorded actual. */
+  measuredDays: number;
+  /** Average absolute gap between the day-ahead forecast and what happened, percent. */
+  mapePct: number | null;
+  /** Positive = the forecast runs high. */
+  biasPct: number | null;
+  /** What the formula gets wrong even with perfect weather, percent. */
+  modelErrorPct: number | null;
+}
+
 export interface ForecastSummary {
   currency: 'UZS';
   pricePerKwhUzs: number;
@@ -47,4 +59,5 @@ export interface ForecastSummary {
   next7: ForecastTotals;
   next15: ForecastTotals;
   perDay: ForecastDay[];
+  accuracy?: ForecastAccuracy;
 }

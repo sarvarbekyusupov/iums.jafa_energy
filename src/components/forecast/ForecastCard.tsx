@@ -84,6 +84,41 @@ const ForecastCard: React.FC<ForecastCardProps> = ({ compact = false }) => {
     </Space>
   );
 
+  // Two different numbers, and the card must not blur them. mapePct is how far yesterday's
+  // forecast for today actually landed from the truth; it only exists once a forecast has
+  // been scored against a finished day. modelErrorPct is what the formula gets wrong with
+  // the weather known exactly, so it is available at once and is the floor for the other.
+  const acc = summary?.accuracy;
+  const accuracyTag = !acc ? null : acc.measuredDays > 0 && acc.mapePct !== null ? (
+    <Tooltip
+      title={
+        `Oxirgi ${acc.windowDays} kunda ${acc.measuredDays} ta kun tekshirildi. ` +
+        `O'rtacha ${acc.biasPct !== null && acc.biasPct > 0 ? 'yuqori' : 'past'} bashorat: ` +
+        `${acc.biasPct !== null ? Math.abs(acc.biasPct).toFixed(1) : '-'}%.` +
+        (acc.modelErrorPct !== null ? ` Formulaning o'z xatosi ${acc.modelErrorPct}%.` : '')
+      }
+    >
+      <Tag color={acc.mapePct <= 10 ? 'green' : acc.mapePct <= 20 ? 'gold' : 'red'}>
+        O'rtacha xato {acc.mapePct}%
+      </Tag>
+    </Tooltip>
+  ) : (
+    <Tooltip
+      title={
+        "Prognoz aniqligi u tekshiriladigan kun kelgandan keyin o'lchanadi, ya'ni ertadan boshlab to'planadi." +
+        (acc.modelErrorPct !== null
+          ? ` Hozircha faqat formulaning o'z xatosi ma'lum: ob-havo aniq bo'lganda ham u ${acc.modelErrorPct}% atrofida adashadi.`
+          : '')
+      }
+    >
+      <Tag icon={<InfoCircleOutlined />}>
+        {acc.modelErrorPct !== null
+          ? `Formula xatosi ${acc.modelErrorPct}%`
+          : 'Aniqlik hali o\'lchanmagan'}
+      </Tag>
+    </Tooltip>
+  );
+
   if (loading) {
     return (
       <Card title={header}>
@@ -163,6 +198,7 @@ const ForecastCard: React.FC<ForecastCardProps> = ({ compact = false }) => {
             <Tag icon={<InfoCircleOutlined />}>Koordinata taxminiy</Tag>
           </Tooltip>
         )}
+        {accuracyTag}
       </Space>
 
       {summary.anyDefaultRatio && (

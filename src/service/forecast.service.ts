@@ -1,5 +1,5 @@
 import { apiClient } from './api-client';
-import type { ForecastSummary, StationForecast } from '../types/forecast';
+import type { ForecastAccuracy, ForecastSummary, StationForecast } from '../types/forecast';
 
 const BASE_URL = '/api/forecast';
 
@@ -26,6 +26,14 @@ class ForecastService {
       `${BASE_URL}/${provider}/${encodeURIComponent(stationId)}`,
       { params: { days } },
     );
+    return response.data.data;
+  }
+
+  /** How close past forecasts came to what actually happened. */
+  async getAccuracy(windowDays = 30): Promise<ForecastAccuracy> {
+    const response = await apiClient.get<{ data: ForecastAccuracy }>(`${BASE_URL}/accuracy`, {
+      params: { windowDays },
+    });
     return response.data.data;
   }
 
