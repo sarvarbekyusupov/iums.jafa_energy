@@ -12,6 +12,7 @@ import {
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
+import ForecastCard from '../../components/forecast/ForecastCard';
 
 const { Title, Text } = Typography;
 
@@ -241,6 +242,8 @@ const SolarMonitor: React.FC = () => {
             </Card>
           </Col>
         </Row>
+
+        <ForecastCard compact />
 
         {/* Provider Breakdown */}
         <Card

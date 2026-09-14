@@ -17,6 +17,7 @@ export * from './fsolar';
 export * from './soliscloud.service';
 export * from './unified-solar.service';
 export * from './sync-health.service';
+export * from './forecast.service';
 export * from './integration-orchestrator.service';
 export * from './webhooks.service';
 

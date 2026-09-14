@@ -38,6 +38,7 @@ import { hopeCloudService } from '../../service/hopecloud.service';
 import { solisCloudService } from '../../service/soliscloud.service';
 import fsolarService from '../../service/fsolar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
+import ForecastCard from '../../components/forecast/ForecastCard';
 
 const { Title, Text } = Typography;
 
@@ -300,6 +301,8 @@ const PartnerDashboard: React.FC = () => {
             </Col>
           </Row>
         </Card>
+
+        <ForecastCard />
 
         {/* Provider Comparison Cards */}
         <Row gutter={[16, 16]}>

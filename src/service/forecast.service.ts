@@ -1,0 +1,45 @@
+import { apiClient } from './api-client';
+import type { ForecastSummary, StationForecast } from '../types/forecast';
+
+const BASE_URL = '/api/forecast';
+
+/**
+ * Production and revenue the weather model expects over the next 7 or 15 days.
+ * The backend keeps the stored rows; nothing here talks to the weather provider.
+ */
+class ForecastService {
+  /** Rolled up across every station the signed-in user may see. */
+  async getSummary(): Promise<ForecastSummary> {
+    const response = await apiClient.get<{ data: ForecastSummary }>(`${BASE_URL}/summary`);
+    return response.data.data;
+  }
+
+  async getStations(days: 7 | 15 = 7): Promise<StationForecast[]> {
+    const response = await apiClient.get<{ data: StationForecast[] }>(`${BASE_URL}/stations`, {
+      params: { days },
+    });
+    return response.data.data;
+  }
+
+  async getStation(provider: string, stationId: string, days: 7 | 15 = 7): Promise<StationForecast> {
+    const response = await apiClient.get<{ data: StationForecast }>(
+      `${BASE_URL}/${provider}/${encodeURIComponent(stationId)}`,
+      { params: { days } },
+    );
+    return response.data.data;
+  }
+
+  async getSyncStatus(): Promise<any> {
+    const response = await apiClient.get<{ data: any }>(`${BASE_URL}/sync/status`);
+    return response.data.data;
+  }
+
+  /** Admin only: fetch the weather again now instead of waiting for the next run. */
+  async triggerSync(): Promise<any> {
+    const response = await apiClient.post<{ data: any }>(`${BASE_URL}/sync`, {});
+    return response.data.data;
+  }
+}
+
+export const forecastService = new ForecastService();
+export default forecastService;

@@ -13,6 +13,7 @@ import { useAuth } from '../../helpers/hooks/useAuth';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
+import ForecastCard from '../../components/forecast/ForecastCard';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -186,6 +187,8 @@ const UserDashboard: React.FC = () => {
             </Card>
           </Col>
         </Row>
+
+        <ForecastCard />
 
         {/* Your Providers */}
         <Card
