@@ -10,7 +10,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 162 94% 24%;   /* #047857, brendga mos */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 162 94% 24%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -31,32 +31,6 @@
     --chart-5: 27 87% 67%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
 }
 
 @layer base {
@@ -69,89 +43,12 @@
 }
 
 @layer utilities {
-  .animation-delay-2000 {
-    animation-delay: 2s;
-  }
-  .animation-delay-4000 {
-    animation-delay: 4s;
-  }
 }
 
-/* Ant Design Menu customization for green theme */
-.ant-menu-dark {
-  background: transparent !important;
-}
-
-/* Submenu group container with full border */
-.ant-menu-dark .ant-menu-submenu {
-  margin: 12px !important;
-  border: 2px solid rgba(16, 185, 129, 0.35) !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-  background: transparent !important;
-}
-
-/* Submenu title (header like "General Dashboard") */
-.ant-menu-dark .ant-menu-submenu-title {
-  background: rgba(16, 185, 129, 0.12) !important;
-  margin: 0 !important;
-  border-radius: 10px 10px 0 0 !important;
-  border: none !important;
-  border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
-  color: rgba(209, 250, 229, 1) !important;
-  font-weight: 500 !important;
-  padding: 12px 16px !important;
-}
-
-/* Fix arrow icon area */
-.ant-menu-dark .ant-menu-submenu-title .ant-menu-submenu-arrow {
-  color: rgba(209, 250, 229, 1) !important;
-}
-
-.ant-menu-dark .ant-menu-submenu-title::after {
-  background: transparent !important;
-}
-
-.ant-menu-dark .ant-menu-submenu-title:hover {
-  background: rgba(16, 185, 129, 0.18) !important;
-  color: #fff !important;
-}
-
-.ant-menu-dark .ant-menu-submenu-open > .ant-menu-submenu-title {
-  background: rgba(16, 185, 129, 0.15) !important;
-  color: #fff !important;
-}
-
-/* Submenu content area (items inside) */
-.ant-menu-dark .ant-menu-sub {
-  background: transparent !important;
-  padding: 4px !important;
-}
-
-/* Individual menu items */
-.ant-menu-dark .ant-menu-item {
-  margin: 4px 8px !important;
-  border-radius: 8px !important;
-  color: rgba(209, 250, 229, 0.85) !important;
-  border: 1px solid rgba(16, 185, 129, 0.15) !important;
-  transition: all 0.2s ease !important;
-  background: rgba(16, 185, 129, 0.05) !important;
-}
-
-.ant-menu-dark .ant-menu-item:hover {
-  background: rgba(16, 185, 129, 0.12) !important;
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  color: #fff !important;
-}
-
-/* Selected menu item - dark background */
-.ant-menu-dark .ant-menu-item-selected {
-  background: rgba(4, 120, 87, 0.6) !important;
-  color: #fff !important;
-  border: 2px solid rgba(16, 185, 129, 0.7) !important;
-  font-weight: 600 !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
-}
+/* The sider is themed through ConfigProvider in src/theme/tokens.ts.
+   What stood here was forty !important rules that drew a border around every menu item and
+   a second border around every group, which is what made the sider read as a stack of green
+   boxes. Ant Design already styles a dark menu; it only needed to be told the colours. */
 
 /* Mobile responsive utilities */
 @media (max-width: 767px) {

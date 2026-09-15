@@ -255,7 +255,10 @@ const router = createBrowserRouter(
         <Route path="soliscloud/epm/:id/charts" element={<Suspense fallback={<PageLoader />}><EPMChartsPage /></Suspense>} />
         <Route path="soliscloud/weather" element={<Suspense fallback={<PageLoader />}><WeatherListPage /></Suspense>} />
         <Route path="soliscloud/weather/:sn" element={<Suspense fallback={<PageLoader />}><WeatherDetailPage /></Suspense>} />
-        <Route path="soliscloud/api-test" element={<Suspense fallback={<PageLoader />}><SolisCloudAPITest /></Suspense>} />
+        {/* Developer scratch page, not something a customer should be able to open. */}
+        {import.meta.env.DEV && (
+          <Route path="soliscloud/api-test" element={<Suspense fallback={<PageLoader />}><SolisCloudAPITest /></Suspense>} />
+        )}
       </Route>
     </Route>
   )
