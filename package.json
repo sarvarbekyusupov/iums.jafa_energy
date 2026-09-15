@@ -31,7 +31,6 @@
     "@eslint/js": "^9.29.0",
     "@stagewise-plugins/react": "^0.5.0",
     "@stagewise/toolbar-react": "^0.5.0",
-    "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

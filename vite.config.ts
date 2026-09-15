@@ -82,7 +82,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://3.121.174.54:3000',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true,
