@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Lottie from "lottie-react";
 import greenEnergyAnimation from "../../assets/Green Energy Animation.json";
+import { PAGE_BG } from '../../theme/tokens';
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -110,16 +111,9 @@ const SignIn = () => {
 
   return (
     <div className="flex min-h-screen relative overflow-hidden">
-      {/* Animated background with green energy theme */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
-        {/* Decorative circles representing clean energy */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-green-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-emerald-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-teal-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
-
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-      </div>
+      {/* Plain ground. The illustration beside the form already says what the product is;
+          three blurred green circles drifting behind it only made the page hazy. */}
+      <div className="absolute inset-0" style={{ background: PAGE_BG }}></div>
 
       {/* Left side - Animation */}
       <div className="hidden lg:flex lg:w-1/2 items-center justify-center relative z-10 p-12">

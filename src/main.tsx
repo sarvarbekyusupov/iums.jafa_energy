@@ -3,6 +3,8 @@ import "./index.css";
 import Router from "./routes/route.tsx";
 import "@ant-design/v5-patch-for-react-19";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ConfigProvider } from "antd";
+import theme from "./theme/tokens";
 
 // A tab opened before a deploy still holds the old index.html in memory, so the first
 // lazy-loaded route it visits asks for a chunk filename the new build no longer has.
@@ -39,7 +41,9 @@ const queryClient = new QueryClient({
 });
 
 createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
-    <Router />
-  </QueryClientProvider>
+  <ConfigProvider theme={theme}>
+    <QueryClientProvider client={queryClient}>
+      <Router />
+    </QueryClientProvider>
+  </ConfigProvider>
 );

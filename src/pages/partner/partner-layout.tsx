@@ -294,7 +294,6 @@ const PartnerLayout: React.FC = () => {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        background: 'linear-gradient(to bottom right, rgb(236, 253, 245), rgb(240, 253, 244), rgb(240, 253, 250))',
       }}>
         <Spin size="large" tip="Loading partner data..." />
       </div>
@@ -306,75 +305,8 @@ const PartnerLayout: React.FC = () => {
       style={{
         minHeight: "100vh",
         position: "relative",
-        background: "transparent",
       }}
     >
-      {/* Green energy background */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background:
-            "linear-gradient(to bottom right, rgb(236, 253, 245), rgb(240, 253, 244), rgb(240, 253, 250))",
-          zIndex: 0,
-        }}
-      >
-        {/* Decorative circles */}
-        <div
-          style={{
-            position: "absolute",
-            top: "5rem",
-            left: "2.5rem",
-            width: "18rem",
-            height: "18rem",
-            background: "rgba(134, 239, 172, 0.3)",
-            borderRadius: "9999px",
-            mixBlendMode: "multiply",
-            filter: "blur(48px)",
-            animation: "blob 7s infinite",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "10rem",
-            right: "2.5rem",
-            width: "18rem",
-            height: "18rem",
-            background: "rgba(167, 243, 208, 0.3)",
-            borderRadius: "9999px",
-            mixBlendMode: "multiply",
-            filter: "blur(48px)",
-            animation: "blob 7s infinite",
-            animationDelay: "2s",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-2rem",
-            left: "50%",
-            width: "18rem",
-            height: "18rem",
-            background: "rgba(153, 246, 228, 0.3)",
-            borderRadius: "9999px",
-            mixBlendMode: "multiply",
-            filter: "blur(48px)",
-            animation: "blob 7s infinite",
-            animationDelay: "4s",
-          }}
-        />
-        {/* Subtle grid pattern */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "linear-gradient(to right, rgba(128, 128, 128, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(128, 128, 128, 0.03) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-      </div>
 
       <Sider
         trigger={null}
