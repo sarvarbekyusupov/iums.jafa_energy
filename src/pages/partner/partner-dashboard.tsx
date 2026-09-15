@@ -15,7 +15,6 @@ import {
   Table,
   Empty,
   Button,
-  message,
 } from 'antd';
 import {
   ThunderboltOutlined,
@@ -34,9 +33,6 @@ import {
 import { useOutletContext } from 'react-router-dom';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary, UnifiedSolarData } from '../../service/unified-solar.service';
-import { hopeCloudService } from '../../service/hopecloud.service';
-import { solisCloudService } from '../../service/soliscloud.service';
-import fsolarService from '../../service/fsolar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 import ForecastCard from '../../components/forecast/ForecastCard';
 
@@ -52,7 +48,6 @@ const PartnerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [solarData, setSolarData] = useState<UnifiedSolarSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [vendorRefreshing, setVendorRefreshing] = useState(false);
   const { availableProviders } = useOutletContext<PartnerContext>();
 
   useEffect(() => {
@@ -99,31 +94,6 @@ const PartnerDashboard: React.FC = () => {
       setError(error?.message || 'Failed to load solar data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Best-effort: only the vendors this partner can see are triggered, and one failing must not block the others.
-  const refreshFromVendor = async () => {
-    setVendorRefreshing(true);
-    try {
-      const jobs: Promise<unknown>[] = [];
-      if (availableProviders.includes('hopecloud')) jobs.push(hopeCloudService.triggerRealtimeSync());
-      if (availableProviders.includes('soliscloud')) jobs.push(solisCloudService.triggerDbSync({ types: ['stations', 'inverters'] }));
-      if (availableProviders.includes('fsolar')) jobs.push(fsolarService.triggerDbSync({ types: ['energy'] }));
-      const results = await Promise.allSettled(jobs);
-      const accepted = results.filter(r => r.status === 'fulfilled').length;
-      await fetchDashboardData();
-      if (results.length === 0) {
-        message.info('No vendor assigned to refresh');
-      } else if (accepted === results.length) {
-        message.success(`All ${accepted} vendors accepted the refresh`);
-      } else if (accepted > 0) {
-        message.warning(`${accepted} of ${results.length} vendors accepted the refresh; the rest still show stored data`);
-      } else {
-        message.error('No vendor accepted the refresh; showing stored data');
-      }
-    } finally {
-      setVendorRefreshing(false);
     }
   };
 
@@ -220,8 +190,8 @@ const PartnerDashboard: React.FC = () => {
               />
             </Space>
           </div>
-          <Button icon={<ReloadOutlined />} loading={vendorRefreshing} onClick={refreshFromVendor}>
-            Refresh from vendor
+          <Button icon={<ReloadOutlined />} loading={loading} onClick={fetchDashboardData}>
+            Refresh
           </Button>
         </div>
         {solarData.stale && (

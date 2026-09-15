@@ -17,19 +17,8 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
-  CloudServerOutlined,
-  HomeOutlined,
-  FileTextOutlined,
-  MonitorOutlined,
-  BarChartOutlined,
-  BellOutlined,
   ThunderboltOutlined,
-  SettingOutlined as DeviceOutlined,
   AppstoreOutlined,
-  DatabaseOutlined,
-  LineChartOutlined,
-  CloudOutlined,
-  WifiOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../helpers/hooks/useAuth";
@@ -74,18 +63,9 @@ const PartnerLayout: React.FC = () => {
     fetchUserProviders();
   }, [user?.id]);
 
-  // Set initial open keys based on current location
+  // Only one submenu is left, so it is always the open one.
   useEffect(() => {
-    const path = location.pathname;
-    if (path.startsWith("/partner/hopecloud")) {
-      setOpenKeys(["hopecloud"]);
-    } else if (path.startsWith("/partner/fsolar")) {
-      setOpenKeys(["fsolar"]);
-    } else if (path.startsWith("/partner/soliscloud")) {
-      setOpenKeys(["soliscloud"]);
-    } else {
-      setOpenKeys(["general-dashboard"]);
-    }
+    setOpenKeys(["my-solar"]);
   }, [location.pathname]);
 
   const getSelectedKeys = () => {
@@ -119,173 +99,29 @@ const PartnerLayout: React.FC = () => {
     },
   ];
 
-  // Build sidebar items based on available providers
-  const buildSidebarItems = (): MenuProps["items"] => {
-    const items: MenuProps["items"] = [
-      {
-        key: "general-dashboard",
-        icon: <AppstoreOutlined />,
-        label: "General Dashboard",
-        children: [
-          {
-            key: "/partner",
-            icon: <DashboardOutlined />,
-            label: "Dashboard",
-            onClick: () => navigate("/partner"),
-          },
-        ],
-      },
-    ];
-
-    // Add HopeCloud menu if partner has access
-    if (availableProviders.includes('hopecloud')) {
-      items.push({
-        key: "hopecloud",
-        icon: <CloudServerOutlined />,
-        label: "HopeCloud",
-        children: [
-          {
-            key: "/partner/hopecloud/real-time-data",
-            icon: <ThunderboltOutlined />,
-            label: "Real Time Data",
-            onClick: () => navigate("/partner/hopecloud/real-time-data"),
-          },
-          {
-            key: "/partner/hopecloud/sync-data",
-            icon: <DatabaseOutlined />,
-            label: "Sync Data",
-            onClick: () => navigate("/partner/hopecloud/sync-data"),
-          },
-        ],
-      });
-    }
-
-    // Add FSolar menu if partner has access
-    if (availableProviders.includes('fsolar')) {
-      items.push({
-        key: "fsolar",
-        icon: <ThunderboltOutlined />,
-        label: "Fsolar",
-        children: [
-          {
-            key: "/partner/fsolar/realtime",
-            icon: <DashboardOutlined />,
-            label: "Real-time Monitor",
-            onClick: () => navigate("/partner/fsolar/realtime"),
-          },
-          {
-            key: "/partner/fsolar/devices",
-            icon: <DeviceOutlined />,
-            label: "Devices",
-            onClick: () => navigate("/partner/fsolar/devices"),
-          },
-          {
-            key: "/partner/fsolar/settings",
-            icon: <SettingOutlined />,
-            label: "Device Settings",
-            onClick: () => navigate("/partner/fsolar/settings"),
-          },
-          {
-            key: "/partner/fsolar/energy",
-            icon: <BarChartOutlined />,
-            label: "Energy Analytics",
-            onClick: () => navigate("/partner/fsolar/energy"),
-          },
-          {
-            key: "/partner/fsolar/history",
-            icon: <LineChartOutlined />,
-            label: "Historical Data",
-            onClick: () => navigate("/partner/fsolar/history"),
-          },
-          {
-            key: "/partner/fsolar/templates",
-            icon: <FileTextOutlined />,
-            label: "Strategy Templates",
-            onClick: () => navigate("/partner/fsolar/templates"),
-          },
-          {
-            key: "/partner/fsolar/tasks",
-            icon: <AppstoreOutlined />,
-            label: "Economic Tasks",
-            onClick: () => navigate("/partner/fsolar/tasks"),
-          },
-          {
-            key: "/partner/fsolar/monitor",
-            icon: <MonitorOutlined />,
-            label: "Task Monitoring",
-            onClick: () => navigate("/partner/fsolar/monitor"),
-          },
-          {
-            key: "/partner/fsolar/records",
-            icon: <DatabaseOutlined />,
-            label: "Run Records",
-            onClick: () => navigate("/partner/fsolar/records"),
-          },
-          {
-            key: "/partner/fsolar/alarms",
-            icon: <BellOutlined />,
-            label: "Device Alarms",
-            onClick: () => navigate("/partner/fsolar/alarms"),
-          },
-        ],
-      });
-    }
-
-    // Add SolisCloud menu if partner has access
-    if (availableProviders.includes('soliscloud')) {
-      items.push({
-        key: "soliscloud",
-        icon: <CloudServerOutlined />,
-        label: "SolisCloud",
-        children: [
-          {
-            key: "/partner/soliscloud/dashboard",
-            icon: <DashboardOutlined />,
-            label: "Dashboard",
-            onClick: () => navigate("/partner/soliscloud/dashboard"),
-          },
-          {
-            key: "/partner/soliscloud/stations",
-            icon: <HomeOutlined />,
-            label: "Stations",
-            onClick: () => navigate("/partner/soliscloud/stations"),
-          },
-          {
-            key: "/partner/soliscloud/inverters",
-            icon: <ThunderboltOutlined />,
-            label: "Inverters",
-            onClick: () => navigate("/partner/soliscloud/inverters"),
-          },
-          {
-            key: "/partner/soliscloud/alarms",
-            icon: <BellOutlined />,
-            label: "Alarms",
-            onClick: () => navigate("/partner/soliscloud/alarms"),
-          },
-          {
-            key: "/partner/soliscloud/collectors",
-            icon: <WifiOutlined />,
-            label: "Collectors",
-            onClick: () => navigate("/partner/soliscloud/collectors"),
-          },
-          {
-            key: "/partner/soliscloud/epm",
-            icon: <LineChartOutlined />,
-            label: "EPM",
-            onClick: () => navigate("/partner/soliscloud/epm"),
-          },
-          {
-            key: "/partner/soliscloud/weather",
-            icon: <CloudOutlined />,
-            label: "Weather",
-            onClick: () => navigate("/partner/soliscloud/weather"),
-          },
-        ],
-      });
-    }
-
-    return items;
-  };
+  // A partner sees the stations assigned to them, the same way a customer does.
+  // The vendor consoles are operator tools and now answer only to an admin.
+  const sidebarItems: MenuProps["items"] = [
+    {
+      key: "my-solar",
+      icon: <AppstoreOutlined />,
+      label: "My Solar System",
+      children: [
+        {
+          key: "/partner",
+          icon: <DashboardOutlined />,
+          label: "Dashboard",
+          onClick: () => navigate("/partner"),
+        },
+        {
+          key: "/partner/inverters",
+          icon: <ThunderboltOutlined />,
+          label: "My Inverters",
+          onClick: () => navigate("/partner/inverters"),
+        },
+      ],
+    },
+  ];
 
   if (loading) {
     return (
@@ -346,7 +182,7 @@ const PartnerLayout: React.FC = () => {
           selectedKeys={getSelectedKeys()}
           openKeys={openKeys}
           onOpenChange={handleMenuOpenChange}
-          items={buildSidebarItems()}
+          items={sidebarItems}
         />
       </Sider>
       <Layout
