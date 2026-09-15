@@ -82,7 +82,10 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://3.121.174.54:3000',
+        // The dev proxy pointed at the production server's public IP on port 3000. That port
+        // is closed to the internet now, so npm run dev could not reach any backend at all.
+        // Defaults to a local backend; set VITE_PROXY_TARGET to point somewhere else.
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true,
