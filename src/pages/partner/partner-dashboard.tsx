@@ -30,7 +30,6 @@ import {
   CheckCircleOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { useOutletContext } from 'react-router-dom';
 import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary, UnifiedSolarData } from '../../service/unified-solar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
@@ -38,17 +37,10 @@ import ForecastCard from '../../components/forecast/ForecastCard';
 
 const { Title, Text } = Typography;
 
-type ProviderType = 'hopecloud' | 'soliscloud' | 'fsolar';
-
-interface PartnerContext {
-  availableProviders: ProviderType[];
-}
-
 const PartnerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [solarData, setSolarData] = useState<UnifiedSolarSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { availableProviders } = useOutletContext<PartnerContext>();
 
   useEffect(() => {
     fetchDashboardData();
@@ -63,9 +55,12 @@ const PartnerDashboard: React.FC = () => {
       setError(null);
       const data = await unifiedSolarService.getUnifiedSolarData();
 
-      // Filter providers based on what the partner has access to
-      const filteredProviders = data.providers.filter(p =>
-        availableProviders.includes(p.provider.toLowerCase() as ProviderType)
+      // Show only the vendors this partner actually has something with. The backend already
+      // scopes the response to their assigned stations, so a provider with nothing in it is a
+      // provider they were never given — previously this needed a second request from the
+      // layout to /user-stations just to learn the same thing.
+      const filteredProviders = data.providers.filter(
+        p => p.stations.total > 0 || p.devices.total > 0,
       );
 
       // Recalculate totals based on filtered providers
