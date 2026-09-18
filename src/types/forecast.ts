@@ -37,10 +37,23 @@ export interface StationForecast {
   totals: ForecastTotals;
 }
 
+/** One finished day: what was predicted for it, and what the fleet actually produced. */
+export interface ForecastHistoryDay {
+  date: string;
+  predictedKwh: number;
+  actualKwh: number;
+  /** Stations that contributed to both numbers on this day. */
+  stations: number;
+  /** Signed: positive means the forecast ran high. */
+  errorPct: number;
+}
+
 export interface ForecastAccuracy {
   windowDays: number;
-  /** Days that have both a frozen day-ahead prediction and a recorded actual. */
+  /** Calendar days that have both a frozen day-ahead prediction and a recorded actual. */
   measuredDays: number;
+  /** Station-days behind those percentages — the sample size, not the number of days. */
+  measuredPoints: number;
   /** Average absolute gap between the day-ahead forecast and what happened, percent. */
   mapePct: number | null;
   /** Positive = the forecast runs high. */

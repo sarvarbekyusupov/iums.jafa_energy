@@ -1,5 +1,10 @@
 import { apiClient } from './api-client';
-import type { ForecastAccuracy, ForecastSummary, StationForecast } from '../types/forecast';
+import type {
+  ForecastAccuracy,
+  ForecastHistoryDay,
+  ForecastSummary,
+  StationForecast,
+} from '../types/forecast';
 
 const BASE_URL = '/api/forecast';
 
@@ -32,6 +37,14 @@ class ForecastService {
   /** How close past forecasts came to what actually happened. */
   async getAccuracy(windowDays = 30): Promise<ForecastAccuracy> {
     const response = await apiClient.get<{ data: ForecastAccuracy }>(`${BASE_URL}/accuracy`, {
+      params: { windowDays },
+    });
+    return response.data.data;
+  }
+
+  /** Day by day: what was predicted for each finished day and what actually happened. */
+  async getHistory(windowDays = 30): Promise<ForecastHistoryDay[]> {
+    const response = await apiClient.get<{ data: ForecastHistoryDay[] }>(`${BASE_URL}/history`, {
       params: { windowDays },
     });
     return response.data.data;
