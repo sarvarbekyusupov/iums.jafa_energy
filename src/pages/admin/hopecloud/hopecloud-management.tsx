@@ -222,24 +222,18 @@ const HopeCloudManagement: React.FC = () => {
 
       if (health.status === 'healthy') {
         // Fetch all data in parallel
+        // The owner and channel lists are only shown on the Users tab and are fetched when it is
+        // opened (loadUsers). Every HopeCloud call waits its turn behind a 10-second gate, so
+        // loading them here kept the whole page waiting about 30 seconds on 2026-10-08.
         Promise.all([
           loadStations(),
           hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
-          hopeCloudService.getSubOwners({ pageIndex: 1, pageSize: 20 }),
-          hopeCloudService.getChannelProviders({ pageIndex: 1, pageSize: 20 }),
-          hopeCloudService.getChannelTree(),
           hopeCloudService.getStationConfigTypes(),
-        ]).then(([stationsData, alarmsResponse, ownersResponse, providersResponse, treeResponse, configTypesResponse]) => {
+        ]).then(([stationsData, alarmsResponse, configTypesResponse]) => {
           const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
-          const ownersData = Array.isArray((ownersResponse.data as any)?.records) ? (ownersResponse.data as any).records : (Array.isArray(ownersResponse.data) ? ownersResponse.data : []);
-          const providersData = Array.isArray((providersResponse.data as any)?.records) ? (providersResponse.data as any).records : (Array.isArray(providersResponse.data) ? providersResponse.data : []);
-          const treeData = Array.isArray(treeResponse.data) ? treeResponse.data : [];
-          
+
           setStations(stationsData);
           setAlarms(alarmsData);
-          setOwners(ownersData);
-          setChannelProviders(providersData);
-          setChannelTree(treeData);
           // setDiscoveryStatus(discoveryResponse.data);
           setStationConfigTypes(configTypesResponse.data);
           
@@ -312,6 +306,35 @@ const HopeCloudManagement: React.FC = () => {
     }
   };
 
+
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const [ownersResponse, providersResponse, treeResponse] = await Promise.all([
+        hopeCloudService.getSubOwners({ pageIndex: 1, pageSize: 20 }),
+        hopeCloudService.getChannelProviders({ pageIndex: 1, pageSize: 20 }),
+        hopeCloudService.getChannelTree(),
+      ]);
+      const records = (response: any) =>
+        Array.isArray(response.data?.records) ? response.data.records : Array.isArray(response.data) ? response.data : [];
+      setOwners(records(ownersResponse));
+      setChannelProviders(records(providersResponse));
+      setChannelTree(Array.isArray(treeResponse.data) ? treeResponse.data : []);
+      setUsersLoaded(true);
+    } catch (error: any) {
+      message.error('Failed to load HopeCloud users: ' + (error?.response?.data?.message || error.message));
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users' && !usersLoaded && !usersLoading) loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const handleViewDeviceDetails = async (device: HopeCloudDevice) => {
     setSelectedDevice(device);
@@ -1700,7 +1723,7 @@ const HopeCloudManagement: React.FC = () => {
           Users & Channels
         </Space>
       ),
-      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><UsersContent /></div>,
+      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}>{usersLoading && !usersLoaded ? <div style={{ padding: 48, textAlign: 'center' }}><Spin tip="Loading HopeCloud users…" /></div> : <UsersContent />}</div>,
     },
   ];
 
