@@ -143,7 +143,7 @@ const SolisCloudAPITest: React.FC = () => {
           solisCloudService.getStationDayData({
             id: stationId!,
             time: new Date().toISOString().split('T')[0],
-            timeZone: 8,
+            timeZone: 5, // the plants are in Tashkent, UTC+5
           })
         )
       );

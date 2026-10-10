@@ -43,81 +43,59 @@ const InverterChartsPage: React.FC = () => {
     try {
       setLoading(true);
 
+      // Inverter pac is in W both in our readings table and from the vendor (pacPec 0.001);
+      // eToday and energy are kWh. Checked on production, 2026-10-10. The stored month table holds
+      // monthly totals, so the Month tab (one bar per day) always reads the vendor.
+      const toIso = (t: any) => (typeof t === 'number' || /^\d+$/.test(String(t)) ? new Date(Number(t)).toISOString() : t);
+      const energyRows = (rows: any[], timeOf: (r: any) => any, type: string) =>
+        (rows || []).map((r: any) => ({ time: timeOf(r), type, value: parseValue(r.energy) }));
+
       if (activeTab === 'day') {
-        let response;
+        let rows: any[];
         if (useDbSource) {
-          // Use DB API for readings
-          response = await solisCloudService.getDbInverterReadings(id, {
+          const response = await solisCloudService.getDbInverterReadings(id, {
             startDate: selectedDate.startOf('day').toISOString(),
             endDate: selectedDate.endOf('day').toISOString(),
             limit: 500,
           });
-          response = response.data || response;
+          rows = (response as any).data || response || [];
         } else {
-          response = await solisCloudService.getInverterDayData({
+          rows = ((await solisCloudService.getInverterDayData({
             id,
             time: selectedDate.format('YYYY-MM-DD'),
-          });
+            timeZone: 5, // the plants are in Tashkent, UTC+5
+            money: '',
+          } as any)) as any) || [];
         }
-
-        // Transform data for chart
         const chartData: any[] = [];
-        response?.forEach((record: any) => {
+        rows.forEach((r: any) => {
+          const time = toIso(r.dataTimestamp ?? r.timestamp);
           chartData.push(
-            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Energy (kWh)', value: parseValue(record.energy || record.etoday) },
-            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Battery Discharge (kWh)', value: parseValue(record.batteryDischargeEnergy) },
-            { time: record.dateStr || record.timestamp || record.dataTimestamp, type: 'Battery Charge (kWh)', value: parseValue(record.batteryChargeEnergy) }
+            { time, type: 'Power (kW)', value: parseValue(r.pac) / 1000 },
+            { time, type: 'Energy today (kWh)', value: parseValue(r.eToday) },
           );
         });
         setDayData(chartData);
 
       } else if (activeTab === 'month') {
-        let response;
-        if (useDbSource) {
-          response = await solisCloudService.getDbInverterMonths(id, { limit: 100 });
-          response = (response.data || response).filter((r: any) =>
-            r.month && r.month.startsWith(selectedDate.format('YYYY-MM'))
-          );
-        } else {
-          response = await solisCloudService.getInverterMonthData({
-            id,
-            month: selectedDate.format('YYYY-MM'),
-          });
-        }
-
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.dateStr || record.month, type: 'Daily Energy (kWh)', value: parseValue(record.energy || record.totalEnergy) },
-            { time: record.dateStr || record.month, type: 'Consume Energy (kWh)', value: parseValue(record.consumeEnergy) },
-            { time: record.dateStr || record.month, type: 'Produce Energy (kWh)', value: parseValue(record.produceEnergy) }
-          );
-        });
-        setMonthData(chartData);
+        const rows: any = await solisCloudService.getInverterMonthData({
+          id,
+          month: selectedDate.format('YYYY-MM'),
+          timeZone: 5,
+          money: '',
+        } as any);
+        setMonthData(energyRows(rows, (r) => r.dateStr, 'Daily energy (kWh)'));
 
       } else if (activeTab === 'year') {
-        let response;
+        const year = selectedDate.format('YYYY');
         if (useDbSource) {
-          response = await solisCloudService.getDbInverterYears(id, { limit: 10 });
-          response = (response.data || response).filter((r: any) =>
-            r.year && r.year.startsWith(selectedDate.format('YYYY'))
-          );
+          const response = await solisCloudService.getDbInverterMonths(id, { limit: 100 });
+          const rows = ((response as any).data || response || []).filter((r: any) => String(r.month).startsWith(year));
+          setYearData(energyRows(rows, (r) => String(r.month).slice(0, 7), 'Monthly energy (kWh)'));
         } else {
-          response = await solisCloudService.getInverterYearData({
-            id,
-            year: selectedDate.format('YYYY'),
-          });
+          const rows: any = await solisCloudService.getInverterYearData({ id, year, timeZone: 5, money: '' } as any);
+          setYearData(energyRows(rows, (r) => r.dateStr, 'Monthly energy (kWh)'));
         }
-
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.dateStr || record.year, type: 'Monthly Energy (kWh)', value: parseValue(record.energy || record.totalEnergy) },
-            { time: record.dateStr || record.year, type: 'Consume Energy (kWh)', value: parseValue(record.consumeEnergy) },
-            { time: record.dateStr || record.year, type: 'Produce Energy (kWh)', value: parseValue(record.produceEnergy) }
-          );
-        });
-        setYearData(chartData);
       }
 
     } catch (error: any) {

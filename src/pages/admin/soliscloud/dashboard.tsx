@@ -16,6 +16,21 @@ import solisCloudService from '../../../service/soliscloud.service';
 
 const { Title, Text } = Typography;
 
+/** SolisCloud sends a number and its unit separately ("kWh", "MWh", "GWh"). */
+const toKwh = (value: unknown, unit?: string): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const u = (unit || '').toLowerCase();
+  return u.startsWith('gwh') ? n * 1_000_000 : u.startsWith('mwh') ? n * 1000 : n;
+};
+
+const stationPowerKw = (station: any): number => {
+  const n = Number(station.power ?? station.pac);
+  if (!Number.isFinite(n)) return 0;
+  const u = String(station.powerStr || 'kW').toLowerCase();
+  return u === 'w' ? n / 1000 : u.startsWith('mw') ? n * 1000 : n;
+};
+
 const SolisCloudDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
@@ -86,8 +101,9 @@ const SolisCloudDashboard: React.FC = () => {
   const handleManualSync = async () => {
     try {
       setSyncing(true);
-      // Method not implemented yet
-      message.info('Manual sync not yet implemented');
+      await solisCloudService.triggerDbSync({ types: ['stations', 'inverters', 'alarms'] });
+      message.success('SolisCloud synced');
+      await fetchDashboardData();
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to trigger sync');
     } finally {
@@ -99,8 +115,11 @@ const SolisCloudDashboard: React.FC = () => {
     try {
       setLoading(true);
 
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      // The plants are in Tashkent (UTC+5); a UTC date is still "yesterday" until 05:00 there.
+      const tashkent = new Date(Date.now() + 5 * 3_600_000).toISOString();
+      const today = tashkent.slice(0, 10); // YYYY-MM-DD
+      const currentMonth = tashkent.slice(0, 7); // YYYY-MM
+      const currentYear = tashkent.slice(0, 4);
 
       // Fetch core data in parallel - use API sources
       const [stationsDetailData, stationsDayData, inverterListData, alarmListData, collectorListData] = await Promise.all([
@@ -122,7 +141,7 @@ const SolisCloudDashboard: React.FC = () => {
       }
 
       try {
-        stationsYearData = await solisCloudService.getStationYearList({ pageNo: 1, pageSize: 100 });
+        stationsYearData = await solisCloudService.getStationYearList({ pageNo: 1, pageSize: 100, time: currentYear } as any);
       } catch (error: any) {
         console.error('Failed to fetch year data:', error);
       }
@@ -172,9 +191,11 @@ const SolisCloudDashboard: React.FC = () => {
   const totalCollectors = stats.collectors.records?.length || 0;
 
   // Calculate total power and energy from detailed station data
-  const totalPower = stats.stations.records?.reduce((sum: number, station: any) => sum + (station.pac || 0), 0) || 0;
-  const totalEnergyToday = stats.stations.records?.reduce((sum: number, station: any) => sum + (station.eToday || 0), 0) || 0;
-  const totalEnergyAll = stats.stations.records?.reduce((sum: number, station: any) => sum + (station.eTotal || 0), 0) || 0;
+  // stationDetailList reports power, dayEnergy and allEnergy (not pac/eToday/eTotal, which is
+  // what this page used to read, so every total showed 0), each with a unit string beside it.
+  const totalPower = stats.stations.records?.reduce((sum: number, station: any) => sum + stationPowerKw(station), 0) || 0;
+  const totalEnergyToday = stats.stations.records?.reduce((sum: number, station: any) => sum + toKwh(station.dayEnergy ?? station.eToday, station.dayEnergyStr), 0) || 0;
+  const totalEnergyAll = stats.stations.records?.reduce((sum: number, station: any) => sum + toKwh(station.allEnergy ?? station.eTotal, station.allEnergyStr), 0) || 0;
 
   return (
     <div>
@@ -654,9 +675,11 @@ const SolisCloudDashboard: React.FC = () => {
       >
         {stats.stations.records?.map((station: any) => {
           // Find today's data, this month's data, and this year's data for this station
-          const dayData = stats.stationsDay?.find((d: any) => d.stationId === station.id);
-          const monthData = stats.stationsMonth?.find((m: any) => m.stationId === station.id);
-          const yearData = stats.stationsYear?.find((y: any) => y.stationId === station.id);
+          // The batch energy lists identify the station by `id` (p.96-101).
+          const sameStation = (r: any) => String(r.stationId ?? r.id) === String(station.id);
+          const dayData = stats.stationsDay?.find(sameStation);
+          const monthData = stats.stationsMonth?.find(sameStation);
+          const yearData = stats.stationsYear?.find(sameStation);
 
           return (
             <Card key={station.id} type="inner" style={{ marginBottom: 8 }}>
@@ -678,7 +701,7 @@ const SolisCloudDashboard: React.FC = () => {
                     <Col xs={12} sm={6}>
                       <Statistic
                         title="Current Power"
-                        value={(station.pac || 0).toFixed(2)}
+                        value={stationPowerKw(station).toFixed(2)}
                         suffix="kW"
                         valueStyle={{ fontSize: 14 }}
                       />
@@ -686,7 +709,7 @@ const SolisCloudDashboard: React.FC = () => {
                     <Col xs={12} sm={6}>
                       <Statistic
                         title="Today"
-                        value={(dayData?.energy || station.eToday || 0).toFixed(2)}
+                        value={(dayData?.energy ?? toKwh(station.dayEnergy, station.dayEnergyStr)).toFixed(2)}
                         suffix="kWh"
                         valueStyle={{ fontSize: 14, color: '#52c41a' }}
                       />
@@ -694,7 +717,7 @@ const SolisCloudDashboard: React.FC = () => {
                     <Col xs={12} sm={6}>
                       <Statistic
                         title="This Month"
-                        value={(monthData?.energy || station.eMonth || 0).toFixed(2)}
+                        value={(monthData?.energy ?? toKwh(station.monthEnergy, station.monthEnergyStr)).toFixed(2)}
                         suffix="kWh"
                         valueStyle={{ fontSize: 14, color: '#1890ff' }}
                       />
@@ -702,7 +725,7 @@ const SolisCloudDashboard: React.FC = () => {
                     <Col xs={12} sm={6}>
                       <Statistic
                         title="This Year"
-                        value={(yearData?.energy || station.eYear || 0).toFixed(2)}
+                        value={(yearData?.energy ?? toKwh(station.yearEnergy, station.yearEnergyStr)).toFixed(2)}
                         suffix="kWh"
                         valueStyle={{ fontSize: 14, color: '#fa8c16' }}
                       />

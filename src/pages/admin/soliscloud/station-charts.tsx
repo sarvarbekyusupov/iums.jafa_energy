@@ -44,89 +44,66 @@ const StationChartsPage: React.FC = () => {
     try {
       setLoading(true);
 
+      // Units, checked against production on 2026-10-10: stored station readings hold pac in kW;
+      // the live stationDay curve sends `power` in W with powerPec 0.001. Energy is kWh everywhere.
+      // The stored month table holds one row per month, so the Month tab (one bar per day) always
+      // reads the vendor; Year and All years read our tables unless "live" is chosen.
+      const toIso = (t: any) => (typeof t === 'number' || /^\d+$/.test(String(t)) ? new Date(Number(t)).toISOString() : t);
+      const energyRows = (rows: any[], timeOf: (r: any) => any, type: string) =>
+        (rows || []).map((r: any) => ({ time: timeOf(r), type, value: parseValue(r.energy) }));
+
       if (activeTab === 'day') {
-        let response;
         if (useDbSource) {
-          response = await solisCloudService.getDbStationReadings(id, {
+          const response = await solisCloudService.getDbStationReadings(id, {
             startDate: selectedDate.startOf('day').toISOString(),
             endDate: selectedDate.endOf('day').toISOString(),
             limit: 500,
           });
-          response = response.data || response;
+          const rows = (response as any).data || response;
+          setDayData((rows || []).map((r: any) => ({ time: r.dataTimestamp, type: 'Power (kW)', value: parseValue(r.pac) })));
         } else {
-          response = await solisCloudService.getStationDayData({
+          const rows: any = await solisCloudService.getStationDayData({
             id,
             time: selectedDate.format('YYYY-MM-DD'),
-            timeZone: 8,
-          });
+            timeZone: 5, // the plants are in Tashkent, UTC+5
+            money: '',
+          } as any);
+          setDayData((rows || []).map((r: any) => ({
+            time: toIso(r.time ?? r.dataTimestamp),
+            type: 'Power (kW)',
+            value: parseValue(r.power ?? r.pac) * Number(r.powerPec ?? 0.001),
+          })));
         }
-
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.dataTimestamp || record.timestamp, type: 'Power Output', value: parseValue(record.pac) },
-            { time: record.dataTimestamp || record.timestamp, type: 'Energy Generated', value: parseValue(record.eToday || record.energy) }
-          );
-        });
-        setDayData(chartData);
 
       } else if (activeTab === 'month') {
-        let response;
-        if (useDbSource) {
-          response = await solisCloudService.getDbStationMonths(id, { limit: 100 });
-          response = (response.data || response).filter((r: any) =>
-            r.month && r.month.startsWith(selectedDate.format('YYYY-MM'))
-          );
-        } else {
-          response = await solisCloudService.getStationMonthData({
-            id,
-            month: selectedDate.format('YYYY-MM'),
-          });
-        }
-
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.date || record.month, type: 'Daily Energy', value: parseValue(record.dayEnergy || record.totalEnergy) },
-            { time: record.date || record.month, type: 'Peak Power', value: parseValue(record.dayIncome || record.peakPower) }
-          );
-        });
-        setMonthData(chartData);
+        const rows: any = await solisCloudService.getStationMonthData({
+          id,
+          month: selectedDate.format('YYYY-MM'),
+          timeZone: 5,
+          money: '',
+        } as any);
+        setMonthData(energyRows(rows, (r) => r.dateStr, 'Daily energy (kWh)'));
 
       } else if (activeTab === 'year') {
-        let response;
+        const year = selectedDate.format('YYYY');
         if (useDbSource) {
-          response = await solisCloudService.getDbStationYears(id, { limit: 10 });
-          response = (response.data || response).filter((r: any) =>
-            r.year && r.year.startsWith(selectedDate.format('YYYY'))
-          );
+          const response = await solisCloudService.getDbStationMonths(id, { limit: 100 });
+          const rows = ((response as any).data || response || []).filter((r: any) => String(r.month).startsWith(year));
+          setYearData(energyRows(rows, (r) => String(r.month).slice(0, 7), 'Monthly energy (kWh)'));
         } else {
-          response = await solisCloudService.getStationYearData({
-            id,
-            year: selectedDate.format('YYYY'),
-          });
+          const rows: any = await solisCloudService.getStationYearData({ id, year, timeZone: 5, money: '' } as any);
+          setYearData(energyRows(rows, (r) => r.dateStr, 'Monthly energy (kWh)'));
         }
 
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.month || record.year, type: 'Monthly Energy', value: parseValue(record.monthEnergy || record.totalEnergy) },
-            { time: record.month || record.year, type: 'Monthly Income', value: parseValue(record.monthIncome || record.totalIncome) }
-          );
-        });
-        setYearData(chartData);
-
       } else if (activeTab === 'all-years') {
-        const response = await solisCloudService.getStationAllYearsData({ id });
-
-        const chartData: any[] = [];
-        response?.forEach((record: any) => {
-          chartData.push(
-            { time: record.dataTime, type: 'Yearly Energy', value: record.eYear || 0 },
-            { time: record.dataTime, type: 'Yearly Income', value: record.inverterIncome || 0 }
-          );
-        });
-        setAllYearsData(chartData);
+        if (useDbSource) {
+          const response = await solisCloudService.getDbStationYears(id, { limit: 50 });
+          const rows = (response as any).data || response;
+          setAllYearsData(energyRows(rows, (r) => String(r.year), 'Yearly energy (kWh)'));
+        } else {
+          const rows: any = await solisCloudService.getStationAllYearsData({ id, timeZone: 5, money: '' } as any);
+          setAllYearsData(energyRows(rows, (r) => String(r.year ?? r.dateStr), 'Yearly energy (kWh)'));
+        }
       }
 
     } catch (error: any) {

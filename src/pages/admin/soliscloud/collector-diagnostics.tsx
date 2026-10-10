@@ -35,7 +35,7 @@ const CollectorDiagnosticsPage: React.FC = () => {
       const response = await solisCloudService.getCollectorDayData({
         sn,
         time: selectedDate.format('YYYY-MM-DD'),
-        timeZone: 8, // GMT+8
+        timeZone: 5, // the plants are in Tashkent, UTC+5
       });
 
       const transformedData: any[] = [];
