@@ -225,12 +225,19 @@ const HopeCloudManagement: React.FC = () => {
         // The owner and channel lists are only shown on the Users tab and are fetched when it is
         // opened (loadUsers). Every HopeCloud call waits its turn behind a 10-second gate, so
         // loading them here kept the whole page waiting about 30 seconds on 2026-10-08.
+        // Alarms come from our database by default (stored every ten minutes by the alarm sync),
+        // which also takes the last live vendor call off page load. The vendor's own list marks
+        // status "0" pending / "1" processed, so it is normalised to what the Alarms tab expects.
         Promise.all([
           loadStations(),
-          hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
+          useDbSource
+            ? hopeCloudService.getDbAlarms()
+            : hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
           hopeCloudService.getStationConfigTypes(),
         ]).then(([stationsData, alarmsResponse, configTypesResponse]) => {
-          const alarmsData = Array.isArray(alarmsResponse.data) ? alarmsResponse.data : [];
+          const alarmsData = (Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []).map((a: any) =>
+            a.status === '0' ? { ...a, status: 'active' } : a.status === '1' ? { ...a, status: 'resolved' } : a,
+          );
 
           setStations(stationsData);
           setAlarms(alarmsData);

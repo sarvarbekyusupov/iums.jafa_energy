@@ -461,6 +461,12 @@ class HopeCloudService {
     return response.data;
   }
 
+  /** Alarms the backend has stored from HopeCloud over the last 90 days (admin only). */
+  async getDbAlarms(): Promise<HopeCloudDbResponse<HopeCloudAlarm[]>> {
+    const response = await apiClient.get(ApiUrls.HOPECLOUD_DB.ALARMS);
+    return response.data;
+  }
+
   async getDbStationDailyStats(plantId: string, filters: HopeCloudStatisticsFilters): Promise<HopeCloudDbResponse<HopeCloudStatistics[]>> {
     const params = new URLSearchParams();
     params.append('startTime', filters.startTime);

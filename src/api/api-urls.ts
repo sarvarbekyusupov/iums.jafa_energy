@@ -157,6 +157,7 @@ export class ApiUrls {
   public static readonly HOPECLOUD_DB = {
     BASE: `${this.BASE_URL}/hopecloud/db`,
     STATIONS: `${this.BASE_URL}/hopecloud/db/stations`,
+    ALARMS: `${this.BASE_URL}/hopecloud/db/alarms`,
     STATION_DAILY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/daily-stats`,
     STATION_MONTHLY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/monthly-stats`,
     STATION_YEARLY_STATS: (plantId: string) => `${this.BASE_URL}/hopecloud/db/stations/${plantId}/yearly-stats`,
