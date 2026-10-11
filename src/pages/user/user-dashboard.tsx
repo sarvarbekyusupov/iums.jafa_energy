@@ -14,6 +14,7 @@ import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary } from '../../service/unified-solar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 import ForecastCard from '../../components/forecast/ForecastCard';
+import RevenueCard from '../../components/RevenueCard';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -187,6 +188,8 @@ const UserDashboard: React.FC = () => {
             </Card>
           </Col>
         </Row>
+
+        <RevenueCard revenue={solarData.revenue} compact={isMobile} />
 
         <ForecastCard />
 

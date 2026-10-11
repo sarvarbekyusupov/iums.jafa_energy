@@ -37,6 +37,15 @@ export interface UnifiedSolarData {
   stale: boolean;
 }
 
+/** So'm earned at the backend's flat tariff (produced kWh x price). */
+export interface UnifiedSolarRevenue {
+  pricePerKwhUzs: number;
+  today: number;
+  month: number;
+  year: number;
+  lifetime: number;
+}
+
 export interface UnifiedSolarSummary {
   totalStations: number;
   totalDevices: number;
@@ -46,6 +55,8 @@ export interface UnifiedSolarSummary {
   totalEnergyLifetime: number;
   totalCurrentPower: number;
   totalActiveAlarms: number;
+  /** Absent from backends older than 2026-10-12. */
+  revenue?: UnifiedSolarRevenue;
   providers: UnifiedSolarData[];
   /** Oldest contributing provider's newest data point (ISO); null when nothing is stored yet */
   lastUpdate: string | null;
@@ -200,6 +211,7 @@ class UnifiedSolarService {
         totalEnergyLifetime: backendData.summary?.totalEnergyLifetime || 0,
         totalCurrentPower: backendData.summary?.totalPower || 0,
         totalActiveAlarms: backendData.summary?.totalAlarms || 0,
+        revenue: backendData.summary?.revenue,
         providers,
         // Honest timestamp: the backend reports the oldest contributing provider's newest row,
         // never "now". Older backends omit it, so fall back to null / not stale.

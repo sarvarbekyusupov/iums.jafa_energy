@@ -34,6 +34,7 @@ import { unifiedSolarService } from '../../service/unified-solar.service';
 import type { UnifiedSolarSummary, UnifiedSolarData } from '../../service/unified-solar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 import ForecastCard from '../../components/forecast/ForecastCard';
+import RevenueCard from '../../components/RevenueCard';
 
 const { Title, Text } = Typography;
 
@@ -266,6 +267,8 @@ const PartnerDashboard: React.FC = () => {
             </Col>
           </Row>
         </Card>
+
+        <RevenueCard revenue={solarData.revenue} compact={false} />
 
         <ForecastCard />
 

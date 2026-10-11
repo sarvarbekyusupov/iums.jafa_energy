@@ -39,6 +39,7 @@ import { solisCloudService } from '../../service/soliscloud.service';
 import fsolarService from '../../service/fsolar.service';
 import DataAsOf, { relativeAge } from '../../components/DataAsOf';
 import ForecastCard from '../../components/forecast/ForecastCard';
+import RevenueCard from '../../components/RevenueCard';
 
 const { Title, Text } = Typography;
 
@@ -278,6 +279,8 @@ const Dashboard: React.FC = () => {
             </Col>
           </Row>
         </Card>
+
+        <RevenueCard revenue={solarData.revenue} compact={false} />
 
         <ForecastCard />
 
