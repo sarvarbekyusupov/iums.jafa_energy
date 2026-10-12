@@ -37,6 +37,12 @@ const AdminLayout: React.FC = () => {
           label: "Dashboard",
           onClick: () => navigate("/admin"),
         },
+        {
+          key: "/admin/availability",
+          icon: <LineChartOutlined />,
+          label: "Ishlash foizi",
+          onClick: () => navigate("/admin/availability"),
+        },
         // Hidden - Not yet implemented
         // {
         //   key: "/admin/sites",
