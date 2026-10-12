@@ -48,7 +48,7 @@ const TemperaturePage: React.FC = () => {
     };
   }, [days]);
 
-  const warnOf = (i: InverterTemperature) => report?.warnCelsius[i.provider] ?? 65;
+  const warnOf = (i: InverterTemperature) => report?.warnCelsius[i.provider] ?? 62;
   const columns: ColumnsType<InverterTemperature> = [
     {
       title: 'Stansiya / invertor',
@@ -156,11 +156,11 @@ const TemperaturePage: React.FC = () => {
       </Spin>
 
       <Paragraph type="secondary" style={{ fontSize: 13, margin: 0 }}>
-        Ogohlantirish chegarasi: HopeCloud {report?.warnCelsius.hopecloud ?? 60}°C, SolisCloud {report?.warnCelsius.soliscloud ?? 65}°C.
+        Ogohlantirish chegarasi: HopeCloud {report?.warnCelsius.hopecloud ?? 60}°C, SolisCloud {report?.warnCelsius.soliscloud ?? 62}°C.
         Invertor harorati ketma-ket ikki o'lchovda (10 daqiqa) chegaradan yuqori bo'lsa, Telegram'ga xabar ketadi. Chegaradan 5°C pastga
         tushganda yana xabar keladi. HopeCloud invertorlari 55°C da ventilyatorni yoqib, haroratni darhol 43°C gacha tushiradi. Shuning
-        uchun 60°C dan yuqori harorat ventilyator ishlamayotganini bildiradi. SolisCloud uchun chegara taxminiy, yozgi ma'lumot yig'ilgach
-        aniqlashtiriladi. Qizigan invertor quvvatini o'zi kamaytiradi, keyin o'chib qolishi mumkin. Odatiy sabablar: ventilyator ishlamay
+        uchun 60°C dan yuqori harorat ventilyator ishlamayotganini bildiradi. Katta SolisCloud invertorlari xuddi shunday 58,4°C dan
+        oshmaydi, kichiklari 51°C dan oshmaydi. Qizigan invertor quvvatini o'zi kamaytiradi, keyin o'chib qolishi mumkin. Odatiy sabablar: ventilyator ishlamay
         qolgan, radiatorda chang, invertor to'g'ridan-to'g'ri quyosh ostida. Haroratlar 10-sentabrdan beri saqlanmoqda.
       </Paragraph>
     </div>
