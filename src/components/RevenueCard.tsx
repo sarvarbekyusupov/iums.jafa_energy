@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Col, Row, Space, Statistic, Typography } from 'antd';
-import { DollarOutlined } from '@ant-design/icons';
+import { Card, Col, Row, Space, Statistic, Tooltip, Typography } from 'antd';
+import { DollarOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { formatUzs, formatUzsShort } from '../helpers/currency';
 import type { UnifiedSolarRevenue } from '../service/unified-solar.service';
 
@@ -19,7 +19,14 @@ const RevenueCard: React.FC<RevenueCardProps> = ({ revenue, compact = false }) =
     { title: 'Bugun', value: revenue.today, short: false },
     { title: 'Shu oy', value: revenue.month, short: true },
     { title: 'Shu yil', value: revenue.year, short: true },
-    { title: 'Jami', value: revenue.lifetime, short: true },
+    {
+      title: 'Ishga tushgandan beri',
+      hint:
+        "Har bir stansiya ishga tushgan kunidan bugungacha ishlab chiqargan jami energiya, 1 kVt·soat = 1000 so'm hisobida. " +
+        "Bu hisoblangan qiymat, haqiqatda tushgan pul emas.",
+      value: revenue.lifetime,
+      short: true,
+    },
   ];
   return (
     <Card
@@ -35,7 +42,18 @@ const RevenueCard: React.FC<RevenueCardProps> = ({ revenue, compact = false }) =
         {items.map((item) => (
           <Col xs={12} md={6} key={item.title}>
             <Statistic
-              title={item.title}
+              title={
+                'hint' in item ? (
+                  <Space size={4}>
+                    {item.title}
+                    <Tooltip title={item.hint}>
+                      <InfoCircleOutlined />
+                    </Tooltip>
+                  </Space>
+                ) : (
+                  item.title
+                )
+              }
               value={item.short ? formatUzsShort(item.value) : formatUzs(item.value)}
               valueStyle={{ fontSize: compact ? 16 : 18, whiteSpace: 'nowrap' }}
             />
