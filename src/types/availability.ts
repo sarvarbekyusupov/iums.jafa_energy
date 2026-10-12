@@ -52,3 +52,25 @@ export interface AvailabilityReport {
   };
   stations: AvailabilityStation[];
 }
+
+export interface InverterTemperature {
+  provider: 'soliscloud' | 'hopecloud';
+  stationId: string;
+  station: string;
+  sn: string;
+  currentCelsius: number | null;
+  currentAt: string | null;
+  todayMaxCelsius: number | null;
+  windowMaxCelsius: number | null;
+  windowMaxAt: string | null;
+  hotMinutes: number;
+  hotNow: boolean;
+}
+
+export interface TemperatureReport {
+  /** Warning line per vendor, °C. */
+  warnCelsius: Record<'soliscloud' | 'hopecloud', number>;
+  windowDays: number;
+  generatedAt: string;
+  inverters: InverterTemperature[];
+}

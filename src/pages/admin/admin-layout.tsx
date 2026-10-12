@@ -9,6 +9,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   FileTextOutlined,
+  FireOutlined,
   HomeOutlined,
   LineChartOutlined,
   MonitorOutlined,
@@ -42,6 +43,12 @@ const AdminLayout: React.FC = () => {
           icon: <LineChartOutlined />,
           label: "Ishlash foizi",
           onClick: () => navigate("/admin/availability"),
+        },
+        {
+          key: "/admin/temperature",
+          icon: <FireOutlined />,
+          label: "Invertor harorati",
+          onClick: () => navigate("/admin/temperature"),
         },
         // Hidden - Not yet implemented
         // {

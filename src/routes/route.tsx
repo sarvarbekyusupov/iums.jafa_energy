@@ -46,6 +46,7 @@ const AnalyticsManagement = lazy(() => import("../pages/admin/analytics/analytic
 const NotificationsManagement = lazy(() => import("../pages/admin/notifications/notifications-management"));
 const DevicesManagement = lazy(() => import("../pages/admin/devices/devices-management"));
 const AvailabilityPage = lazy(() => import("../pages/admin/availability/availability-page"));
+const TemperaturePage = lazy(() => import("../pages/admin/availability/temperature-page"));
 
 // Lazy load Fsolar pages
 const FsolarRealTimeMonitoring = lazy(() => import("../pages/admin/fsolar/real-time-monitoring"));
@@ -195,6 +196,7 @@ const router = createBrowserRouter(
         <Route path="monitoring" element={<Suspense fallback={<PageLoader />}><MonitoringManagement /></Suspense>} />
         <Route path="analytics" element={<Suspense fallback={<PageLoader />}><AnalyticsManagement /></Suspense>} />
         <Route path="availability" element={<Suspense fallback={<PageLoader />}><AvailabilityPage /></Suspense>} />
+        <Route path="temperature" element={<Suspense fallback={<PageLoader />}><TemperaturePage /></Suspense>} />
         <Route path="notifications" element={<Suspense fallback={<PageLoader />}><NotificationsManagement /></Suspense>} />
         <Route path="users" element={<Suspense fallback={<PageLoader />}><UserManagement /></Suspense>} />
         <Route path="user-stations" element={<Suspense fallback={<PageLoader />}><UserStationsManagement /></Suspense>} />
