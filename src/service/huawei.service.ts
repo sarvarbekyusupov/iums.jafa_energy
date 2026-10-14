@@ -10,6 +10,18 @@ export interface HuaweiDeviceRow {
   softwareVersion: string | null;
 }
 
+export interface HuaweiAlarmRow {
+  id: number;
+  sn: string | null;
+  devName: string | null;
+  alarmName: string;
+  cause: string | null;
+  repairSuggestion: string | null;
+  /** 1 critical, 2 major, 3 minor, 4 warning. */
+  level: number;
+  raiseTime: string;
+}
+
 export interface HuaweiStationRow {
   plantCode: string;
   name: string;
@@ -26,6 +38,7 @@ export interface HuaweiStationRow {
   kpiAt: string | null;
   lastSyncedAt: string | null;
   devices: HuaweiDeviceRow[];
+  activeAlarms?: HuaweiAlarmRow[];
 }
 
 /** Huawei FusionSolar plants as our own sync stores them (admin only). */
