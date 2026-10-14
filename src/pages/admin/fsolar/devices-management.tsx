@@ -123,7 +123,8 @@ const DevicesManagement: React.FC = () => {
         normalized.forEach((d, i) => {
           const ts = latest[i]?.timestamp ?? null;
           d.lastDataAt = ts;
-          d.status = freshnessOf(ts) === 'fresh' ? 'ON' : 'unknown';
+          // Fresh data: online. Data that has gone stale: offline. No data at all: unknown.
+          d.status = !ts ? 'unknown' : freshnessOf(ts) === 'fresh' ? 'ON' : 'OF';
         });
         setDevices(normalized);
         setPagination({

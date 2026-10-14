@@ -15,7 +15,6 @@ import {
   Badge,
   message,
   Empty,
-  Switch,
   Divider,
 } from 'antd';
 import {
@@ -24,8 +23,6 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
-  DatabaseOutlined,
-  CloudOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { fsolarDeviceService } from '../../../service/fsolar';
@@ -48,7 +45,7 @@ interface DeviceEvent {
 
 const DeviceAlarms: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(false);
+  const useDbSource = false;
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [events, setEvents] = useState<DeviceEvent[]>([]);
@@ -274,15 +271,9 @@ const DeviceAlarms: React.FC = () => {
           </Select>
 
           <Divider type="vertical" />
-          <Switch
-            checked={useDbSource}
-            onChange={setUseDbSource}
-            checkedChildren={<DatabaseOutlined />}
-            unCheckedChildren={<CloudOutlined />}
-          />
-          <Tag color={useDbSource ? 'blue' : 'green'}>
-            {useDbSource ? 'Database' : 'Real-time API'}
-          </Tag>
+          {/* Live only: the FSolar sync never stores events, so a "Database" switch only ever
+              showed an empty list. */}
+          <Tag color="green">Real-time API</Tag>
 
           <Divider type="vertical" />
           <Button icon={<ReloadOutlined />} onClick={() => fetchEvents(1)} loading={loading}>

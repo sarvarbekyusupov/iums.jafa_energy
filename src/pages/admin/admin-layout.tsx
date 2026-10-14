@@ -4,16 +4,12 @@ import {
   AppstoreOutlined,
   BarChartOutlined,
   BellOutlined,
-  CloudOutlined,
   CloudServerOutlined,
   DashboardOutlined,
   DatabaseOutlined,
-  FileTextOutlined,
   FireOutlined,
   HomeOutlined,
   LineChartOutlined,
-  MonitorOutlined,
-  SettingOutlined,
   SettingOutlined as DeviceOutlined,
   ThunderboltOutlined,
   UserOutlined,
@@ -139,6 +135,9 @@ const AdminLayout: React.FC = () => {
         },
       ],
     },
+    // Hidden 2026-10-15: FSolar settings, templates, tasks, monitor and run records (remote control
+    // is switched off and FSolar is only the two office units), SolisCloud EPM and Weather (no such
+    // hardware installed) and the API test page (development only). Their routes still exist.
     {
       key: "fsolar",
       icon: <ThunderboltOutlined />,
@@ -157,12 +156,6 @@ const AdminLayout: React.FC = () => {
           onClick: () => navigate("/admin/fsolar/devices"),
         },
         {
-          key: "/admin/fsolar/settings",
-          icon: <SettingOutlined />,
-          label: "Device Settings",
-          onClick: () => navigate("/admin/fsolar/settings"),
-        },
-        {
           key: "/admin/fsolar/energy",
           icon: <BarChartOutlined />,
           label: "Energy Analytics",
@@ -173,30 +166,6 @@ const AdminLayout: React.FC = () => {
           icon: <LineChartOutlined />,
           label: "Historical Data",
           onClick: () => navigate("/admin/fsolar/history"),
-        },
-        {
-          key: "/admin/fsolar/templates",
-          icon: <FileTextOutlined />,
-          label: "Strategy Templates",
-          onClick: () => navigate("/admin/fsolar/templates"),
-        },
-        {
-          key: "/admin/fsolar/tasks",
-          icon: <AppstoreOutlined />,
-          label: "Economic Tasks",
-          onClick: () => navigate("/admin/fsolar/tasks"),
-        },
-        {
-          key: "/admin/fsolar/monitor",
-          icon: <MonitorOutlined />,
-          label: "Task Monitoring",
-          onClick: () => navigate("/admin/fsolar/monitor"),
-        },
-        {
-          key: "/admin/fsolar/records",
-          icon: <DatabaseOutlined />,
-          label: "Run Records",
-          onClick: () => navigate("/admin/fsolar/records"),
         },
         {
           key: "/admin/fsolar/alarms",
@@ -240,24 +209,6 @@ const AdminLayout: React.FC = () => {
           icon: <WifiOutlined />,
           label: "Collectors",
           onClick: () => navigate("/admin/soliscloud/collectors"),
-        },
-        {
-          key: "/admin/soliscloud/epm",
-          icon: <LineChartOutlined />,
-          label: "EPM",
-          onClick: () => navigate("/admin/soliscloud/epm"),
-        },
-        {
-          key: "/admin/soliscloud/weather",
-          icon: <CloudOutlined />,
-          label: "Weather",
-          onClick: () => navigate("/admin/soliscloud/weather"),
-        },
-        {
-          key: "/admin/soliscloud/api-test",
-          icon: <SettingOutlined />,
-          label: "API Test",
-          onClick: () => navigate("/admin/soliscloud/api-test"),
         },
       ],
     },

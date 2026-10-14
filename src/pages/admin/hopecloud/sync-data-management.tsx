@@ -187,11 +187,11 @@ const SyncDataManagement: React.FC = () => {
       },
       {
         title: 'Site Name',
-        dataIndex: 'siteName',
-        key: 'siteName',
+        dataIndex: 'name',
+        key: 'name',
         render: (text: string, record: SyncedSite) => (
           <Space>
-            <Text strong>{text || `Site ${record.id}`}</Text>
+            <Text strong>{text || (record as any).siteName || `Site ${record.id}`}</Text>
           </Space>
         ),
       },
@@ -917,7 +917,7 @@ const SyncDataManagement: React.FC = () => {
         {selectedSite && (
           <Descriptions column={2} bordered>
             <Descriptions.Item label="Site ID">{selectedSite.id}</Descriptions.Item>
-            <Descriptions.Item label="Site Name">{selectedSite.siteName || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="Site Name">{(selectedSite as any).name || selectedSite.siteName || 'N/A'}</Descriptions.Item>
             <Descriptions.Item label="Capacity">{selectedSite.capacityKw} kW</Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag color={selectedSite.status === 'active' ? 'green' : 'red'}>

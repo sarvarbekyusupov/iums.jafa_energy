@@ -409,6 +409,12 @@ class HopeCloudService {
     return response.data;
   }
 
+  /** Every communication module stored by the module sync, with its site. */
+  async getStoredCommunicationModules(): Promise<any[]> {
+    const response = await apiClient.get(ApiUrls.HOPECLOUD.COMMUNICATION_MODULES);
+    return Array.isArray(response.data) ? response.data : response.data?.data ?? [];
+  }
+
   async getCommunicationModuleDetails(query?: DivertorDetailQueryDto): Promise<HopeCloudApiResponse<HopeCloudCommunicationModule>> {
     // If we have an ID, use the by-id endpoint
     if (query?.id) {

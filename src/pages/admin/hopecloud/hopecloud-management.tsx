@@ -181,134 +181,57 @@ const HopeCloudManagement: React.FC = () => {
     return Array.isArray(response.data?.records) ? response.data.records : [];
   };
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
+  /**
+   * Communication modules come from our own table (filled by the HopeCloud module sync), in one
+   * call. The page used to ask once per station with a plantId the route ignores, so it fetched
+   * the same empty list four times.
+   */
+  const loadCommunicationModules = async () => {
+    const modules: any[] = (await hopeCloudService.getStoredCommunicationModules()) || [];
+    setCommunicationModules(modules.map((m) => ({ ...m, updateTime: m.updateTime ?? m.lastUpdate })));
+  };
 
-      // Get health status first
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      if (useDbSource) {
+        // Stored data does not depend on the vendor, so it no longer waits for the health probe:
+        // that call goes through HopeCloud's 10-second gate and held the page for ~17 s.
+        hopeCloudService.getHealth().then(setHealthStatus).catch(() => undefined);
+        const [stationsData, alarmsResponse, configTypes] = await Promise.all([
+          loadStations(),
+          hopeCloudService.getDbAlarms(),
+          hopeCloudService.getStationConfigTypes().catch(() => null),
+          loadCommunicationModules().catch((error) => console.warn('Communication modules:', error)),
+        ]);
+        setStations(stationsData);
+        setAlarms(Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []);
+        if (configTypes) setStationConfigTypes(configTypes.data);
+        return;
+      }
+
+      // Live vendor data: check the API first, as before.
       const health = await hopeCloudService.getHealth();
       setHealthStatus(health);
-      
-      // Get batch status
-      // try {
-      //   const batch = await hopeCloudService.getBatchStatus();
-      //   setBatchStatus(batch);
-      // } catch (error: any) {
-      //   console.warn('Could not fetch batch status:', error);
-      // }
-
-      // Get metrics
-      // try {
-      //   const metricsData = await hopeCloudService.getMetrics();
-      //   setMetrics(metricsData);
-      // } catch (error: any) {
-      //   console.warn('Could not fetch metrics:', error);
-      // }
-
-      // Get auth validation
-      // try {
-      //   const authData = await hopeCloudService.validateAuth();
-      //   setAuthValidation(authData);
-      // } catch (error: any) {
-      //   console.warn('Could not fetch auth validation:', error);
-      // }
-
-      if (health.status !== 'healthy' && useDbSource) {
-        // Vendor API is down: stored stations are still readable, the live-only lists are not.
-        loadStations().then(setStations).catch(error => {
-          console.warn('Error fetching stored stations:', error);
-        });
-      }
-
-      if (health.status === 'healthy') {
-        // Fetch all data in parallel
-        // The owner and channel lists are only shown on the Users tab and are fetched when it is
-        // opened (loadUsers). Every HopeCloud call waits its turn behind a 10-second gate, so
-        // loading them here kept the whole page waiting about 30 seconds on 2026-10-08.
-        // Alarms come from our database by default (stored every ten minutes by the alarm sync),
-        // which also takes the last live vendor call off page load. The vendor's own list marks
-        // status "0" pending / "1" processed, so it is normalised to what the Alarms tab expects.
-        Promise.all([
-          loadStations(),
-          useDbSource
-            ? hopeCloudService.getDbAlarms()
-            : hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
-          hopeCloudService.getStationConfigTypes(),
-        ]).then(([stationsData, alarmsResponse, configTypesResponse]) => {
-          const alarmsData = (Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []).map((a: any) =>
-            a.status === '0' ? { ...a, status: 'active' } : a.status === '1' ? { ...a, status: 'resolved' } : a,
-          );
-
-          setStations(stationsData);
-          setAlarms(alarmsData);
-          // setDiscoveryStatus(discoveryResponse.data);
-          setStationConfigTypes(configTypesResponse.data);
-          
-          // Load communication modules for all stations
-          if (stationsData.length > 0) {
-            const modulePromises = stationsData.map(station =>
-              hopeCloudService.getCommunicationModules({
-                plantId: station.id,
-                pageIndex: 1,
-                pageSize: 100
-              }).catch(err => {
-                console.warn(`Communication modules error for station ${station.id}:`, err);
-                return { status: 'error' as const, data: [] as HopeCloudCommunicationModule[] };
-              })
-            );
-
-            Promise.all(modulePromises).then(responses => {
-              // Combine all communication modules from all stations
-              const allModules = responses.flatMap(response => {
-                if (!response) return [];
-
-                // Check if response itself is an array (direct array response)
-                if (Array.isArray(response)) {
-                  return response;
-                }
-
-                // Check if response has data property
-                if (!response.data) {
-                  // Response might be a single module object
-                  if (typeof response === 'object' && 'id' in response && 'equipmentPn' in response) {
-                    return [response as unknown as HopeCloudCommunicationModule];
-                  }
-                  return [];
-                }
-
-                const data = response.data;
-
-                // Handle different response structures
-                if (Array.isArray(data)) {
-                  return data;
-                } else if (data && typeof data === 'object' && Array.isArray((data as any).records)) {
-                  return (data as any).records;
-                } else if (data && typeof data === 'object') {
-                  return [data];
-                }
-
-                return [];
-              });
-
-              // Remove duplicates based on module ID
-              const uniqueModules = Array.from(
-                new Map(allModules.map(module => [module.id, module])).values()
-              );
-
-              console.log(`Loaded ${uniqueModules.length} unique communication modules from ${allModules.length} total`);
-              setCommunicationModules(uniqueModules);
-            }).catch(error => {
-              console.error('Failed to load communication modules:', error);
-            });
-          }
-        }).catch(error => {
-          console.warn('Error fetching some data:', error);
-        });
-      }
-      
-      setLoading(false);
+      if (health.status !== 'healthy') return;
+      // The vendor's own alarm list marks status "0" pending / "1" processed; normalise it to what
+      // the Alarms tab expects.
+      const [stationsData, alarmsResponse, configTypesResponse] = await Promise.all([
+        loadStations(),
+        hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
+        hopeCloudService.getStationConfigTypes(),
+      ]);
+      setStations(stationsData);
+      setAlarms(
+        (Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []).map((a: any) =>
+          a.status === '0' ? { ...a, status: 'active' } : a.status === '1' ? { ...a, status: 'resolved' } : a,
+        ),
+      );
+      setStationConfigTypes(configTypesResponse.data);
+      loadCommunicationModules().catch((error) => console.warn('Communication modules:', error));
     } catch (error: any) {
       message.error('Failed to fetch HopeCloud data: ' + (error?.response?.data?.message || error.message));
+    } finally {
       setLoading(false);
     }
   };

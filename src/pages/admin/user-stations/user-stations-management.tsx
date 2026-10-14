@@ -94,25 +94,27 @@ const UserStationsManagement: React.FC = () => {
       setLoading(true);
       let stations: any[] = [];
 
+      // Stored lists, not the vendor APIs: the HopeCloud call took ~7 s through its rate gate,
+      // and the FSolar list used to read one `data` level too deep and always came out empty.
       if (provider === 'hopecloud') {
-        const response = await hopeCloudService.getStations();
-        stations = (response.data?.records || []).map((s: any) => ({
-          id: s.plantId,
-          name: s.plantName,
+        const response = await hopeCloudService.getDbStations();
+        stations = (response.data || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
           provider: 'hopecloud',
         }));
       } else if (provider === 'soliscloud') {
-        const response = await solisCloudService.getStationDetailList({ pageNo: 1, pageSize: 100 });
-        stations = (response.records || []).map((s: any) => ({
+        const response = await solisCloudService.getDbStations({ page: 1, limit: 100 });
+        stations = (response.data?.records || []).map((s: any) => ({
           id: s.id,
-          name: s.stationName,
+          name: s.name,
           provider: 'soliscloud',
         }));
       } else if (provider === 'fsolar') {
         const response = await fsolarService.getDbDevices({ page: 1, limit: 100 });
-        stations = (response.data?.data || []).map((d: any) => ({
-          id: d.id || d.deviceId,
-          name: d.name || d.deviceName,
+        stations = (response.data || []).map((d: any) => ({
+          id: d.id,
+          name: d.name ? `${d.name} (${d.deviceSn})` : d.deviceSn,
           provider: 'fsolar',
         }));
       } else if (provider === 'huawei') {
