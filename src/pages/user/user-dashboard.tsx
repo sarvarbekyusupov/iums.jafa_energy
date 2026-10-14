@@ -57,6 +57,7 @@ const UserDashboard: React.FC = () => {
       case 'HopeCloud': return '#1890ff';
       case 'SolisCloud': return '#52c41a';
       case 'FSolar': return '#fa8c16';
+      case 'Huawei': return '#cf1322';
       default: return '#722ed1';
     }
   };

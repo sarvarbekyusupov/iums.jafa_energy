@@ -3,7 +3,7 @@ import { ApiUrls } from '../api/api-urls';
 import type { ProviderSyncHealth, SyncStatus } from './sync-health.service';
 
 export interface UnifiedSolarData {
-  provider: 'HopeCloud' | 'SolisCloud' | 'FSolar';
+  provider: 'HopeCloud' | 'SolisCloud' | 'FSolar' | 'Huawei';
   stations: {
     total: number;
     online: number;
@@ -198,6 +198,28 @@ class UnifiedSolarService {
             warning: 0,
           },
           ...freshnessFrom(backendData.fsolar),
+        });
+      }
+
+      // Huawei FusionSolar plants (from 2026-10-15); older backends omit the block.
+      if (backendData.huawei && backendData.huawei.totalStations > 0) {
+        providers.push({
+          provider: 'Huawei',
+          stations: {
+            total: backendData.huawei.totalStations || 0,
+            online: backendData.huawei.totalOnline || 0,
+            offline: backendData.huawei.totalOffline || 0,
+          },
+          energy: {
+            today: backendData.huawei.totalEnergyToday || 0,
+            thisMonth: backendData.huawei.totalEnergyMonth || 0,
+            thisYear: backendData.huawei.totalEnergyYear || 0,
+            total: backendData.huawei.totalEnergyLifetime || 0,
+          },
+          power: { current: backendData.huawei.totalPower || 0, peak: 0 },
+          devices: { total: 0, online: 0, offline: 0, warning: 0 },
+          alarms: { active: 0, critical: 0, warning: 0 },
+          ...freshnessFrom(backendData.huawei),
         });
       }
 

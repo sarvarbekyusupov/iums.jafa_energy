@@ -29,6 +29,7 @@ import { userStationsService, type AssignStationDto, type UserStationResponse } 
 import { hopeCloudService } from '../../../service/hopecloud.service';
 import { solisCloudService } from '../../../service/soliscloud.service';
 import fsolarService from '../../../service/fsolar.service';
+import { huaweiService } from '../../../service/huawei.service';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -114,6 +115,12 @@ const UserStationsManagement: React.FC = () => {
           name: d.name || d.deviceName,
           provider: 'fsolar',
         }));
+      } else if (provider === 'huawei') {
+        stations = (await huaweiService.getStations()).map((s) => ({
+          id: s.plantCode,
+          name: s.name,
+          provider: 'huawei',
+        }));
       }
 
       setAvailableStations(stations);
@@ -186,6 +193,7 @@ const UserStationsManagement: React.FC = () => {
       case 'hopecloud': return <CloudServerOutlined style={{ color: '#1890ff' }} />;
       case 'soliscloud': return <SunOutlined style={{ color: '#52c41a' }} />;
       case 'fsolar': return <ThunderboltOutlined style={{ color: '#fa8c16' }} />;
+      case 'huawei': return <ThunderboltOutlined style={{ color: '#cf1322' }} />;
       default: return <CloudServerOutlined />;
     }
   };
@@ -195,6 +203,7 @@ const UserStationsManagement: React.FC = () => {
       case 'hopecloud': return 'blue';
       case 'soliscloud': return 'green';
       case 'fsolar': return 'orange';
+      case 'huawei': return 'red';
       default: return 'default';
     }
   };
@@ -392,6 +401,12 @@ const UserStationsManagement: React.FC = () => {
                 <Space>
                   <ThunderboltOutlined style={{ color: '#fa8c16' }} />
                   FSolar
+                </Space>
+              </Option>
+              <Option value="huawei">
+                <Space>
+                  <ThunderboltOutlined style={{ color: '#cf1322' }} />
+                  Huawei
                 </Space>
               </Option>
             </Select>

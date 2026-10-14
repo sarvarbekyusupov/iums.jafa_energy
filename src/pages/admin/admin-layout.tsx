@@ -127,6 +127,19 @@ const AdminLayout: React.FC = () => {
       ],
     },
     {
+      key: "huawei",
+      icon: <ThunderboltOutlined />,
+      label: "Huawei",
+      children: [
+        {
+          key: "/admin/huawei",
+          icon: <DatabaseOutlined />,
+          label: "Stansiyalar",
+          onClick: () => navigate("/admin/huawei"),
+        },
+      ],
+    },
+    {
       key: "fsolar",
       icon: <ThunderboltOutlined />,
       label: "Fsolar",

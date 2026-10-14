@@ -4,7 +4,7 @@ import { ApiUrls } from '../api/api-urls';
 export interface AssignStationDto {
   userId: number;
   stationId: string;
-  provider: 'hopecloud' | 'soliscloud' | 'fsolar';
+  provider: 'hopecloud' | 'soliscloud' | 'fsolar' | 'huawei';
   stationName: string;
   isOwner?: boolean;
 }
