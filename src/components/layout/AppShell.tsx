@@ -20,6 +20,7 @@ import {
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../helpers/hooks/useAuth";
+import { MAINTAINER_USER_ID, withPageStatus } from "./page-status";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -93,6 +94,12 @@ const AppShell: React.FC<AppShellProps> = ({ items, profilePath, fallbackName })
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Page health dots are for the maintainer only.
+  const menuItems = useMemo(
+    () => (user?.id === MAINTAINER_USER_ID ? withPageStatus(items) : items),
+    [items, user?.id],
+  );
+
   const derivedOpenKeys = useMemo(
     () => openKeysFor(items, location.pathname),
     [items, location.pathname],
@@ -158,7 +165,7 @@ const AppShell: React.FC<AppShellProps> = ({ items, profilePath, fallbackName })
         // Closing on navigation alone is not enough: tapping the page you are already on
         // leaves the path unchanged, and the drawer would stay over the content.
         onClick={() => setMobileMenuOpen(false)}
-        items={items}
+        items={menuItems}
       />
     </>
   );
