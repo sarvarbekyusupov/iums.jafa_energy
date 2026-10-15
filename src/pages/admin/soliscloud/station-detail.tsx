@@ -56,6 +56,7 @@ const normalizeDbStation = (s: any): StationDetail => ({
   eTotal: parseValue(s.eTotal),
   state: Number(s.state),
   updateDate: formatTs(s.lastSyncedAt),
+  gridConnectionDate: formatTs(s.gridConnectionDate),
 });
 
 // DB row (SolisCloudInverter entity) -> the fields the inverter cards below read (inverterSn, inverterModel, ...)
@@ -85,6 +86,10 @@ const normalizeLiveStation = (d: any): StationDetail => ({
   timeZone: d.timeZoneStr || d.timeZone,
   dataTimestamp: formatSolisTime(d.dataTimestamp),
   updateDate: formatSolisTime(d.updateDate),
+  gmtOffset: d.timeZone,
+  installDate: formatSolisTime(d.createDate),
+  gridConnectionDate: formatSolisTime(d.fisPowerTime ?? d.fisGenerateTime),
+  batteryCapacity: toKwh(d.batteryCapacityEnergy, d.batteryCapacityEnergyStr),
 });
 
 // Vendor inverter list rows carry the SN as `sn` and the model as `machine`.
@@ -132,7 +137,15 @@ const StationDetailPage: React.FC = () => {
       setLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbStation(id);
-        const station = normalizeDbStation(response.data || response);
+        const row = response.data || response;
+        let station = normalizeDbStation(row);
+        // The hourly sync keeps the vendor's full detail; show all of it, with our own row on top.
+        if (row?.detail) {
+          station = {
+            ...normalizeLiveStation(row.detail),
+            ...Object.fromEntries(Object.entries(station).filter(([, v]) => v !== undefined && v !== null && v !== '')),
+          } as StationDetail;
+        }
         // lastSyncedAt is when our sync ran; the newest stored reading is the true data time
         try {
           const latest = await solisCloudService.getDbStationLatestReading(id);
@@ -160,7 +173,12 @@ const StationDetailPage: React.FC = () => {
       setInvertersLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbInverters({ stationId: id, limit: 100 });
-        setInverters((response.data?.records || []).map(normalizeDbInverter));
+        // An inverter the hourly sync stopped seeing has left the vendor account (RES HUB's old
+        // unit, gone since March 2026); it is no longer part of the station.
+        const current = (response.data?.records || []).filter(
+          (i: any) => !i.lastSyncedAt || Date.now() - new Date(i.lastSyncedAt).getTime() < 2 * 86_400_000,
+        );
+        setInverters(current.map(normalizeDbInverter));
       } else {
         const response = await solisCloudService.getInvertersDetailList({
           stationId: id,

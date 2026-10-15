@@ -47,24 +47,26 @@ const normalizeDbInverter = (i: any): InverterDetail => ({
 });
 
 // The newest stored reading fills what the inverter row lacks: strings, grid side, temperature.
-const withLatestReading = (inv: InverterDetail, r: any): InverterDetail =>
-  r
-    ? ({
-        ...inv,
-        uPv1: r.uDc1, iPv1: r.iDc1, uPv2: r.uDc2, iPv2: r.iDc2,
-        uAc1: r.uAc1, iAc1: r.iAc1, uAc2: r.uAc2, iAc2: r.iAc2,
-        fac: r.fAc,
-        inverterTemperature: r.temperature,
-        gridPower: r.gridPower,
-        familyLoadPower: r.loadPower,
-        pac: r.pac != null ? parseValue(r.pac) / 1000 : inv.pac, // readings store W
-      } as InverterDetail)
-    : inv;
+const withLatestReading = (inv: InverterDetail, r: any): InverterDetail => {
+  if (!r) return inv;
+  const fresh: Record<string, unknown> = {
+    uPv1: r.uDc1, iPv1: r.iDc1, uPv2: r.uDc2, iPv2: r.iDc2,
+    uAc1: r.uAc1, iAc1: r.iAc1, uAc2: r.uAc2, iAc2: r.iAc2,
+    fac: r.fAc,
+    inverterTemperature: r.temperature,
+    gridPower: r.gridPower,
+    familyLoadPower: r.loadPower,
+    pac: r.pac != null ? parseValue(r.pac) / 1000 : null, // readings store W
+  };
+  // Only what the reading actually carries; a null must not hide the vendor detail's value.
+  return { ...inv, ...Object.fromEntries(Object.entries(fresh).filter(([, v]) => v !== null && v !== undefined)) } as InverterDetail;
+};
 
 // Vendor detail: every energy figure has its own unit string (eTotal 4.49 + "MWh").
 const normalizeLiveInverter = (d: any): InverterDetail => ({
   ...d,
   model: d.machine || d.model,
+  fullPower: d.power != null ? toKw(d.power, d.powerStr) : undefined, // rated power
   pac: toKw(d.pac, d.pacStr),
   eToday: toKwh(d.eToday, d.eTodayStr),
   eMonth: toKwh(d.eMonth, d.eMonthStr),
@@ -99,7 +101,19 @@ const InverterDetailPage: React.FC = () => {
       setLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbInverter(id);
-        let inverter = normalizeDbInverter(response.data || response);
+        const row = response.data || response;
+        let inverter = normalizeDbInverter(row);
+        // The hourly sync keeps the vendor's full detail; show all of it, with our own row and
+        // newest reading on top where they are fresher.
+        if (row?.detail) {
+          inverter = {
+            ...normalizeLiveInverter(row.detail),
+            ...Object.fromEntries(Object.entries(inverter).filter(([, v]) => v !== undefined && v !== null)),
+            model: row.model || row.detail.machine,
+            eMonth: toKwh(row.detail.eMonth, row.detail.eMonthStr),
+            eYear: toKwh(row.detail.eYear, row.detail.eYearStr),
+          } as InverterDetail;
+        }
         // lastSyncedAt is when our sync ran; the newest stored reading is the true data time
         try {
           const latest = await solisCloudService.getDbInverterLatestReading(id);
