@@ -3,6 +3,7 @@ import { Alert, Card, Empty, Segmented, Space, Spin, Table, Tag, Tooltip, Typogr
 import type { ColumnsType } from 'antd/es/table';
 import { availabilityService } from '../../../service/availability.service';
 import type { InverterTemperature, TemperatureReport } from '../../../types/availability';
+import { providerTag } from './provider-tag';
 
 const { Text, Paragraph } = Typography;
 
@@ -58,7 +59,7 @@ const TemperaturePage: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Text strong>{station}</Text>
           <Space size={4} wrap>
-            {i.provider === 'hopecloud' ? <Tag color="blue">HopeCloud</Tag> : <Tag color="orange">SolisCloud</Tag>}
+            {providerTag(i.provider)}
             <Text type="secondary" style={{ fontSize: 12 }}>
               {i.sn}
             </Text>
@@ -156,7 +157,8 @@ const TemperaturePage: React.FC = () => {
       </Spin>
 
       <Paragraph type="secondary" style={{ fontSize: 13, margin: 0 }}>
-        Ogohlantirish chegarasi: HopeCloud {report?.warnCelsius.hopecloud ?? 60}°C, SolisCloud {report?.warnCelsius.soliscloud ?? 62}°C.
+        Ogohlantirish chegarasi: HopeCloud {report?.warnCelsius.hopecloud ?? 60}°C, SolisCloud {report?.warnCelsius.soliscloud ?? 62}°C,
+        Huawei {report?.warnCelsius.huawei ?? 65}°C.
         Invertor harorati ketma-ket ikki o'lchovda (10 daqiqa) chegaradan yuqori bo'lsa, Telegram'ga xabar ketadi. Chegaradan 5°C pastga
         tushganda yana xabar keladi. HopeCloud invertorlari 55°C da ventilyatorni yoqib, haroratni darhol 43°C gacha tushiradi. Shuning
         uchun 60°C dan yuqori harorat ventilyator ishlamayotganini bildiradi. Katta SolisCloud invertorlari xuddi shunday 58,4°C dan

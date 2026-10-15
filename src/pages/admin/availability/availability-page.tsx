@@ -24,6 +24,7 @@ import type {
   AvailabilityReport,
   AvailabilityStation,
 } from '../../../types/availability';
+import { providerTag } from './provider-tag';
 
 const { Text, Paragraph } = Typography;
 
@@ -70,8 +71,6 @@ const PctBar: React.FC<{ pct: number | null }> = ({ pct }) =>
     </Space>
   );
 
-const providerTag = (p: AvailabilityStation['provider']) =>
-  p === 'hopecloud' ? <Tag color="blue">HopeCloud</Tag> : <Tag color="orange">SolisCloud</Tag>;
 
 const OutageList: React.FC<{ outages: AvailabilityOutage[] }> = ({ outages }) => {
   if (!outages.length) return <Text type="secondary">Uzilish bo'lmagan</Text>;

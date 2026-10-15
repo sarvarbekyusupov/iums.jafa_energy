@@ -1,3 +1,6 @@
+/** Vendors whose inverters the availability and temperature reports cover. */
+export type VendorKey = 'soliscloud' | 'hopecloud' | 'huawei';
+
 export interface AvailabilityOutage {
   start: string;
   /** Null while the outage is still going on. */
@@ -23,7 +26,7 @@ export interface AvailabilityInverter {
 }
 
 export interface AvailabilityStation {
-  provider: 'soliscloud' | 'hopecloud';
+  provider: VendorKey;
   stationId: string;
   name: string;
   availabilityPct: number | null;
@@ -54,7 +57,7 @@ export interface AvailabilityReport {
 }
 
 export interface InverterTemperature {
-  provider: 'soliscloud' | 'hopecloud';
+  provider: VendorKey;
   stationId: string;
   station: string;
   sn: string;
@@ -69,7 +72,7 @@ export interface InverterTemperature {
 
 export interface TemperatureReport {
   /** Warning line per vendor, °C. */
-  warnCelsius: Record<'soliscloud' | 'hopecloud', number>;
+  warnCelsius: Partial<Record<VendorKey, number>>;
   windowDays: number;
   generatedAt: string;
   inverters: InverterTemperature[];

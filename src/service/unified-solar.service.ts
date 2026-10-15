@@ -80,6 +80,16 @@ function freshnessFrom(block: ProviderFreshnessBlock | undefined): Pick<UnifiedS
   };
 }
 
+/** Inverter counts the backend sends per provider (from 2026-10-15); older backends omit them. */
+function devicesFrom(block: { totalDevices?: number; totalOnlineDevices?: number; totalOfflineDevices?: number } | undefined) {
+  return {
+    total: block?.totalDevices || 0,
+    online: block?.totalOnlineDevices || 0,
+    offline: block?.totalOfflineDevices || 0,
+    warning: 0,
+  };
+}
+
 class UnifiedSolarService {
   /**
    * Fetch unified data from backend API
@@ -113,12 +123,7 @@ class UnifiedSolarService {
             current: backendData.hopecloud.totalPower || 0,
             peak: backendData.hopecloud.peakPower || 0,
           },
-          devices: {
-            total: 0,
-            online: 0,
-            offline: 0,
-            warning: 0,
-          },
+          devices: devicesFrom(backendData.hopecloud),
           alarms: {
             active: backendData.hopecloud.totalAlarms || 0,
             critical: 0,
@@ -147,12 +152,7 @@ class UnifiedSolarService {
             current: backendData.soliscloud.totalPower || 0,
             peak: backendData.soliscloud.peakPower || 0,
           },
-          devices: {
-            total: backendData.soliscloud.totalInverters || 0,
-            online: backendData.soliscloud.totalOnlineInverters || 0,
-            offline: backendData.soliscloud.totalOfflineInverters || 0,
-            warning: 0,
-          },
+          devices: devicesFrom(backendData.soliscloud),
           alarms: {
             active: backendData.soliscloud.totalAlarms || 0,
             critical: 0,
@@ -186,12 +186,7 @@ class UnifiedSolarService {
             current: backendData.fsolar.totalPower || 0,
             peak: backendData.fsolar.peakPower || 0,
           },
-          devices: {
-            total: backendData.fsolar.totalDevices || 0,
-            online: backendData.fsolar.totalOnline || 0,
-            offline: backendData.fsolar.totalOffline || 0,
-            warning: 0,
-          },
+          devices: devicesFrom(backendData.fsolar),
           alarms: {
             active: backendData.fsolar.totalAlarms || 0,
             critical: 0,
@@ -217,8 +212,8 @@ class UnifiedSolarService {
             total: backendData.huawei.totalEnergyLifetime || 0,
           },
           power: { current: backendData.huawei.totalPower || 0, peak: 0 },
-          devices: { total: 0, online: 0, offline: 0, warning: 0 },
-          alarms: { active: 0, critical: 0, warning: 0 },
+          devices: devicesFrom(backendData.huawei),
+          alarms: { active: backendData.huawei.totalAlarms || 0, critical: 0, warning: 0 },
           ...freshnessFrom(backendData.huawei),
         });
       }

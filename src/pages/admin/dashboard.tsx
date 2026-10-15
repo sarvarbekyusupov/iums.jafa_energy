@@ -116,6 +116,8 @@ const Dashboard: React.FC = () => {
         return <SunOutlined />;
       case 'FSolar':
         return <ThunderboltOutlined />;
+      case 'Huawei':
+        return <SafetyOutlined />;
       default:
         return <DashboardOutlined />;
     }
@@ -192,7 +194,7 @@ const Dashboard: React.FC = () => {
             </Title>
             <Space size="middle" wrap>
               <Text type="secondary">
-                Monitoring across HopeCloud, SolisCloud, and FSolar providers
+                Monitoring across HopeCloud, SolisCloud, Huawei and FSolar providers
               </Text>
               <DataAsOf
                 timestamp={solarData.lastUpdate}
@@ -228,7 +230,7 @@ const Dashboard: React.FC = () => {
                 />
                 <Divider style={{ margin: '12px 0' }} />
                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                  Across all {solarData.providers.length} providers
+                  Across {solarData.totalStations} plants (the FSolar lab bench is not counted)
                 </Text>
               </Card>
             </Col>
@@ -289,7 +291,7 @@ const Dashboard: React.FC = () => {
         {/* Provider Comparison Cards */}
         <Row gutter={[16, 16]}>
           {solarData.providers.map((provider: UnifiedSolarData) => (
-            <Col xs={24} lg={8} key={provider.provider}>
+            <Col xs={24} md={12} xl={6} key={provider.provider}>
               <Card
                 title={
                   <Space>
