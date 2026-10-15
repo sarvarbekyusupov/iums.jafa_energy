@@ -21,6 +21,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import solisCloudService from '../../../service/soliscloud.service';
 import { formatSolisTime } from '../../../helpers/solis-units';
 import type { CollectorDetail } from '../../../types/soliscloud';
+import { withGap } from '../../../components/maintainer/with-gap';
 
 const { Title, Text } = Typography;
 
@@ -327,17 +328,22 @@ const CollectorDetailPage: React.FC = () => {
             </Card>
           </Col>
         </Row>
-        {present(detail.lanIp) && (
-          <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-            <Descriptions.Item label="LAN IP">{detail.lanIp}</Descriptions.Item>
-          </Descriptions>
-        )}
+        <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+          <Descriptions.Item label={withGap('IP Address', 'solisCollectorNetwork')}>{present(detail.lanIp) ? detail.lanIp : '-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('MAC Address', 'solisCollectorNetwork')}>{'-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Port', 'solisCollectorNetwork')}>{'-'}</Descriptions.Item>
+        </Descriptions>
       </Card>
 
       {/* Firmware & Software */}
       <Card title={<Space><CodeOutlined />Firmware & Software</Space>} style={{ marginBottom: 16 }}>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="Firmware Version">{present(detail.version) ? detail.version : '-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Software Version', 'solisCollectorVersions')}>{'-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Hardware Version', 'solisCollectorVersions')}>{'-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Protocol Version', 'solisCollectorVersions')}>{'-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Last Upgrade', 'solisCollectorVersions')}>{'-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Upgrade Available', 'solisCollectorVersions')}>{'-'}</Descriptions.Item>
         </Descriptions>
       </Card>
 
@@ -396,10 +402,10 @@ const CollectorDetailPage: React.FC = () => {
       {/* Location & Installation */}
       <Card title={<Space><EnvironmentOutlined />Location & Installation</Space>} style={{ marginBottom: 16 }}>
         <Descriptions bordered column={{ xs: 1, sm: 2 }}>
-          {present(detail.addr) && <Descriptions.Item label="Address">{detail.addr}</Descriptions.Item>}
-          <Descriptions.Item label="Factory Date">{installedOn || '-'}</Descriptions.Item>
-          {present(country) && <Descriptions.Item label="Country">{country}</Descriptions.Item>}
-          {present(detail.cityStr) && <Descriptions.Item label="City">{detail.cityStr}</Descriptions.Item>}
+          <Descriptions.Item label={withGap('Installation Location', 'solisCollectorPlace')}>{present(detail.addr) ? detail.addr : '-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Installation Date', 'solisCollectorPlace')}>{installedOn || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Country">{present(country) ? country : '-'}</Descriptions.Item>
+          <Descriptions.Item label="City">{present(detail.cityStr) ? detail.cityStr : '-'}</Descriptions.Item>
           <Descriptions.Item label="Timezone">{detail.timeZoneStr || '-'}</Descriptions.Item>
           <Descriptions.Item label="GMT Offset">
             {detail.timeZone !== undefined ? `GMT ${detail.timeZone > 0 ? '+' : ''}${detail.timeZone}` : '-'}
@@ -410,6 +416,7 @@ const CollectorDetailPage: React.FC = () => {
       {/* Operational Information */}
       <Card title={<Space><CalendarOutlined />Operational Information</Space>}>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+          <Descriptions.Item label={withGap('First Connection', 'solisCollectorPlace')}>{'-'}</Descriptions.Item>
           <Descriptions.Item label="Last Communication">{formatSolisTime(detail.lastCommunication) || '-'}</Descriptions.Item>
           <Descriptions.Item label="Current Working Time">
             {detail.currentWorkingTime ? `${(parseInt(detail.currentWorkingTime) / 3600).toFixed(1)} hours` : '-'}

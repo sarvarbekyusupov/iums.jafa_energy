@@ -31,6 +31,7 @@ import { sitesService, deviceAlarmsService, hopeCloudService, communicationModul
 import SyncedSiteHistory from '../../../components/SyncedSiteHistory';
 import dayjs from 'dayjs';
 import { alarmTypeLabel, moduleTypeLabel } from '../../../helpers/hopecloud-fields';
+import { withGap } from '../../../components/maintainer/with-gap';
 
 const { Text } = Typography;
 const { Content } = Layout;
@@ -899,6 +900,9 @@ const SyncDataManagement: React.FC = () => {
                 {selectedSite.status?.toUpperCase()}
               </Tag>
             </Descriptions.Item>
+            <Descriptions.Item label={withGap('Province', 'hopeCloudSiteAddress')}>{(selectedSite as any).province || '-'}</Descriptions.Item>
+            <Descriptions.Item label={withGap('City', 'hopeCloudSiteAddress')}>{(selectedSite as any).city || '-'}</Descriptions.Item>
+            <Descriptions.Item label={withGap('Address', 'hopeCloudSiteAddress')} span={2}>{(selectedSite as any).address || '-'}</Descriptions.Item>
             <Descriptions.Item label="Location" span={2}>{selectedSite.location || '-'}</Descriptions.Item>
             <Descriptions.Item label="Coordinates" span={2}>
               {selectedSite.latitude && selectedSite.longitude ? `${selectedSite.latitude}, ${selectedSite.longitude}` : 'Not set'}

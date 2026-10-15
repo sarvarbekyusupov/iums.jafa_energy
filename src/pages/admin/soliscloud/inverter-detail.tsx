@@ -22,6 +22,7 @@ import { isSolisParallelMaster, solisDcPowerKw } from '../../../helpers/solis-fi
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { InverterDetail } from '../../../types/soliscloud';
+import { withGap } from '../../../components/maintainer/with-gap';
 
 const { Title, Text } = Typography;
 
@@ -289,7 +290,7 @@ const InverterDetailPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title={powerTitle}
+              title={parallelMaster ? withGap(powerTitle, 'solisParallelPower') : powerTitle}
               value={parseValue(detail.pac).toFixed(2)}
               suffix="kW"
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
@@ -328,6 +329,7 @@ const InverterDetailPage: React.FC = () => {
           <Descriptions.Item label="Station Name">{detail.stationName || '-'}</Descriptions.Item>
           <Descriptions.Item label="Model">{detail.model || '-'}</Descriptions.Item>
           <Descriptions.Item label="Station ID">{detail.stationId || '-'}</Descriptions.Item>
+          <Descriptions.Item label={withGap('Inverter Type', 'solisInverterType')}>{d.inverterType || '-'}</Descriptions.Item>
           <Descriptions.Item label="Full Power">{detail.fullPower ? `${detail.fullPower} kW` : '-'}</Descriptions.Item>
           {d.faultCodeDesc && <Descriptions.Item label="Fault / State">{d.faultCodeDesc}</Descriptions.Item>}
           {parallelMaster && (
@@ -344,7 +346,7 @@ const InverterDetailPage: React.FC = () => {
           <Col xs={24} sm={12} md={8}>
             <Card size="small">
               <Statistic
-                title={parallelMaster ? 'AC Power (parallel group)' : 'AC Power'}
+                title={parallelMaster ? withGap('AC Power (parallel group)', 'solisParallelPower') : 'AC Power'}
                 value={parseValue(detail.pac).toFixed(2)}
                 suffix="kW"
                 valueStyle={{ fontSize: 18 }}
@@ -508,13 +510,14 @@ const InverterDetailPage: React.FC = () => {
             <Descriptions.Item label="Today's Discharge">{parseValue(detail.batteryTodayDischargeEnergy) > 0 ? `${parseValue(detail.batteryTodayDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Total Charge">{parseValue(detail.batteryTotalChargeEnergy) > 0 ? `${parseValue(detail.batteryTotalChargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Total Discharge">{parseValue(detail.batteryTotalDischargeEnergy) > 0 ? `${parseValue(detail.batteryTotalDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label={withGap('Remaining Capacity', 'solisRemainingCapacity')}>{parseValue(d.batteryCapacityRemain) > 0 ? `${parseValue(d.batteryCapacityRemain).toFixed(2)} kWh` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Battery Health (SOH)">{d.batteryHealthSoh != null && d.batteryHealthSoh !== '' ? `${parseValue(d.batteryHealthSoh)}%` : '-'}</Descriptions.Item>
           </Descriptions>
         </Card>
       )}
 
       {/* Temperature */}
-      <Card title={<Space><FireOutlined />Temperature</Space>} style={{ marginBottom: 16 }}>
+      <Card title={<Space><FireOutlined />Temperature & Environment</Space>} style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Card size="small">
@@ -526,6 +529,24 @@ const InverterDetailPage: React.FC = () => {
                   color: parseValue(detail.inverterTemperature) > 60 ? '#ff4d4f' :
                          parseValue(detail.inverterTemperature) > 45 ? '#faad14' : '#52c41a'
                 }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card size="small">
+              <Statistic
+                title={withGap('Module Temperature', 'solisModuleTemperature')}
+                value={parseValue(d.moduleTemperature) > 0 ? parseValue(d.moduleTemperature).toFixed(1) : '-'}
+                suffix="°C"
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card size="small">
+              <Statistic
+                title={withGap('Ambient Temperature', 'solisAmbientTemperature')}
+                value={parseValue(d.ambientTemperature) > 0 ? parseValue(d.ambientTemperature).toFixed(1) : '-'}
+                suffix="°C"
               />
             </Card>
           </Col>

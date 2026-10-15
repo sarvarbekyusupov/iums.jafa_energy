@@ -27,6 +27,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import dayjs from 'dayjs';
 import { hopeCloudService } from '../service';
 import DataAsOf from './DataAsOf';
+import { withGap } from './maintainer/with-gap';
 
 const { RangePicker } = DatePicker;
 
@@ -305,7 +306,9 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
       return {
         time: dayjs(item.time).format(timeFormat),
         station: 0,
-        equipment: item.kwh
+        equipment: item.kwh,
+        earnings: item.earnings,
+        earningsUnit: item.earningsUnit,
       };
     });
 
@@ -344,8 +347,20 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
       key: 'equipmentKwh',
       render: (value: number) => value?.toFixed(2) || '0.00'
     }] : []),
-    // No earnings column: it was a constant "0.00 CNY". HopeCloud's earnings are in the
-    // account's currency at the tariff typed into HopeCloud, not ours.
+    // Columns the statistics API does not fill (it sends kWh and earnings only); kept at the
+    // maintainer's request and marked for him.
+    ...(['Peak Power (kW)', 'Average Power (kW)', 'Efficiency (%)'].map((title) => ({
+      title: withGap(title, 'hopeCloudStatsColumns'),
+      key: title,
+      render: () => '-',
+    }))),
+    {
+      title: withGap('Earnings', 'hopeCloudEarnings'),
+      dataIndex: 'earnings',
+      key: 'earnings',
+      render: (value: number | string | undefined, record: any) =>
+        value === undefined || value === null || value === '' ? '-' : `${Number(value).toFixed(2)} ${record.earningsUnit || ''}`,
+    },
   ];
 
   // Table data source
@@ -354,6 +369,8 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
     time: item.time,
     stationKwh: item.station,
     equipmentKwh: item.equipment,
+    earnings: (item as any).earnings,
+    earningsUnit: (item as any).earningsUnit,
   }));
 
   return (

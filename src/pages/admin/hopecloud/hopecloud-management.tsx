@@ -72,6 +72,7 @@ import StatisticsDashboard from '../../../components/StatisticsDashboard';
 import HopeCloudStationHistory from '../../../components/HopeCloudStationHistory';
 import HopeCloudEquipmentHistory from '../../../components/HopeCloudEquipmentHistory';
 import DataAsOf from '../../../components/DataAsOf';
+import { withGap } from '../../../components/maintainer/with-gap';
 import {
   alarmGradeLabel,
   alarmTypeLabel,
@@ -1844,36 +1845,39 @@ const HopeCloudManagement: React.FC = () => {
                           border: `1px solid ${DESIGN_TOKENS.backgrounds.purpleBorder}`,
                         }}
                       >
-                        {/* Only fields the station actually has: the stored data carries name, address,
-                            capacity and update time; the vendor list adds owner, company and region. */}
+                        {/* The stored data carries name, address, capacity and update time; the vendor
+                            list adds owner, company and region. Fields marked with a gap are shown as "-"
+                            when absent, so the maintainer can see what the API leaves empty. */}
                         <Descriptions column={3} size="small" bordered>
                           {([
-                            ['Station Name', selectedStation.name],
-                            ['Owner', selectedStation.ownerName],
-                            ['Company', selectedStation.companyName],
-                            ['Address', selectedStation.address],
-                            ['City', selectedStation.city],
-                            ['Province', selectedStation.province],
-                            ['District', selectedStation.district],
-                            ['Plant Type', selectedStation.powerPlantType],
-                            ['Network Type', selectedStation.networkType],
-                            ['Capacity', selectedStation.kwp > 0 ? `${selectedStation.kwp} kWp` : undefined],
-                            ['Orientation', toNumber(selectedStation.orientationAngle) !== undefined ? `${selectedStation.orientationAngle}°` : undefined],
-                            ['Dip Angle', toNumber(selectedStation.dipAngle) !== undefined ? `${selectedStation.dipAngle}°` : undefined],
-                            ['Coordinates', selectedStation.latitude && selectedStation.longitude ? `${selectedStation.latitude}, ${selectedStation.longitude}` : undefined],
-                            ['Owner Phone', selectedStation.ownerPhone],
-                            ['Plant Contact', selectedStation.plantContact],
-                            ['Plant Phone', selectedStation.plantContactPhone],
-                            ['Service Provider', selectedStation.serviceProviderName],
-                            ['Service Phone', selectedStation.serviceProviderPhone],
-                            ['Payment Type', selectedStation.paymentType],
-                            ['Modules', selectedStation.subassemblyNumber || undefined],
-                            ['Last Update', selectedStation.updateTime ? formatHopeCloudTime(selectedStation.updateTime) : undefined],
-                            ['Network Time', selectedStation.networkTime],
-                          ] as [string, React.ReactNode][])
-                            .filter(([, value]) => value !== undefined && value !== null && value !== '')
-                            .map(([label, value]) => (
-                              <Descriptions.Item key={label} label={label}>{value}</Descriptions.Item>
+                            ['Station Name', null, selectedStation.name],
+                            ['Owner', 'gap', selectedStation.ownerName],
+                            ['Company', 'gap', selectedStation.companyName],
+                            ['Address', null, selectedStation.address],
+                            ['City', 'gap', selectedStation.city],
+                            ['Province', 'gap', selectedStation.province],
+                            ['District', 'gap', selectedStation.district],
+                            ['Plant Type', 'gap', selectedStation.powerPlantType],
+                            ['Network Type', 'gap', selectedStation.networkType],
+                            ['Capacity', null, selectedStation.kwp > 0 ? `${selectedStation.kwp} kWp` : undefined],
+                            ['Orientation', 'gap', toNumber(selectedStation.orientationAngle) !== undefined ? `${selectedStation.orientationAngle}°` : undefined],
+                            ['Dip Angle', 'gap', toNumber(selectedStation.dipAngle) !== undefined ? `${selectedStation.dipAngle}°` : undefined],
+                            ['Coordinates', null, selectedStation.latitude && selectedStation.longitude ? `${selectedStation.latitude}, ${selectedStation.longitude}` : undefined],
+                            ['Owner Phone', 'gap', selectedStation.ownerPhone],
+                            ['Plant Contact', 'gap', selectedStation.plantContact],
+                            ['Plant Phone', 'gap', selectedStation.plantContactPhone],
+                            ['Service Provider', 'gap', selectedStation.serviceProviderName],
+                            ['Service Phone', 'gap', selectedStation.serviceProviderPhone],
+                            ['Payment Type', 'gap', selectedStation.paymentType],
+                            ['Subassemblies', 'gap', selectedStation.subassemblyNumber || undefined],
+                            ['Last Update', null, selectedStation.updateTime ? formatHopeCloudTime(selectedStation.updateTime) : undefined],
+                            ['Network Time', 'gap', selectedStation.networkTime],
+                          ] as [string, 'gap' | null, React.ReactNode][])
+                            .filter(([, gap, value]) => gap || (value !== undefined && value !== null && value !== ''))
+                            .map(([label, gap, value]) => (
+                              <Descriptions.Item key={label} label={gap ? withGap(label, 'hopeCloudStationProfile') : label}>
+                                {value === undefined || value === null || value === '' ? '-' : value}
+                              </Descriptions.Item>
                             ))}
                         </Descriptions>
 
@@ -1995,11 +1999,16 @@ const HopeCloudManagement: React.FC = () => {
                               { title: 'Active Power', value: toNumber(data.nowKw), suffix: data.powerUnit || 'kW', color: DESIGN_TOKENS.status.info, icon: <ThunderboltOutlined /> },
                               { title: 'Day Yield', value: toNumber(selectedStation.todayKwh), suffix: 'kWh', color: DESIGN_TOKENS.status.success, icon: <SunOutlined /> },
                               { title: 'Total Yield', value: toNumber(selectedStation.sumKwh), suffix: 'kWh', color: DESIGN_TOKENS.status.purple },
+                              { title: 'Efficiency', value: undefined, suffix: '%', color: DESIGN_TOKENS.status.warning, gap: true },
                             ].map((tile) => (
-                              <Col span={8} key={tile.title}>
+                              <Col span={6} key={tile.title}>
                                 <Card size="small" style={{ background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
                                   <Statistic
-                                    title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>{tile.title}</span>}
+                                    title={
+                                      <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                                        {'gap' in tile ? withGap(tile.title, 'hopeCloudStationEfficiency') : tile.title}
+                                      </span>
+                                    }
                                     value={tile.value ?? '-'}
                                     suffix={tile.value !== undefined ? tile.suffix : undefined}
                                     valueStyle={{ color: tile.color }}
@@ -2114,6 +2123,9 @@ const HopeCloudManagement: React.FC = () => {
                               .map(([label, value]) => (
                                 <Descriptions.Item key={label} label={label}>{value}</Descriptions.Item>
                               ))}
+                            <Descriptions.Item label={withGap('Firmware Version', 'hopeCloudFirmware')}>
+                              {(equipmentDetails as any).firmwareVersion || '-'}
+                            </Descriptions.Item>
                           </Descriptions>
                         </Card>
                       )}

@@ -16,6 +16,7 @@ import {
   Statistic,
   Badge,
   Tooltip,
+  Popconfirm,
   Divider,
   Switch,
 } from 'antd';
@@ -23,6 +24,7 @@ import {
   ReloadOutlined,
   PlusOutlined,
   EyeOutlined,
+  DeleteOutlined,
   SettingOutlined,
   InfoCircleOutlined,
   ThunderboltOutlined,
@@ -40,6 +42,7 @@ import { fsolarDeviceService } from '../../../service/fsolar';
 import fsolarService, { type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 import DataAsOf, { freshnessOf } from '../../../components/DataAsOf';
+import { ApiGapIcon } from '../../../components/maintainer/ApiGapIcon';
 
 const { Title, Text } = Typography;
 
@@ -226,6 +229,19 @@ const DevicesManagement: React.FC = () => {
   };
 
   // Handle view details
+  const handleDeleteDevice = async (deviceSn: string) => {
+    try {
+      setLoading(true);
+      await fsolarDeviceService.deleteDevices([deviceSn]);
+      message.success('Device deleted');
+      fetchDevices(pagination.current, pagination.pageSize);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to delete device');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewDetails = async (device: Device) => {
     if (useDbSource) {
       // Stored mode: the sync job already keeps the vendor basic-info in metadata.basic.
@@ -415,9 +431,8 @@ const DevicesManagement: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 80,
-      // No delete button: deleteDevices removes the unit from the Felicity account itself, not
-      // just from this list.
+      width: 140,
+      // Delete removes the unit from the Felicity account itself, not just from this list.
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="View Details">
@@ -428,6 +443,18 @@ const DevicesManagement: React.FC = () => {
               onClick={() => handleViewDetails(record)}
             />
           </Tooltip>
+          <Popconfirm
+            title="Delete Device"
+            description="This removes the device from the Felicity account itself. Continue?"
+            onConfirm={() => handleDeleteDevice(record.deviceSn)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Tooltip title="Delete">
+              <Button danger size="small" icon={<DeleteOutlined />} />
+            </Tooltip>
+          </Popconfirm>
+          <ApiGapIcon gap="fsolarDelete" />
         </Space>
       ),
     },

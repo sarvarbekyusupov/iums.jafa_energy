@@ -35,6 +35,7 @@ import {
 import fsolarService, { energyRowToVendorPoint, type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 import DataAsOf from '../../../components/DataAsOf';
+import { withGap } from '../../../components/maintainer/with-gap';
 
 const { Title, Text } = Typography;
 
@@ -463,7 +464,7 @@ const RealTimeMonitoring: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title={isBattery ? 'Battery Temperature' : 'Inverter Temperature'}
+              title={withGap(isBattery ? 'Battery Temperature' : 'Inverter Temperature', 'fsolarTemperature')}
               value={devTemp}
               precision={1}
               suffix="°C"

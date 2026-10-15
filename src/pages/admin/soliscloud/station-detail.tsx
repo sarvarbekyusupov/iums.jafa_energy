@@ -29,6 +29,7 @@ import { solisStationType } from '../../../helpers/solis-fields';
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { StationDetail, InverterDetail, CollectorDetail } from '../../../types/soliscloud';
+import { withGap } from '../../../components/maintainer/with-gap';
 
 const { Title, Text } = Typography;
 
@@ -524,6 +525,29 @@ const StationDetailPage: React.FC = () => {
           <Descriptions.Item label="Current Power">{parseValue(detail.pac) > 0 ? `${parseValue(detail.pac).toFixed(2)} kW` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Peak Power Today">{peakPowerToday !== undefined && peakPowerToday > 0 ? `${peakPowerToday.toFixed(2)} kW` : '-'}</Descriptions.Item>
         </Descriptions>
+      </Card>
+
+      {/* Revenue & Performance: the vendor's own income at the portal price (0 on every station). */}
+      <Card title={<Space><DashboardOutlined />{withGap('Revenue & Performance', 'solisRevenue')}</Space>} style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]}>
+          {([
+            ["Today's Income", (detail as any).dayInCome],
+            ['This Month', (detail as any).monthInCome],
+            ['This Year', (detail as any).yearInCome],
+            ['Total Income', (detail as any).allInCome],
+          ] as const).map(([title, value]) => (
+            <Col xs={24} sm={12} md={6} key={title}>
+              <Card size="small">
+                <Statistic
+                  title={title}
+                  value={value === undefined || value === null || value === '' ? '-' : parseValue(value).toFixed(2)}
+                  suffix={(detail as any).money || detail.currencyUnit || ''}
+                  valueStyle={{ fontSize: 18 }}
+                />
+              </Card>
+            </Col>
+          ))}
+        </Row>
       </Card>
 
       {/* Devices */}
