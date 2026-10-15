@@ -12,6 +12,7 @@ import {
 import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
 import solisCloudService from '../../../service/soliscloud.service';
+import { powerDayStats } from '../../../helpers/power-series';
 
 const { Title, Text } = Typography;
 
@@ -174,6 +175,10 @@ const StationChartsPage: React.FC = () => {
     const data = getCurrentData();
     if (!data || data.length === 0) return { total: 0, avg: 0, max: 0 };
 
+    if (activeTab === 'day') {
+      const day = powerDayStats(data);
+      return { total: day.energyKwh.toFixed(2), avg: day.avgKw.toFixed(2), max: day.peakKw.toFixed(2) };
+    }
     const values = data.map(d => d.value);
     return {
       total: values.reduce((sum, v) => sum + v, 0).toFixed(2),
@@ -253,7 +258,7 @@ const StationChartsPage: React.FC = () => {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title="Average"
+              title={activeTab === 'day' ? 'Average while producing' : 'Average'}
               value={stats.avg}
               suffix={activeTab === 'day' ? 'kW' : 'kWh'}
               valueStyle={{ color: '#1890ff' }}

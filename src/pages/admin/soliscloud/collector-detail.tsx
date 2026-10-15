@@ -78,7 +78,8 @@ const CollectorDetailPage: React.FC = () => {
       const chartData: any[] = [];
       response?.forEach((record: any) => {
         chartData.push(
-          { time: record.timeStr, type: 'Signal (%)', value: record.pec || 0 },
+          // rssiLevel is 0-5; pec is not a signal reading (it is 0 on every record)
+          { time: record.timeStr, type: 'Signal (%)', value: (record.rssiLevel || 0) * 20 },
           { time: record.timeStr, type: 'Signal Level', value: record.rssiLevel || 0 }
         );
       });
@@ -128,7 +129,8 @@ const CollectorDetailPage: React.FC = () => {
     );
   }
 
-  const signalInfo = getSignalStrength((detail.rssiLevel || 0) * 25);
+  // rssiLevel runs 0-5, so 20 points per level (it used to be 25, showing 125%).
+  const signalInfo = getSignalStrength((detail.rssiLevel || 0) * 20);
 
   return (
     <div>
@@ -189,8 +191,8 @@ const CollectorDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Status"
-              value=""
-              prefix={getStateTag(detail.state)}
+              // An empty value still rendered "0" after the tag ("Online0").
+              valueRender={() => getStateTag(detail.state)}
             />
           </Card>
         </Col>
@@ -198,14 +200,14 @@ const CollectorDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Signal Strength"
-              value={(detail.rssiLevel || 0) * 25}
+              value={(detail.rssiLevel || 0) * 20}
               suffix="%"
               prefix={<SignalFilled style={{ color: signalInfo.color }} />}
               valueStyle={{ color: signalInfo.color }}
             />
             <div style={{ marginTop: 8 }}>
               <Progress
-                percent={(detail.rssiLevel || 0) * 25}
+                percent={(detail.rssiLevel || 0) * 20}
                 status={signalInfo.status as any}
                 strokeColor={signalInfo.color}
               />
@@ -264,7 +266,7 @@ const CollectorDetailPage: React.FC = () => {
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <Progress
                     type="circle"
-                    percent={(detail.rssiLevel || 0) * 25}
+                    percent={(detail.rssiLevel || 0) * 20}
                     strokeColor={signalInfo.color}
                     status={signalInfo.status as any}
                     size={100}
@@ -281,7 +283,7 @@ const CollectorDetailPage: React.FC = () => {
           <Col xs={24} md={12}>
             <Card size="small" title="Connection Details">
               <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Signal Intensity">{(detail.rssiLevel || 0) * 25}%</Descriptions.Item>
+                <Descriptions.Item label="Signal Intensity">{(detail.rssiLevel || 0) * 20}%</Descriptions.Item>
                 <Descriptions.Item label="Communication Type">{detail.connectionOperator || '-'}</Descriptions.Item>
                 <Descriptions.Item label="Network Status">
                   {detail.state === 1 ? (

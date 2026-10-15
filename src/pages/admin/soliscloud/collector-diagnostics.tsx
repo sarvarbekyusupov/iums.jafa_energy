@@ -41,8 +41,8 @@ const CollectorDiagnosticsPage: React.FC = () => {
       const transformedData: any[] = [];
       response?.forEach((record: any) => {
         transformedData.push(
-          { time: record.dataTimestamp, type: 'Signal Strength', value: record.signalStrength || 0 },
-          { time: record.dataTimestamp, type: 'Data Quality', value: record.dataQuality || 0 }
+          // The vendor's day records carry rssiLevel (0-5) and rssi (dBm), not signalStrength.
+          { time: record.timeStr ?? record.dataTimestamp, type: 'Signal Strength', value: record.signalStrength ?? (record.rssiLevel || 0) * 20 },
         );
       });
       setChartData(transformedData);

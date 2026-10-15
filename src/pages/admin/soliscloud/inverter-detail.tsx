@@ -17,6 +17,7 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { formatSolisTime, toKw, toKwh } from '../../../helpers/solis-units';
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { InverterDetail } from '../../../types/soliscloud';
@@ -45,6 +46,39 @@ const normalizeDbInverter = (i: any): InverterDetail => ({
   updateDate: formatTs(i.lastSyncedAt),
 });
 
+// The newest stored reading fills what the inverter row lacks: strings, grid side, temperature.
+const withLatestReading = (inv: InverterDetail, r: any): InverterDetail =>
+  r
+    ? ({
+        ...inv,
+        uPv1: r.uDc1, iPv1: r.iDc1, uPv2: r.uDc2, iPv2: r.iDc2,
+        uAc1: r.uAc1, iAc1: r.iAc1, uAc2: r.uAc2, iAc2: r.iAc2,
+        fac: r.fAc,
+        inverterTemperature: r.temperature,
+        gridPower: r.gridPower,
+        familyLoadPower: r.loadPower,
+        pac: r.pac != null ? parseValue(r.pac) / 1000 : inv.pac, // readings store W
+      } as InverterDetail)
+    : inv;
+
+// Vendor detail: every energy figure has its own unit string (eTotal 4.49 + "MWh").
+const normalizeLiveInverter = (d: any): InverterDetail => ({
+  ...d,
+  model: d.machine || d.model,
+  pac: toKw(d.pac, d.pacStr),
+  eToday: toKwh(d.eToday, d.eTodayStr),
+  eMonth: toKwh(d.eMonth, d.eMonthStr),
+  eYear: toKwh(d.eYear, d.eYearStr),
+  eTotal: toKwh(d.eTotal, d.eTotalStr),
+  familyLoadPower: toKw(d.familyLoadPower, d.familyLoadPowerStr),
+  batteryTodayChargeEnergy: toKwh(d.batteryTodayChargeEnergy, d.batteryTodayChargeEnergyStr),
+  batteryTodayDischargeEnergy: toKwh(d.batteryTodayDischargeEnergy, d.batteryTodayDischargeEnergyStr),
+  batteryTotalChargeEnergy: toKwh(d.batteryTotalChargeEnergy, d.batteryTotalChargeEnergyStr),
+  batteryTotalDischargeEnergy: toKwh(d.batteryTotalDischargeEnergy, d.batteryTotalDischargeEnergyStr),
+  dataTimestamp: formatSolisTime(d.dataTimestamp),
+  updateDate: formatSolisTime(d.updateDate),
+});
+
 const InverterDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -65,11 +99,12 @@ const InverterDetailPage: React.FC = () => {
       setLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbInverter(id);
-        const inverter = normalizeDbInverter(response.data || response);
+        let inverter = normalizeDbInverter(response.data || response);
         // lastSyncedAt is when our sync ran; the newest stored reading is the true data time
         try {
           const latest = await solisCloudService.getDbInverterLatestReading(id);
           const ts = latest?.data?.dataTimestamp;
+          inverter = withLatestReading(inverter, latest?.data);
           if (ts) inverter.dataTimestamp = formatTs(ts);
         } catch {
           // optional; leave dataTimestamp empty
@@ -77,7 +112,7 @@ const InverterDetailPage: React.FC = () => {
         setDetail(inverter);
       } else {
         const response = await solisCloudService.getInverterDetail({ id });
-        setDetail(response);
+        setDetail(normalizeLiveInverter(response));
       }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch inverter details');
@@ -196,8 +231,8 @@ const InverterDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Status"
-              value=""
-              prefix={getStateTag(detail.state)}
+              // An empty value still rendered "0" after the tag ("Online0").
+              valueRender={() => getStateTag(detail.state)}
             />
           </Card>
         </Col>
@@ -291,7 +326,7 @@ const InverterDetailPage: React.FC = () => {
           <Descriptions.Item label="This Month">{parseValue(detail.eMonth) > 0 ? `${parseValue(detail.eMonth).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           <Descriptions.Item label="This Year">{parseValue(detail.eYear) > 0 ? `${parseValue(detail.eYear).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Total Energy">{parseValue(detail.eTotal) > 0 ? `${parseValue(detail.eTotal).toFixed(2)} kWh` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Family Load Today">{parseValue(detail.familyLoadPower) > 0 ? `${parseValue(detail.familyLoadPower).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Family Load">{parseValue(detail.familyLoadPower) > 0 ? `${parseValue(detail.familyLoadPower).toFixed(2)} kW` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Power Factor">{detail.powerFactor !== undefined ? detail.powerFactor : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>

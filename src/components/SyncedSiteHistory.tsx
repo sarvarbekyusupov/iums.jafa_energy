@@ -4,6 +4,9 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area
 import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, CalendarOutlined, BarChartOutlined, SyncOutlined } from '@ant-design/icons';
 import { hopeCloudService } from '../service';
 import { apiClient } from '../service/api-client';
+import { formatUzs } from '../helpers/currency';
+
+const UZS_PER_KWH = 1000;
 import type { HopeCloudStatistics } from '../types/hopecloud';
 import dayjs from 'dayjs';
 
@@ -316,7 +319,8 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
         time: formattedTime,
         energy,
         power,
-        revenue: 0, // Revenue calculation would need additional data or different API
+        // The flat tariff the dashboards use: 1 kWh = 1 000 so'm.
+        revenue: energy * UZS_PER_KWH,
       };
     }).filter(item => item.time !== 'Error'); // Filter out invalid items
   };
@@ -471,10 +475,8 @@ const SyncedSiteHistory: React.FC<SyncedSiteHistoryProps> = ({
             </Col>
             <Col span={8}>
               <Statistic
-                title="Total Revenue"
-                value={stats.totalRevenue}
-                precision={2}
-                prefix="$"
+                title="Daromad"
+                value={formatUzs(stats.totalRevenue)}
                 valueStyle={{ color: '#1890ff' }}
               />
             </Col>

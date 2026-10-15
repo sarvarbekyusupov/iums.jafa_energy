@@ -5,6 +5,7 @@ import { ReloadOutlined, ThunderboltOutlined, RiseOutlined, ClockCircleOutlined,
 import { hopeCloudService } from '../service';
 import type { HopeCloudStationHistoricalPower, HopeCloudStatistics } from '../types/hopecloud';
 import DataAsOf from './DataAsOf';
+import { powerDayStats } from '../helpers/power-series';
 import dayjs from 'dayjs';
 
 const NO_STORED_DATA_TEXT = 'No stored history for this date yet. Run a backfill from Sync Data, or switch to Live HopeCloud.';
@@ -251,14 +252,12 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
   const getStatistics = () => {
     if (!historicalData.length) return null;
 
-    const peakPower = Math.max(...historicalData.map(d => d.nowKw));
-    const totalDailyGeneration = historicalData.reduce((sum, d) => sum + d.nowKw, 0);
-    const avgPower = historicalData.reduce((sum, d) => sum + d.nowKw, 0) / historicalData.length;
-
+    // Energy is the power curve integrated over time, not the sum of its samples.
+    const day = powerDayStats(historicalData.map((d) => ({ time: d.time, value: d.nowKw })));
     return {
-      peakPower,
-      totalDailyGeneration,
-      avgPower
+      peakPower: day.peakKw,
+      totalDailyGeneration: day.energyKwh,
+      avgPower: day.avgKw,
     };
   };
 
@@ -376,9 +375,9 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                   <Col span={8}>
                     <Card size="small">
                       <Statistic
-                        title="Total Power"
+                        title="Energy"
                         value={statistics.totalDailyGeneration}
-                        suffix="kW"
+                        suffix="kWh"
                         prefix={<RiseOutlined />}
                         precision={1}
                         valueStyle={{ color: '#3f8600' }}
@@ -388,7 +387,7 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                   <Col span={8}>
                     <Card size="small">
                       <Statistic
-                        title="Average Power"
+                        title="Average while producing"
                         value={statistics.avgPower}
                         suffix="kW"
                         precision={2}
@@ -550,9 +549,9 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                   <Col span={8}>
                     <Card size="small">
                       <Statistic
-                        title="Average Power"
+                        title={activeTab === 'daily' ? 'Average per day' : activeTab === 'monthly' ? 'Average per month' : 'Average per year'}
                         value={statsStatistics.avgPower}
-                        suffix="kW"
+                        suffix="kWh"
                         prefix={<RiseOutlined />}
                         precision={2}
                         valueStyle={{ color: '#1890ff' }}
@@ -562,9 +561,9 @@ const HopeCloudStationHistory: React.FC<HopeCloudStationHistoryProps> = ({
                   <Col span={8}>
                     <Card size="small">
                       <Statistic
-                        title="Peak Power"
+                        title={activeTab === 'daily' ? 'Best day' : activeTab === 'monthly' ? 'Best month' : 'Best year'}
                         value={statsStatistics.maxPower}
-                        suffix="kW"
+                        suffix="kWh"
                         prefix={<BarChartOutlined />}
                         precision={2}
                         valueStyle={{ color: '#cf1322' }}

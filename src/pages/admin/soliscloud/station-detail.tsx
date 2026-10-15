@@ -24,6 +24,7 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { formatSolisTime, toKw, toKwh } from '../../../helpers/solis-units';
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { StationDetail, InverterDetail, CollectorDetail } from '../../../types/soliscloud';
@@ -70,6 +71,32 @@ const normalizeDbInverter = (i: any): InverterDetail => ({
   state: Number(i.state),
 });
 
+// Vendor station detail: energy and power come with unit strings (monthEnergy 3.371 + "MWh").
+const normalizeLiveStation = (d: any): StationDetail => ({
+  ...d,
+  pac: toKw(d.power, d.powerStr),
+  eToday: toKwh(d.dayEnergy, d.dayEnergyStr),
+  eMonth: toKwh(d.monthEnergy, d.monthEnergyStr),
+  eYear: toKwh(d.yearEnergy, d.yearEnergyStr),
+  eTotal: toKwh(d.allEnergy, d.allEnergyStr),
+  // The account's language is Chinese, so the country arrives as 乌兹别克斯坦.
+  countryStr: d.countryStr === '乌兹别克斯坦' ? 'Uzbekistan' : d.countryStr,
+  cityStr: d.cityStr || d.regionStr,
+  timeZone: d.timeZoneStr || d.timeZone,
+  dataTimestamp: formatSolisTime(d.dataTimestamp),
+  updateDate: formatSolisTime(d.updateDate),
+});
+
+// Vendor inverter list rows carry the SN as `sn` and the model as `machine`.
+const normalizeLiveInverter = (i: any): InverterDetail => ({
+  ...i,
+  inverterSn: i.sn,
+  inverterModel: i.machine || i.model,
+  pac: toKw(i.pac, i.pacStr),
+  eToday: toKwh(i.eToday, i.eTodayStr),
+  eTotal: toKwh(i.eTotal, i.eTotalStr),
+});
+
 const StationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -94,7 +121,7 @@ const StationDetailPage: React.FC = () => {
     if (id) {
       fetchDetail();
       fetchInverters();
-      // fetchCollectors(); // TODO: Backend API collectors/detail-list not implemented yet
+      fetchCollectors();
     }
   }, [id, useDbSource]);
 
@@ -117,7 +144,7 @@ const StationDetailPage: React.FC = () => {
         setDetail(station);
       } else {
         const response = await solisCloudService.getStationDetail({ id });
-        setDetail(response);
+        setDetail(normalizeLiveStation(response));
       }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch station details');
@@ -140,7 +167,7 @@ const StationDetailPage: React.FC = () => {
           pageNo: 1,
           pageSize: 100,
         });
-        setInverters(response.records || []);
+        setInverters((response.records || []).map(normalizeLiveInverter));
       }
     } catch (error: any) {
       console.error('Failed to fetch inverters:', error);
@@ -149,17 +176,19 @@ const StationDetailPage: React.FC = () => {
     }
   };
 
+  // Collectors come from our own table: the vendor has no per-station collector list.
   const fetchCollectors = async () => {
     if (!id) return;
 
     try {
       setCollectorsLoading(true);
-      const response = await solisCloudService.getCollectorsDetailList({
-        stationId: id,
-        pageNo: 1,
-        pageSize: 100,
-      });
-      setCollectors(response.records || []);
+      const response = await solisCloudService.getDbCollectors({ stationId: id, limit: 100 });
+      const rows: any[] = response.data?.records || response.records || [];
+      setCollectors(
+        rows
+          .filter((c) => String(c.stationId) === String(id))
+          .map((c) => ({ ...c, state: Number(c.state), signalStrength: c.rssiLevel != null ? Number(c.rssiLevel) * 20 : undefined })),
+      );
     } catch (error: any) {
       console.error('Failed to fetch collectors:', error);
     } finally {
@@ -208,7 +237,7 @@ const StationDetailPage: React.FC = () => {
       setIsBindCollectorModalVisible(false);
       bindCollectorForm.resetFields();
       fetchDetail();
-      // fetchCollectors(); // Uncomment when backend implements collectors/detail-list
+      fetchCollectors();
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to bind collector');
     } finally {
@@ -357,8 +386,8 @@ const StationDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="Status"
-              value=""
-              prefix={getStateTag(detail.state)}
+              // An empty value still rendered "0" after the tag ("Online0").
+              valueRender={() => getStateTag(detail.state)}
             />
           </Card>
         </Col>
