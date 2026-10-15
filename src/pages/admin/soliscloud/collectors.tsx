@@ -11,6 +11,7 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
+import { formatSolisTime } from '../../../helpers/solis-units';
 import type { Collector } from '../../../types/soliscloud';
 
 const { Title, Text } = Typography;
@@ -140,8 +141,8 @@ const SolisCloudCollectors: React.FC = () => {
     },
     {
       title: 'Model',
-      dataIndex: 'monitorModel',
-      key: 'monitorModel',
+      dataIndex: 'model',
+      key: 'model',
       width: 200,
       ellipsis: true,
       render: (text: string) => text || '-',
@@ -156,7 +157,8 @@ const SolisCloudCollectors: React.FC = () => {
         const rssiLevel = record.rssiLevel;
         return (
           <Space>
-            {getSignalIcon(rssiLevel * 25)}
+            {/* rssiLevel runs 0-5, the same scale the collector page uses */}
+            {getSignalIcon(rssiLevel * 20)}
             <Text>{rssi ? `${rssi} dBm` : '-'}</Text>
           </Space>
         );
@@ -164,11 +166,19 @@ const SolisCloudCollectors: React.FC = () => {
       sorter: (a: any, b: any) => (a.rssi || 0) - (b.rssi || 0),
     },
     {
+      title: 'Last data',
+      key: 'lastData',
+      width: 170,
+      // stored rows: lastDataTime; vendor rows: dataTimestamp (epoch ms)
+      render: (_: any, record: any) => formatSolisTime(record.lastDataTime ?? record.dataTimestamp) || '-',
+      sorter: (a: any, b: any) =>
+        (Date.parse(a.lastDataTime) || Number(a.dataTimestamp) || 0) - (Date.parse(b.lastDataTime) || Number(b.dataTimestamp) || 0),
+    },
+    {
       title: 'Firmware Version',
-      dataIndex: 'version',
       key: 'version',
       width: 130,
-      render: (text: string) => <Text code>{text || '-'}</Text>,
+      render: (_: any, record: any) => <Text code>{record.firmwareVersion || record.version || '-'}</Text>,
     },
     {
       title: 'ICCID',

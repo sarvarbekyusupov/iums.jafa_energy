@@ -19,9 +19,33 @@ import {
 import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
 import solisCloudService from '../../../service/soliscloud.service';
+import { formatSolisTime } from '../../../helpers/solis-units';
 import type { CollectorDetail } from '../../../types/soliscloud';
 
 const { Title, Text } = Typography;
+
+// Stored row: our columns on top of the vendor record kept in `detail` (collectorList +
+// collectorDetail). The page reads the vendor's keys, so map ours onto them.
+const normalizeDbCollector = (row: any): CollectorDetail => {
+  const own = Object.fromEntries(Object.entries(row || {}).filter(([k, v]) => k !== 'detail' && v !== null && v !== undefined));
+  return {
+    ...(row?.detail || {}),
+    ...own,
+    state: Number(row?.state),
+    version: row?.firmwareVersion || row?.detail?.version,
+    lastCommunication: row?.lastDataTime ?? row?.detail?.dataTimestamp,
+  } as CollectorDetail;
+};
+
+// factoryTime is "0" in the document's example and we have no real value to check the unit
+// against, so accept both epoch seconds and milliseconds.
+const formatFactoryTime = (v: unknown): string | undefined => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return new Date(n > 1e12 ? n : n * 1000).toLocaleDateString();
+};
+
+const present = (v: unknown): boolean => v !== null && v !== undefined && v !== '' && v !== '0';
 
 const CollectorDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,10 +76,10 @@ const CollectorDetailPage: React.FC = () => {
       setLoading(true);
       if (useDbSource) {
         const response = await solisCloudService.getDbCollector(id);
-        setDetail(response.data || response);
+        setDetail(normalizeDbCollector(response.data || response));
       } else {
         const response = await solisCloudService.getCollectorDetail({ id });
-        setDetail(response);
+        setDetail({ ...response, lastCommunication: (response as any)?.dataTimestamp } as CollectorDetail);
       }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || 'Failed to fetch collector details');
@@ -77,10 +101,15 @@ const CollectorDetailPage: React.FC = () => {
 
       const chartData: any[] = [];
       response?.forEach((record: any) => {
+        // timeStr is only a clock time ("05:03:07"), which a time axis cannot place on the day;
+        // dataTimestamp is the epoch.
+        const ms = Number(record.dataTimestamp);
+        if (!Number.isFinite(ms) || ms <= 0) return;
+        const time = new Date(ms).toISOString();
         chartData.push(
           // rssiLevel is 0-5; pec is not a signal reading (it is 0 on every record)
-          { time: record.timeStr, type: 'Signal (%)', value: (record.rssiLevel || 0) * 20 },
-          { time: record.timeStr, type: 'Signal Level', value: record.rssiLevel || 0 }
+          { time, type: 'Signal (%)', value: (record.rssiLevel || 0) * 20 },
+          { time, type: 'Signal Level', value: record.rssiLevel || 0 }
         );
       });
       setSignalData(chartData);
@@ -131,6 +160,8 @@ const CollectorDetailPage: React.FC = () => {
 
   // rssiLevel runs 0-5, so 20 points per level (it used to be 25, showing 125%).
   const signalInfo = getSignalStrength((detail.rssiLevel || 0) * 20);
+  const country = detail.countryStr === '乌兹别克斯坦' ? 'Uzbekistan' : detail.countryStr;
+  const installedOn = formatFactoryTime(detail.factoryTime);
 
   return (
     <div>
@@ -257,8 +288,8 @@ const CollectorDetailPage: React.FC = () => {
               size="small"
               title="Signal Quality"
               style={{
-                background: detail.signalIntensity && detail.signalIntensity > 70 ? '#f6ffed' :
-                           detail.signalIntensity && detail.signalIntensity > 40 ? '#fffbe6' : '#fff1f0',
+                background: (detail.rssiLevel || 0) * 20 > 70 ? '#f6ffed' :
+                           (detail.rssiLevel || 0) * 20 > 40 ? '#fffbe6' : '#fff1f0',
                 borderColor: signalInfo.color,
               }}
             >
@@ -296,26 +327,17 @@ const CollectorDetailPage: React.FC = () => {
             </Card>
           </Col>
         </Row>
-        <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="IP Address">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="MAC Address">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Port">{'-'}</Descriptions.Item>
-        </Descriptions>
+        {present(detail.lanIp) && (
+          <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+            <Descriptions.Item label="LAN IP">{detail.lanIp}</Descriptions.Item>
+          </Descriptions>
+        )}
       </Card>
 
       {/* Firmware & Software */}
       <Card title={<Space><CodeOutlined />Firmware & Software</Space>} style={{ marginBottom: 16 }}>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="Firmware Version">{detail.version || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Software Version">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Hardware Version">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Protocol Version">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Last Upgrade">
-            {'-'}
-          </Descriptions.Item>
-          <Descriptions.Item label="Upgrade Available">
-            <Tag color="success">Up to date</Tag>
-          </Descriptions.Item>
+          <Descriptions.Item label="Firmware Version">{present(detail.version) ? detail.version : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
 
@@ -374,10 +396,10 @@ const CollectorDetailPage: React.FC = () => {
       {/* Location & Installation */}
       <Card title={<Space><EnvironmentOutlined />Location & Installation</Space>} style={{ marginBottom: 16 }}>
         <Descriptions bordered column={{ xs: 1, sm: 2 }}>
-          <Descriptions.Item label="Installation Location">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Installation Date">{detail.factoryTime ? new Date(parseInt(detail.factoryTime) * 1000).toLocaleDateString() : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Country">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="City">{'-'}</Descriptions.Item>
+          {present(detail.addr) && <Descriptions.Item label="Address">{detail.addr}</Descriptions.Item>}
+          <Descriptions.Item label="Factory Date">{installedOn || '-'}</Descriptions.Item>
+          {present(country) && <Descriptions.Item label="Country">{country}</Descriptions.Item>}
+          {present(detail.cityStr) && <Descriptions.Item label="City">{detail.cityStr}</Descriptions.Item>}
           <Descriptions.Item label="Timezone">{detail.timeZoneStr || '-'}</Descriptions.Item>
           <Descriptions.Item label="GMT Offset">
             {detail.timeZone !== undefined ? `GMT ${detail.timeZone > 0 ? '+' : ''}${detail.timeZone}` : '-'}
@@ -388,8 +410,7 @@ const CollectorDetailPage: React.FC = () => {
       {/* Operational Information */}
       <Card title={<Space><CalendarOutlined />Operational Information</Space>}>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-          <Descriptions.Item label="First Connection">{'-'}</Descriptions.Item>
-          <Descriptions.Item label="Last Communication">{detail.dataTimestamp ? new Date(parseInt(detail.dataTimestamp)).toLocaleString() : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Last Communication">{formatSolisTime(detail.lastCommunication) || '-'}</Descriptions.Item>
           <Descriptions.Item label="Current Working Time">
             {detail.currentWorkingTime ? `${(parseInt(detail.currentWorkingTime) / 3600).toFixed(1)} hours` : '-'}
           </Descriptions.Item>

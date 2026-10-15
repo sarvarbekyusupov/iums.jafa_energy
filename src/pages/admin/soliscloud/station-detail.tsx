@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatSolisTime, toKw, toKwh } from '../../../helpers/solis-units';
+import { solisStationType } from '../../../helpers/solis-fields';
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { StationDetail, InverterDetail, CollectorDetail } from '../../../types/soliscloud';
@@ -90,9 +91,12 @@ const normalizeLiveStation = (d: any): StationDetail => ({
   installDate: formatSolisTime(d.createDate),
   gridConnectionDate: formatSolisTime(d.fisPowerTime ?? d.fisGenerateTime),
   batteryCapacity: toKwh(d.batteryCapacityEnergy, d.batteryCapacityEnergyStr),
+  // stationDetailList (what the sync stores) has no addr at all, checked 2026-10-15; the single
+  // station detail may.
+  address: d.addr || undefined,
 });
 
-// Vendor inverter list rows carry the SN as `sn` and the model as `machine`.
+// Vendor inverterDetailList rows carry the SN as `sn` and the model as `machine`.
 const normalizeLiveInverter = (i: any): InverterDetail => ({
   ...i,
   inverterSn: i.sn,
@@ -112,6 +116,7 @@ const StationDetailPage: React.FC = () => {
   const [inverters, setInverters] = useState<InverterDetail[]>([]);
   const [collectorsLoading, setCollectorsLoading] = useState(false);
   const [collectors, setCollectors] = useState<CollectorDetail[]>([]);
+  const [peakPowerToday, setPeakPowerToday] = useState<number | undefined>(undefined);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [isBindCollectorModalVisible, setIsBindCollectorModalVisible] = useState(false);
@@ -127,8 +132,25 @@ const StationDetailPage: React.FC = () => {
       fetchDetail();
       fetchInverters();
       fetchCollectors();
+      fetchPeakPower();
     }
   }, [id, useDbSource]);
+
+  // Highest stored 5-minute station power since local midnight. Station readings hold kW.
+  const fetchPeakPower = async () => {
+    if (!id) return;
+    try {
+      const response = await solisCloudService.getDbStationReadings(id, {
+        startDate: dayjs().startOf('day').toISOString(),
+        endDate: dayjs().toISOString(),
+        limit: 500,
+      });
+      const rows: any[] = response.data || response || [];
+      setPeakPowerToday(rows.length ? Math.max(...rows.map((r) => parseValue(r.pac))) : undefined);
+    } catch {
+      setPeakPowerToday(undefined);
+    }
+  };
 
   const fetchDetail = async () => {
     if (!id) return;
@@ -180,12 +202,15 @@ const StationDetailPage: React.FC = () => {
         );
         setInverters(current.map(normalizeDbInverter));
       } else {
+        // inverterDetailList ignores stationId and returns the whole account, so filter here.
         const response = await solisCloudService.getInvertersDetailList({
           stationId: id,
           pageNo: 1,
           pageSize: 100,
         });
-        setInverters((response.records || []).map(normalizeLiveInverter));
+        setInverters(
+          (response.records || []).filter((i: any) => String(i.stationId) === String(id)).map(normalizeLiveInverter),
+        );
       }
     } catch (error: any) {
       console.error('Failed to fetch inverters:', error);
@@ -296,17 +321,9 @@ const StationDetailPage: React.FC = () => {
     }
   };
 
-  const getStationTypeTag = (type?: number) => {
-    switch (type) {
-      case 1:
-        return <Tag color="blue">Residential</Tag>;
-      case 2:
-        return <Tag color="green">Commercial</Tag>;
-      case 3:
-        return <Tag color="orange">Utility</Tag>;
-      default:
-        return <Tag>Unknown</Tag>;
-    }
+  const getStationTypeTag = (type?: unknown) => {
+    const label = solisStationType(type);
+    return label ? <Tag color="blue">{label}</Tag> : <Tag>Unknown</Tag>;
   };
 
   if (loading) {
@@ -414,7 +431,7 @@ const StationDetailPage: React.FC = () => {
             <Statistic
               title="Total Capacity"
               value={parseValue(detail.capacity).toFixed(2)}
-              suffix="kW"
+              suffix="kWp"
               prefix={<DashboardOutlined style={{ color: '#1890ff' }} />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -449,8 +466,8 @@ const StationDetailPage: React.FC = () => {
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="Station ID">{detail.id || '-'}</Descriptions.Item>
           <Descriptions.Item label="Station Name">{detail.stationName || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Station Type">{getStationTypeTag(detail.stationType)}</Descriptions.Item>
-          <Descriptions.Item label="Total Capacity">{parseValue(detail.capacity) > 0 ? `${parseValue(detail.capacity).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Station Type">{getStationTypeTag(detail.stationTypeNew)}</Descriptions.Item>
+          <Descriptions.Item label="Total Capacity">{parseValue(detail.capacity) > 0 ? `${parseValue(detail.capacity).toFixed(2)} kWp` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Battery Capacity">{parseValue(detail.batteryCapacity) > 0 ? `${parseValue(detail.batteryCapacity).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Status">{getStateTag(detail.state)}</Descriptions.Item>
         </Descriptions>
@@ -505,57 +522,9 @@ const StationDetailPage: React.FC = () => {
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="Total Energy">{parseValue(detail.eTotal) > 0 ? `${parseValue(detail.eTotal).toFixed(2)} kWh` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Current Power">{parseValue(detail.pac) > 0 ? `${parseValue(detail.pac).toFixed(2)} kW` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Peak Power Today">{parseValue(detail.peakPowerToday) > 0 ? `${parseValue(detail.peakPowerToday).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Peak Power Today">{peakPowerToday !== undefined && peakPowerToday > 0 ? `${peakPowerToday.toFixed(2)} kW` : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
-
-      {/* Revenue & Performance */}
-      {(detail.dayIncome !== undefined || detail.monthIncome !== undefined || detail.yearIncome !== undefined || detail.totalIncome !== undefined) && (
-        <Card title={<Space><DashboardOutlined />Revenue & Performance</Space>} style={{ marginBottom: 16 }}>
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={12} md={6}>
-              <Card size="small">
-                <Statistic
-                  title="Today's Income"
-                  value={parseValue(detail.dayIncome).toFixed(2)}
-                  prefix={detail.currencyUnit || '$'}
-                  valueStyle={{ fontSize: 18 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card size="small">
-                <Statistic
-                  title="This Month"
-                  value={parseValue(detail.monthIncome).toFixed(2)}
-                  prefix={detail.currencyUnit || '$'}
-                  valueStyle={{ fontSize: 18 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card size="small">
-                <Statistic
-                  title="This Year"
-                  value={parseValue(detail.yearIncome).toFixed(2)}
-                  prefix={detail.currencyUnit || '$'}
-                  valueStyle={{ fontSize: 18 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card size="small">
-                <Statistic
-                  title="Total Income"
-                  value={parseValue(detail.totalIncome).toFixed(2)}
-                  prefix={detail.currencyUnit || '$'}
-                  valueStyle={{ fontSize: 18, color: '#52c41a' }}
-                />
-              </Card>
-            </Col>
-          </Row>
-        </Card>
-      )}
 
       {/* Devices */}
       {detail.deviceList && detail.deviceList.length > 0 && (

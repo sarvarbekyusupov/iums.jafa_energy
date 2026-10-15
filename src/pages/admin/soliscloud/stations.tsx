@@ -14,6 +14,8 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
+import { toKw, toKwh } from '../../../helpers/solis-units';
+import { solisStationType } from '../../../helpers/solis-fields';
 import DataAsOf from '../../../components/DataAsOf';
 import type { Station } from '../../../types/soliscloud';
 
@@ -36,6 +38,20 @@ const normalizeDbStation = (s: any): Station => ({
   pac: parseValue(s.pac),
   eToday: parseValue(s.eToday),
   eTotal: parseValue(s.eTotal),
+  state: Number(s.state),
+  // sno and stationTypeNew come from the stored vendor detail (lifted by the list endpoint)
+  stationCode: s.sno,
+});
+
+// userStationList names the figures power/dayEnergy/allEnergy, each with its own unit string.
+const normalizeLiveStation = (s: any): Station => ({
+  ...s,
+  pac: toKw(s.power, s.powerStr),
+  eToday: toKwh(s.dayEnergy, s.dayEnergyStr),
+  eTotal: toKwh(s.allEnergy, s.allEnergyStr),
+  countryStr: s.countryStr === '乌兹别克斯坦' ? 'Uzbekistan' : s.countryStr,
+  cityStr: s.cityStr || s.regionStr,
+  stationCode: s.sno,
   state: Number(s.state),
 });
 
@@ -81,8 +97,9 @@ const SolisCloudStations: React.FC = () => {
           pageSize: pagination.pageSize,
         });
 
-        setStations(response.records || []);
-        setFilteredStations(response.records || []);
+        const records = (response.records || []).map(normalizeLiveStation);
+        setStations(records);
+        setFilteredStations(records);
         setPagination(prev => ({ ...prev, total: response.total || 0 }));
       }
     } catch (error: any) {
@@ -178,13 +195,10 @@ const SolisCloudStations: React.FC = () => {
     },
     {
       title: 'Type',
-      dataIndex: 'type',
+      dataIndex: 'stationTypeNew',
       key: 'type',
-      width: 100,
-      render: (type: number) => {
-        const types = ['Residential', 'Commercial', 'Utility', 'Industrial'];
-        return types[type - 1] || 'Unknown';
-      },
+      width: 160,
+      render: (type: unknown) => solisStationType(type) || 'Unknown',
     },
     {
       title: 'Capacity',
@@ -425,10 +439,7 @@ const SolisCloudStations: React.FC = () => {
                   {/* Type and Capacity */}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">
-                      {(() => {
-                        const types = ['Residential', 'Commercial', 'Utility', 'Industrial'];
-                        return types[station.type - 1] || 'Unknown';
-                      })()}
+                      {solisStationType(station.stationTypeNew) || 'Unknown'}
                     </Text>
                     <Text strong>{parseValue(station.capacity)} kWp</Text>
                   </div>

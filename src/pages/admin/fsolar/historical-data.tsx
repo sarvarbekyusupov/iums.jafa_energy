@@ -15,7 +15,6 @@ import {
   Empty,
   Tabs,
   Badge,
-  Divider,
   Switch,
   Tag,
 } from 'antd';
@@ -86,7 +85,7 @@ interface HistoryRecord {
   pvTotalPower: string;
   meterPower: string;
   ctPower: string | null;
-  ePvToday: string;
+  epvToday: string;
   tempMax: string;
   devTempMax: string;
   workMode: string;

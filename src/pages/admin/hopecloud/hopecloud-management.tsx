@@ -72,6 +72,18 @@ import StatisticsDashboard from '../../../components/StatisticsDashboard';
 import HopeCloudStationHistory from '../../../components/HopeCloudStationHistory';
 import HopeCloudEquipmentHistory from '../../../components/HopeCloudEquipmentHistory';
 import DataAsOf from '../../../components/DataAsOf';
+import {
+  alarmGradeLabel,
+  alarmTypeLabel,
+  formatHopeCloudTime,
+  inverterStatus,
+  moduleTypeLabel,
+  normalizeHopeCloudAlarm,
+  paramNumber,
+  paramText,
+  stationPlace,
+  toNumber,
+} from '../../../helpers/hopecloud-fields';
 import type {
   HopeCloudStation,
   HopeCloudAlarm,
@@ -82,7 +94,6 @@ import type {
   HopeCloudChannelTree,
   HopeCloudEquipmentDetails,
   HopeCloudRealtimeData,
-  HopeCloudStatistics,
   HopeCloudCommunicationModule,
   HopeCloudEquipmentRealtimeData,
   CreateHopeCloudStationDto,
@@ -108,10 +119,8 @@ const HopeCloudManagement: React.FC = () => {
   // const [authValidation, setAuthValidation] = useState<HopeCloudAuthValidation | null>(null);
   
   // New state for additional APIs
-  const [stationStatistics, setStationStatistics] = useState<HopeCloudStatistics[]>([]);
   const [equipmentRealtimeData, setEquipmentRealtimeData] = useState<HopeCloudEquipmentRealtimeData | null>(null);
   const [equipmentAlarms, setEquipmentAlarms] = useState<HopeCloudAlarm[]>([]);
-  const [equipmentStatistics, setEquipmentStatistics] = useState<HopeCloudStatistics[]>([]);
   const [communicationModules, setCommunicationModules] = useState<HopeCloudCommunicationModule[]>([]);
   const [selectedCommModule, setSelectedCommModule] = useState<HopeCloudCommunicationModule | null>(null);
   const [stationConfigTypes, setStationConfigTypes] = useState<HopeCloudConfigTypes | null>(null);
@@ -132,7 +141,6 @@ const HopeCloudManagement: React.FC = () => {
   const [bindDevicesVisible, setBindDevicesVisible] = useState(false);
   const [alarmDetailVisible, setAlarmDetailVisible] = useState(false);
   const [commModuleVisible, setCommModuleVisible] = useState(false);
-  const [statisticsVisible, setStatisticsVisible] = useState(false);
   const [selectedStationId] = useState<string>('');
   
   // New state for missing APIs
@@ -214,8 +222,8 @@ const HopeCloudManagement: React.FC = () => {
       const health = await hopeCloudService.getHealth();
       setHealthStatus(health);
       if (health.status !== 'healthy') return;
-      // The vendor's own alarm list marks status "0" pending / "1" processed; normalise it to what
-      // the Alarms tab expects.
+      // The vendor's alarm list uses id / powerPlantName / reportedTime and status "0" pending /
+      // "1" processed; normalise it to the stored-alarm shape the Alarms tab renders.
       const [stationsData, alarmsResponse, configTypesResponse] = await Promise.all([
         loadStations(),
         hopeCloudService.getActiveAlarms({ pageIndex: 1, pageSize: 50 }),
@@ -223,8 +231,8 @@ const HopeCloudManagement: React.FC = () => {
       ]);
       setStations(stationsData);
       setAlarms(
-        (Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []).map((a: any) =>
-          a.status === '0' ? { ...a, status: 'active' } : a.status === '1' ? { ...a, status: 'resolved' } : a,
+        (Array.isArray(alarmsResponse.data) ? alarmsResponse.data : []).map(
+          (a: any) => normalizeHopeCloudAlarm(a) as HopeCloudAlarm,
         ),
       );
       setStationConfigTypes(configTypesResponse.data);
@@ -288,7 +296,9 @@ const HopeCloudManagement: React.FC = () => {
         alarmId: alarm.alarmId,
         sn: alarm.equipmentSn
       });
-      setSelectedAlarmDetails(response.data);
+      // The detail answer is the vendor shape (id, powerPlantName, status "0"/"1"); keep what
+      // the list already had for anything it leaves out
+      setSelectedAlarmDetails(normalizeHopeCloudAlarm({ ...alarm, ...(response.data || {}) }) as HopeCloudAlarm);
       setAlarmDetailVisible(true);
     } catch (error: any) {
       // If API fails, show the alarm data we already have with a warning
@@ -296,78 +306,6 @@ const HopeCloudManagement: React.FC = () => {
       message.warning('Unable to fetch detailed analysis from external service. Showing basic alarm information.');
       setSelectedAlarmDetails(alarm);
       setAlarmDetailVisible(true);
-    }
-  };
-
-  const handleAcknowledgeAlarm = async (alarm: HopeCloudAlarm) => {
-    try {
-      // Note: Add actual acknowledge API call when available
-      // await hopeCloudService.acknowledgeAlarm(alarm.alarmId);
-      message.success(`Alarm ${alarm.alarmId} acknowledged successfully`);
-      
-      // Refresh alarms list
-      fetchAllData();
-    } catch (error: any) {
-      message.error('Failed to acknowledge alarm: ' + error.message);
-    }
-  };
-
-
-  const handleViewEquipmentStatistics = async (deviceSn: string, type: 'daily' | 'monthly' | 'yearly') => {
-    try {
-      // Use specific dates that have data instead of current date ranges
-      let endDate: Date, startDate: Date;
-      
-      if (type === 'daily') {
-        // Use July 2025 date range for daily stats  
-        endDate = new Date('2025-07-31');
-        startDate = new Date('2025-07-01');
-      } else if (type === 'monthly') {
-        // Use July 2025 for monthly stats (working API)
-        endDate = new Date('2025-07-01');
-        startDate = new Date('2025-07-01');
-      } else {
-        // Use 2024 for yearly stats (has actual data based on testing)
-        endDate = new Date('2024-01-01');
-        startDate = new Date('2024-01-01');
-      }
-
-      let startTime: string, endTime: string;
-      
-      if (type === 'daily') {
-        // Daily stats use YYYY-MM-DD format
-        startTime = startDate.toISOString().split('T')[0];
-        endTime = endDate.toISOString().split('T')[0];
-      } else if (type === 'monthly') {
-        // Monthly stats use "YYYY MM" format
-        startTime = `${startDate.getFullYear()} ${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-        endTime = `${endDate.getFullYear()} ${String(endDate.getMonth() + 1).padStart(2, '0')}`;
-      } else {
-        // Yearly stats use "YYYY" format
-        startTime = `${startDate.getFullYear()}`;
-        endTime = `${endDate.getFullYear()}`;
-      }
-
-      const filters = {
-        startTime,
-        endTime,
-        type: 'sn' as const
-      };
-
-      let response;
-      if (type === 'daily') {
-        response = await hopeCloudService.getEquipmentDailyStats(deviceSn, filters);
-      } else if (type === 'monthly') {
-        response = await hopeCloudService.getEquipmentMonthlyStats(deviceSn, filters);
-      } else {
-        response = await hopeCloudService.getEquipmentYearlyStats(deviceSn, filters);
-      }
-
-      const equipmentData = Array.isArray(response.data) ? response.data : [];
-      setEquipmentStatistics(equipmentData);
-      setStatisticsVisible(true);
-    } catch (error: any) {
-      message.error('Failed to fetch equipment statistics: ' + error.message);
     }
   };
 
@@ -384,7 +322,7 @@ const HopeCloudManagement: React.FC = () => {
 
       const response = await hopeCloudService.getEquipmentAlarms(deviceSn, filters);
       const alarmsData = Array.isArray(response.data) ? response.data : [];
-      setEquipmentAlarms(alarmsData);
+      setEquipmentAlarms(alarmsData.map((a: any) => normalizeHopeCloudAlarm(a) as HopeCloudAlarm));
     } catch (error: any) {
       console.warn('Could not fetch equipment alarms:', error);
     }
@@ -571,7 +509,7 @@ const HopeCloudManagement: React.FC = () => {
       // Status filter
       const matchesStatus = statusFilter === 'all' ||
         (statusFilter === 'online' && station.status === 1) ||
-        (statusFilter === 'offline' && station.status === 0);
+        (statusFilter === 'offline' && station.status !== 1);
         
       // Region filter
       const matchesRegion = regionFilter === '' || station.province === regionFilter;
@@ -834,7 +772,7 @@ const HopeCloudManagement: React.FC = () => {
                 style={{ marginTop: 8 }}
               />
               <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
-                {Math.round((totalPower / totalCapacity) * 100)}% of {totalCapacity.toFixed(0)} kWp
+                {totalCapacity > 0 ? `${Math.round((totalPower / totalCapacity) * 100)}% of ${totalCapacity.toFixed(0)} kWp` : 'No capacity on record'}
               </Text>
             </Card>
           </Col>
@@ -847,14 +785,8 @@ const HopeCloudManagement: React.FC = () => {
                 prefix={<SunOutlined style={{ color: '#fff' }} />}
                 valueStyle={{ color: '#fff' }}
               />
-              <Progress
-                percent={75}
-                strokeColor="#fff"
-                showInfo={false}
-                style={{ marginTop: 8 }}
-              />
               <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 8, display: 'block' }}>
-                Generating clean energy
+                Across {totalStations} station{totalStations === 1 ? '' : 's'}
               </Text>
             </Card>
           </Col>
@@ -997,9 +929,11 @@ const HopeCloudManagement: React.FC = () => {
                           <HomeOutlined style={{ marginRight: 8, color: '#13c2c2' }} />
                           {station.name}
                         </Title>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {station.city}, {station.province}
-                        </Text>
+                        {stationPlace(station) && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {stationPlace(station)}
+                          </Text>
+                        )}
                       </div>
                       <Badge
                         status={station.status === 1 ? 'success' : 'error'}
@@ -1033,16 +967,20 @@ const HopeCloudManagement: React.FC = () => {
                         <Title level={4} style={{ margin: 0, color: '#722ed1' }}>
                           {(station.nowKw || 0).toFixed(1)} <Text style={{ fontSize: 14, color: '#722ed1' }}>kW</Text>
                         </Title>
-                        <Progress
-                          percent={Math.min(Math.round(((station.nowKw || 0) / (station.kwp || 1)) * 100), 100)}
-                          strokeColor="#722ed1"
-                          size="small"
-                          showInfo={false}
-                          style={{ marginTop: 4 }}
-                        />
-                        <Text type="secondary" style={{ fontSize: 10 }}>
-                          {Math.round(((station.nowKw || 0) / (station.kwp || 1)) * 100)}% of {(station.kwp || 0).toFixed(0)} kWp
-                        </Text>
+                        {station.kwp > 0 && (
+                          <>
+                            <Progress
+                              percent={Math.min(Math.round(((station.nowKw || 0) / station.kwp) * 100), 100)}
+                              strokeColor="#722ed1"
+                              size="small"
+                              showInfo={false}
+                              style={{ marginTop: 4 }}
+                            />
+                            <Text type="secondary" style={{ fontSize: 10 }}>
+                              {Math.round(((station.nowKw || 0) / station.kwp) * 100)}% of {station.kwp.toFixed(0)} kWp
+                            </Text>
+                          </>
+                        )}
                       </div>
                     </Col>
                     <Col span={12}>
@@ -1070,7 +1008,8 @@ const HopeCloudManagement: React.FC = () => {
                     </Col>
                   </Row>
 
-                  {/* Station Info */}
+                  {/* Station Info (live data only: stored stations carry no owner or company) */}
+                  {(station.ownerName || station.companyName) && (
                   <div style={{
                     background: '#fafafa',
                     padding: '8px 12px',
@@ -1078,16 +1017,21 @@ const HopeCloudManagement: React.FC = () => {
                     marginBottom: 12
                   }}>
                     <Space split={<Divider type="vertical" />} size="small" style={{ fontSize: 11 }}>
-                      <Text type="secondary">
-                        <UserOutlined style={{ marginRight: 4 }} />
-                        {station.ownerName || 'N/A'}
-                      </Text>
-                      <Text type="secondary">
-                        <BuildOutlined style={{ marginRight: 4 }} />
-                        {station.companyName || 'N/A'}
-                      </Text>
+                      {station.ownerName && (
+                        <Text type="secondary">
+                          <UserOutlined style={{ marginRight: 4 }} />
+                          {station.ownerName}
+                        </Text>
+                      )}
+                      {station.companyName && (
+                        <Text type="secondary">
+                          <BuildOutlined style={{ marginRight: 4 }} />
+                          {station.companyName}
+                        </Text>
+                      )}
                     </Space>
                   </div>
+                  )}
 
                   {/* Action Buttons */}
                   <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
@@ -1134,7 +1078,7 @@ const HopeCloudManagement: React.FC = () => {
   const AlarmsContent = () => {
     const activeAlarms = Array.isArray(alarms) ? alarms.filter(a => a.status === 'active') : [];
     const filteredAlarms = Array.isArray(alarms) ? alarms.filter(alarm =>
-      !alarmFilter || alarm.severity === alarmFilter
+      !alarmFilter || alarm.alarmGrade === alarmFilter
     ) : [];
 
     return (
@@ -1164,14 +1108,15 @@ const HopeCloudManagement: React.FC = () => {
         extra={
           <Space>
             <Select
-              placeholder="Filter by severity"
+              placeholder="Filter by level"
               style={{ width: 150 }}
               allowClear
-              onChange={setAlarmFilter}
+              value={alarmFilter || undefined}
+              onChange={(v) => setAlarmFilter(v ?? '')}
             >
-              <Select.Option value="high">High</Select.Option>
-              <Select.Option value="medium">Medium</Select.Option>
-              <Select.Option value="low">Low</Select.Option>
+              <Select.Option value="2">Severe</Select.Option>
+              <Select.Option value="1">General</Select.Option>
+              <Select.Option value="0">Prompt</Select.Option>
             </Select>
             <Button
               icon={<ReloadOutlined />}
@@ -1237,17 +1182,6 @@ const HopeCloudManagement: React.FC = () => {
                     >
                       View Details
                     </Button>,
-                    <Button
-                      key="acknowledge"
-                      type="link"
-                      size="small"
-                      onClick={() => handleAcknowledgeAlarm(alarm)}
-                      style={{
-                        color: isActive ? DESIGN_TOKENS.status.warning : DESIGN_TOKENS.menu.primary
-                      }}
-                    >
-                      {isActive ? 'Acknowledge' : 'Acknowledged'}
-                    </Button>
                   ]}
                 >
                   <List.Item.Meta
@@ -1263,16 +1197,14 @@ const HopeCloudManagement: React.FC = () => {
                     title={
                       <Space size="small">
                         <Text strong style={{ fontSize: '15px' }}>
-                          {alarm.alarmContent || alarm.alarmType || `Alarm ${alarm.alarmCode}`}
+                          {alarm.alarmContent || alarm.message || `Alarm ${alarm.alarmCode}`}
                         </Text>
                         <Tag
                           color={alarm.alarmGrade === '2' ? 'error' :
                                  alarm.alarmGrade === '1' ? 'warning' : 'success'}
                           style={{ fontWeight: 500 }}
                         >
-                          {alarm.alarmGrade === '2' ? 'Severe' :
-                           alarm.alarmGrade === '1' ? 'General' :
-                           alarm.alarmGrade === '0' ? 'Prompt' : 'Unknown'}
+                          {alarmGradeLabel(alarm.alarmGrade)}
                         </Tag>
                         <Tag
                           color={isActive ? 'error' : 'success'}
@@ -1285,7 +1217,7 @@ const HopeCloudManagement: React.FC = () => {
                     description={
                       <Space direction="vertical" size={4} style={{ width: '100%' }}>
                         <Text style={{ color: 'rgba(0,0,0,0.65)' }}>
-                          {alarm.alarmContent || alarm.message}
+                          {alarmTypeLabel(alarm.alarmType)}{alarm.alarmCode ? ` · code ${alarm.alarmCode}` : ''}
                         </Text>
                         <div style={{
                           background: DESIGN_TOKENS.backgrounds.blue,
@@ -1299,10 +1231,10 @@ const HopeCloudManagement: React.FC = () => {
                               <strong>Device:</strong> {alarm.equipmentSn || alarm.deviceSn || alarm.deviceId}
                             </Text>
                             <Text style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)' }}>
-                              <strong>Plant:</strong> {alarm.plantName || 'Unknown'}
+                              <strong>Plant:</strong> {alarm.plantName || '-'}
                             </Text>
                             <Text style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)' }}>
-                              <strong>Time:</strong> {new Date(alarm.reportedTime || alarm.occurredAt).toLocaleString()}
+                              <strong>Time:</strong> {formatHopeCloudTime(alarm.reportedTime || alarm.occurredAt)}
                             </Text>
                           </Space>
                         </div>
@@ -1375,7 +1307,7 @@ const HopeCloudManagement: React.FC = () => {
                 title: 'Device Type',
                 key: 'deviceType',
                 render: (_, record) => (
-                  <Tag color="blue">{record.deviceType || 'WiFi'}</Tag>
+                  <Tag color="blue">{moduleTypeLabel(record.deviceType)}</Tag>
                 ),
               },
               {
@@ -1383,10 +1315,10 @@ const HopeCloudManagement: React.FC = () => {
                 key: 'status',
                 render: (_, record) => (
                   <Badge
-                    status={record.status === 'online' ? 'success' : 'error'}
+                    status={record.status === 'online' ? 'success' : record.status === 'fault' ? 'warning' : 'error'}
                     text={
-                      <Text strong style={{ color: record.status === 'online' ? '#52c41a' : '#ff4d4f' }}>
-                        {record.status === 'online' ? 'ONLINE' : 'OFFLINE'}
+                      <Text strong style={{ color: record.status === 'online' ? '#52c41a' : record.status === 'fault' ? '#fa8c16' : '#ff4d4f' }}>
+                        {record.status === 'online' ? 'ONLINE' : record.status === 'fault' ? 'FAULT' : 'OFFLINE'}
                       </Text>
                     }
                   />
@@ -1784,8 +1716,8 @@ const HopeCloudManagement: React.FC = () => {
                       <Tag color={selectedStation.status === 1 ? 'success' : 'error'}>
                         {selectedStation.status === 1 ? 'Online' : 'Offline'}
                       </Tag>
-                      <Tag color="purple">{selectedStation.kwp} kWp</Tag>
-                      <Tag color="orange">{selectedStation.powerPlantType}</Tag>
+                      {selectedStation.kwp > 0 && <Tag color="purple">{selectedStation.kwp} kWp</Tag>}
+                      {selectedStation.powerPlantType && <Tag color="orange">{selectedStation.powerPlantType}</Tag>}
                     </>
                   )}
                 </div>
@@ -1845,11 +1777,13 @@ const HopeCloudManagement: React.FC = () => {
                               prefix={<ThunderboltOutlined style={{ color: DESIGN_TOKENS.status.info }} />}
                               valueStyle={{ color: DESIGN_TOKENS.status.info, fontWeight: 600 }}
                             />
-                            <Progress
-                              percent={Math.round((selectedStation.nowKw / selectedStation.kwp) * 100)}
-                              strokeColor={DESIGN_TOKENS.status.info}
-                              style={{ marginTop: 12 }}
-                            />
+                            {selectedStation.kwp > 0 && (
+                              <Progress
+                                percent={Math.min(Math.round(((selectedStation.nowKw || 0) / selectedStation.kwp) * 100), 100)}
+                                strokeColor={DESIGN_TOKENS.status.info}
+                                style={{ marginTop: 12 }}
+                              />
+                            )}
                           </Card>
                         </Col>
                         <Col span={8}>
@@ -1910,50 +1844,37 @@ const HopeCloudManagement: React.FC = () => {
                           border: `1px solid ${DESIGN_TOKENS.backgrounds.purpleBorder}`,
                         }}
                       >
+                        {/* Only fields the station actually has: the stored data carries name, address,
+                            capacity and update time; the vendor list adds owner, company and region. */}
                         <Descriptions column={3} size="small" bordered>
-                          <Descriptions.Item label="Station Name">{selectedStation.name}</Descriptions.Item>
-                          <Descriptions.Item label="Owner">{selectedStation.ownerName}</Descriptions.Item>
-                          <Descriptions.Item label="Company">{selectedStation.companyName}</Descriptions.Item>
-
-                          <Descriptions.Item label="Address">{selectedStation.address}</Descriptions.Item>
-                          <Descriptions.Item label="City">{selectedStation.city}</Descriptions.Item>
-                          <Descriptions.Item label="Province">{selectedStation.province}</Descriptions.Item>
-
-                          <Descriptions.Item label="District">{selectedStation.district}</Descriptions.Item>
-                          <Descriptions.Item label="Plant Type">{selectedStation.powerPlantType}</Descriptions.Item>
-                          <Descriptions.Item label="Network Type">{selectedStation.networkType}</Descriptions.Item>
-
-                          <Descriptions.Item label="Capacity">{selectedStation.kwp} kWp</Descriptions.Item>
-                          <Descriptions.Item label="Orientation">{selectedStation.orientationAngle}°</Descriptions.Item>
-                          <Descriptions.Item label="Dip Angle">{selectedStation.dipAngle}°</Descriptions.Item>
-
-                          {selectedStation.ownerPhone && (
-                            <Descriptions.Item label="Owner Phone">{selectedStation.ownerPhone}</Descriptions.Item>
-                          )}
-                          {selectedStation.plantContact && (
-                            <Descriptions.Item label="Plant Contact">{selectedStation.plantContact}</Descriptions.Item>
-                          )}
-                          {selectedStation.plantContactPhone && (
-                            <Descriptions.Item label="Plant Phone">{selectedStation.plantContactPhone}</Descriptions.Item>
-                          )}
-
-                          {selectedStation.serviceProviderName && (
-                            <Descriptions.Item label="Service Provider">{selectedStation.serviceProviderName}</Descriptions.Item>
-                          )}
-                          {selectedStation.serviceProviderPhone && (
-                            <Descriptions.Item label="Service Phone">{selectedStation.serviceProviderPhone}</Descriptions.Item>
-                          )}
-                          {selectedStation.paymentType && (
-                            <Descriptions.Item label="Payment Type">{selectedStation.paymentType}</Descriptions.Item>
-                          )}
-
-                          {selectedStation.subassemblyNumber && (
-                            <Descriptions.Item label="Subassemblies">{selectedStation.subassemblyNumber}</Descriptions.Item>
-                          )}
-                          <Descriptions.Item label="Last Update">{selectedStation.updateTime}</Descriptions.Item>
-                          {selectedStation.networkTime && (
-                            <Descriptions.Item label="Network Time">{selectedStation.networkTime}</Descriptions.Item>
-                          )}
+                          {([
+                            ['Station Name', selectedStation.name],
+                            ['Owner', selectedStation.ownerName],
+                            ['Company', selectedStation.companyName],
+                            ['Address', selectedStation.address],
+                            ['City', selectedStation.city],
+                            ['Province', selectedStation.province],
+                            ['District', selectedStation.district],
+                            ['Plant Type', selectedStation.powerPlantType],
+                            ['Network Type', selectedStation.networkType],
+                            ['Capacity', selectedStation.kwp > 0 ? `${selectedStation.kwp} kWp` : undefined],
+                            ['Orientation', toNumber(selectedStation.orientationAngle) !== undefined ? `${selectedStation.orientationAngle}°` : undefined],
+                            ['Dip Angle', toNumber(selectedStation.dipAngle) !== undefined ? `${selectedStation.dipAngle}°` : undefined],
+                            ['Coordinates', selectedStation.latitude && selectedStation.longitude ? `${selectedStation.latitude}, ${selectedStation.longitude}` : undefined],
+                            ['Owner Phone', selectedStation.ownerPhone],
+                            ['Plant Contact', selectedStation.plantContact],
+                            ['Plant Phone', selectedStation.plantContactPhone],
+                            ['Service Provider', selectedStation.serviceProviderName],
+                            ['Service Phone', selectedStation.serviceProviderPhone],
+                            ['Payment Type', selectedStation.paymentType],
+                            ['Modules', selectedStation.subassemblyNumber || undefined],
+                            ['Last Update', selectedStation.updateTime ? formatHopeCloudTime(selectedStation.updateTime) : undefined],
+                            ['Network Time', selectedStation.networkTime],
+                          ] as [string, React.ReactNode][])
+                            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+                            .map(([label, value]) => (
+                              <Descriptions.Item key={label} label={label}>{value}</Descriptions.Item>
+                            ))}
                         </Descriptions>
 
                         {selectedStation.remark && (
@@ -1999,10 +1920,7 @@ const HopeCloudManagement: React.FC = () => {
                           dataIndex: 'status',
                           key: 'status',
                           render: (status: number) => (
-                            <Badge
-                              status={status === 1 ? 'success' : 'error'}
-                              text={status === 1 ? 'Online' : 'Offline'}
-                            />
+                            <Badge status={inverterStatus(status).badge} text={inverterStatus(status).label} />
                           ),
                         },
                         {
@@ -2015,7 +1933,7 @@ const HopeCloudManagement: React.FC = () => {
                           title: 'Rated Power',
                           dataIndex: 'ratedPower',
                           key: 'ratedPower',
-                          render: (power: number) => `${power} kW`,
+                          render: (power: number) => (toNumber(power) !== undefined ? `${power} kW` : '-'),
                         },
                         {
                           title: 'Actions',
@@ -2064,78 +1982,32 @@ const HopeCloudManagement: React.FC = () => {
                               Current Real-time Metrics
                             </span>
                           }
+                          extra={data.time ? <Text type="secondary">Measured {formatHopeCloudTime(data.time)}</Text> : undefined}
                           style={{
                             background: DESIGN_TOKENS.backgrounds.green,
                             border: `1px solid ${DESIGN_TOKENS.backgrounds.greenBorder}`,
                           }}
                         >
+                          {/* getPowerPlantRealData returns only power and its time; the yields come
+                              from the station record. */}
                           <Row gutter={16}>
-                            <Col span={6}>
-                              <Card
-                                size="small"
-                                style={{
-                                  background: '#fff',
-                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                                }}
-                              >
-                                <Statistic
-                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Active Power</span>}
-                                  value={data.nowKw}
-                                  suffix="kW"
-                                  valueStyle={{ color: DESIGN_TOKENS.status.info }}
-                                  prefix={<ThunderboltOutlined />}
-                                />
-                              </Card>
-                            </Col>
-                            <Col span={6}>
-                              <Card
-                                size="small"
-                                style={{
-                                  background: '#fff',
-                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                                }}
-                              >
-                                <Statistic
-                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Day Yield</span>}
-                                  value={data.todayKwh}
-                                  suffix="kWh"
-                                  valueStyle={{ color: DESIGN_TOKENS.status.success }}
-                                  prefix={<SunOutlined />}
-                                />
-                              </Card>
-                            </Col>
-                            <Col span={6}>
-                              <Card
-                                size="small"
-                                style={{
-                                  background: '#fff',
-                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                                }}
-                              >
-                                <Statistic
-                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Total Yield</span>}
-                                  value={data.totalKwh}
-                                  suffix="kWh"
-                                  valueStyle={{ color: DESIGN_TOKENS.status.purple }}
-                                />
-                              </Card>
-                            </Col>
-                            <Col span={6}>
-                              <Card
-                                size="small"
-                                style={{
-                                  background: '#fff',
-                                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                                }}
-                              >
-                                <Statistic
-                                  title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>Efficiency</span>}
-                                  value={0}
-                                  suffix="%"
-                                  valueStyle={{ color: DESIGN_TOKENS.status.warning }}
-                                />
-                              </Card>
-                            </Col>
+                            {[
+                              { title: 'Active Power', value: toNumber(data.nowKw), suffix: data.powerUnit || 'kW', color: DESIGN_TOKENS.status.info, icon: <ThunderboltOutlined /> },
+                              { title: 'Day Yield', value: toNumber(selectedStation.todayKwh), suffix: 'kWh', color: DESIGN_TOKENS.status.success, icon: <SunOutlined /> },
+                              { title: 'Total Yield', value: toNumber(selectedStation.sumKwh), suffix: 'kWh', color: DESIGN_TOKENS.status.purple },
+                            ].map((tile) => (
+                              <Col span={8} key={tile.title}>
+                                <Card size="small" style={{ background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                                  <Statistic
+                                    title={<span style={{ color: 'rgba(0,0,0,0.65)' }}>{tile.title}</span>}
+                                    value={tile.value ?? '-'}
+                                    suffix={tile.value !== undefined ? tile.suffix : undefined}
+                                    valueStyle={{ color: tile.color }}
+                                    prefix={tile.icon}
+                                  />
+                                </Card>
+                              </Col>
+                            ))}
                           </Row>
                         </Card>
                       ))}
@@ -2170,6 +2042,8 @@ const HopeCloudManagement: React.FC = () => {
             setDeviceDrawerVisible(false);
             setSelectedDevice(null);
             setEquipmentDetails(null);
+            setEquipmentRealtimeData(null);
+            setEquipmentAlarms([]);
           }}
           open={deviceDrawerVisible}
           width={600}
@@ -2199,14 +2073,12 @@ const HopeCloudManagement: React.FC = () => {
                           <Descriptions.Item label="Equipment Name">{selectedDevice.equipmentName}</Descriptions.Item>
                           <Descriptions.Item label="Serial Number">{selectedDevice.equipmentSn}</Descriptions.Item>
                           <Descriptions.Item label="Model">{selectedDevice.equipmentModel}</Descriptions.Item>
-                          <Descriptions.Item label="Type">{selectedDevice.deviceType || 'N/A'}</Descriptions.Item>
-                          <Descriptions.Item label="Rated Power">{selectedDevice.ratedPower} kW</Descriptions.Item>
-                          <Descriptions.Item label="Current Power">{(selectedDevice.nowKw || 0).toFixed(2)} kW</Descriptions.Item>
+                          {toNumber(selectedDevice.ratedPower) !== undefined && (
+                            <Descriptions.Item label="Rated Power">{selectedDevice.ratedPower} kW</Descriptions.Item>
+                          )}
+                          <Descriptions.Item label="Current Power">{(toNumber(selectedDevice.nowKw) ?? 0).toFixed(2)} kW</Descriptions.Item>
                           <Descriptions.Item label="Status">
-                            <Badge
-                              status={selectedDevice.status === 1 ? 'success' : 'error'}
-                              text={selectedDevice.status === 1 ? 'Online' : 'Offline'}
-                            />
+                            <Badge status={inverterStatus(selectedDevice.status).badge} text={inverterStatus(selectedDevice.status).label} />
                           </Descriptions.Item>
                         </Descriptions>
                       </Card>
@@ -2225,12 +2097,23 @@ const HopeCloudManagement: React.FC = () => {
                           }}
                         >
                           <Descriptions column={1} size="small">
-                            <Descriptions.Item label="Device Name">{equipmentDetails.deviceName}</Descriptions.Item>
-                            <Descriptions.Item label="Device Type">{equipmentDetails.deviceType}</Descriptions.Item>
-                            <Descriptions.Item label="Model">{equipmentDetails.model}</Descriptions.Item>
-                            <Descriptions.Item label="Capacity">{equipmentDetails.capacity} kW</Descriptions.Item>
-                            <Descriptions.Item label="Firmware Version">{equipmentDetails.firmwareVersion}</Descriptions.Item>
-                            <Descriptions.Item label="Last Update">{equipmentDetails.lastUpdateTime}</Descriptions.Item>
+                            {([
+                              ['Name', equipmentDetails.equipmentName],
+                              ['Model', equipmentDetails.equipmentModel],
+                              ['Rated Power', toNumber(equipmentDetails.ratedPower) !== undefined ? `${equipmentDetails.ratedPower} kW` : undefined],
+                              ['Datalogger', equipmentDetails.divertorName || equipmentDetails.equipmentPn],
+                              ['Software DC/AC', equipmentDetails.softDcacCode],
+                              ['Software DC/DC', equipmentDetails.softDcdcCode],
+                              ['Parameters DC/AC', equipmentDetails.paramDcacCode],
+                              ['Parameters DC/DC', equipmentDetails.paramDcdcCode],
+                              ['Today', toNumber(equipmentDetails.todayKwh) !== undefined ? `${equipmentDetails.todayKwh} kWh` : undefined],
+                              ['Total', toNumber(equipmentDetails.sumKwh) !== undefined ? `${equipmentDetails.sumKwh} kWh` : undefined],
+                              ['Last Update', equipmentDetails.updateTime ? formatHopeCloudTime(equipmentDetails.updateTime) : undefined],
+                            ] as [string, React.ReactNode][])
+                              .filter(([, value]) => value !== undefined && value !== null && value !== '')
+                              .map(([label, value]) => (
+                                <Descriptions.Item key={label} label={label}>{value}</Descriptions.Item>
+                              ))}
                           </Descriptions>
                         </Card>
                       )}
@@ -2240,55 +2123,46 @@ const HopeCloudManagement: React.FC = () => {
                 {
                   key: 'realtime',
                   label: 'Real-time Data',
-                  children: equipmentRealtimeData ? (
-                    <Card size="small" title="Equipment Real-time Metrics">
-                      <Row gutter={16}>
-                        <Col span={12}>
-                          <Statistic
-                            title="Active Power"
-                            value={equipmentRealtimeData.activePower}
-                            suffix="kW"
-                            prefix={<ThunderboltOutlined />}
-                          />
-                        </Col>
-                        <Col span={12}>
-                          <Statistic
-                            title="Voltage"
-                            value={equipmentRealtimeData.voltage}
-                            suffix="V"
-                          />
-                        </Col>
-                        <Col span={12}>
-                          <Statistic
-                            title="Current"
-                            value={equipmentRealtimeData.current}
-                            suffix="A"
-                          />
-                        </Col>
-                        <Col span={12}>
-                          <Statistic
-                            title="Frequency"
-                            value={equipmentRealtimeData.frequency}
-                            suffix="Hz"
-                          />
-                        </Col>
-                        <Col span={12}>
-                          <Statistic
-                            title="Temperature"
-                            value={equipmentRealtimeData.temperature}
-                            suffix="°C"
-                          />
-                        </Col>
-                        <Col span={12}>
-                          <Statistic
-                            title="Efficiency"
-                            value={equipmentRealtimeData.efficiency}
-                            suffix="%"
-                          />
-                        </Col>
-                      </Row>
-                    </Card>
-                  ) : (
+                  children: equipmentRealtimeData ? (() => {
+                    // getEquipmentData: nowKw, powerFactor and internalTemperature at the top level,
+                    // everything else in paramData.paramList under the inverter's own keys
+                    const params = equipmentRealtimeData.paramData?.paramList;
+                    const triple = (keys: string[]) => {
+                      const values = keys.map((k) => paramNumber(params, k));
+                      return values.every((v) => v !== undefined) ? values.join(' / ') : undefined;
+                    };
+                    const tiles: { title: string; value: number | string | undefined; suffix?: string }[] = [
+                      { title: 'Active Power', value: toNumber(equipmentRealtimeData.nowKw) ?? paramNumber(params, 'ACActivePower'), suffix: 'kW' },
+                      { title: 'DC Input Power', value: paramNumber(params, 'DCInputPower'), suffix: 'kW' },
+                      { title: 'Grid Voltage AB / BC / CA', value: triple(['gridABLineVoltage', 'gridBCLineVoltage', 'gridCALineVoltage']), suffix: 'V' },
+                      { title: 'Grid Current A / B / C', value: triple(['gridAPhaseCurrentIa', 'gridBPhaseCurrentIb', 'gridCPhaseCurrentIc']), suffix: 'A' },
+                      { title: 'Grid Frequency', value: paramNumber(params, 'gridFrequency'), suffix: 'Hz' },
+                      { title: 'Power Factor', value: toNumber(equipmentRealtimeData.powerFactor) ?? paramNumber(params, 'powerFactor') },
+                      { title: 'Internal Temperature', value: toNumber(equipmentRealtimeData.internalTemperature) ?? paramNumber(params, 'internalTemperature'), suffix: '°C' },
+                      { title: 'Inverter Efficiency', value: paramNumber(params, 'inverterEfficiency'), suffix: '%' },
+                    ];
+                    const state = paramText(params, 'inverterState');
+                    return (
+                      <Card
+                        size="small"
+                        title="Equipment Real-time Metrics"
+                        extra={equipmentRealtimeData.paramData?.time ? <Text type="secondary">Measured {formatHopeCloudTime(equipmentRealtimeData.paramData.time)}</Text> : undefined}
+                      >
+                        {state && (
+                          <div style={{ marginBottom: 12 }}>
+                            <Text type="secondary">Inverter state: </Text><Tag>{state}</Tag>
+                          </div>
+                        )}
+                        <Row gutter={[16, 16]}>
+                          {tiles.filter((t) => t.value !== undefined).map((t) => (
+                            <Col span={12} key={t.title}>
+                              <Statistic title={t.title} value={t.value} suffix={t.suffix} />
+                            </Col>
+                          ))}
+                        </Row>
+                      </Card>
+                    );
+                  })() : (
                     <Empty description="No real-time data available" />
                   ),
                 },
@@ -2321,12 +2195,16 @@ const HopeCloudManagement: React.FC = () => {
                                     style={{ backgroundColor: '#ff4d4f' }} 
                                   />
                                 }
-                                title={alarm.alarmType}
+                                title={alarm.alarmContent || alarm.message || alarmTypeLabel(alarm.alarmType)}
                                 description={
                                   <Space direction="vertical" size={2}>
-                                    <Text>{alarm.message}</Text>
+                                    <Text>
+                                      {alarmTypeLabel(alarm.alarmType)} · {alarmGradeLabel(alarm.alarmGrade)}
+                                      {alarm.alarmCode ? ` · code ${alarm.alarmCode}` : ''}
+                                    </Text>
                                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                                      {new Date(alarm.occurredAt).toLocaleString()}
+                                      {formatHopeCloudTime(alarm.reportedTime || alarm.occurredAt)}
+                                      {alarm.restoreTime ? ` → ${formatHopeCloudTime(alarm.restoreTime)}` : ''}
                                     </Text>
                                   </Space>
                                 }
@@ -2346,67 +2224,20 @@ const HopeCloudManagement: React.FC = () => {
                   label: 'Statistics',
                   children: (
                     <Card size="small" title="Equipment Performance Statistics">
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <Space wrap>
-                          <Button
-                            icon={<BarChartOutlined />}
-                            onClick={() => handleViewEquipmentStatistics(selectedDevice.equipmentSn, 'daily')}
-                          >
-                            Daily Stats
-                          </Button>
-                          <Button
-                            icon={<BarChartOutlined />}
-                            onClick={() => handleViewEquipmentStatistics(selectedDevice.equipmentSn, 'monthly')}
-                          >
-                            Monthly Stats
-                          </Button>
-                          <Button
-                            icon={<BarChartOutlined />}
-                            onClick={() => handleViewEquipmentStatistics(selectedDevice.equipmentSn, 'yearly')}
-                          >
-                            Yearly Stats
-                          </Button>
-                          <Button
-                            icon={<LineChartOutlined />}
-                            onClick={() => handleViewEquipmentHistory(selectedDevice)}
-                            style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
-                          >
-                            Historical Data
-                          </Button>
-                        </Space>
-                        {Array.isArray(equipmentStatistics) && equipmentStatistics.length > 0 && (
-                          <Table
-                            columns={[
-                              {
-                                title: 'Period',
-                                dataIndex: 'collectTime',
-                                key: 'period',
-                                render: (_, record) => record.collectTime,
-                              },
-                              {
-                                title: 'Generation (kWh)',
-                                dataIndex: 'totalGeneration',
-                                key: 'generation',
-                                render: (value) => value?.toFixed(2) || '0.00',
-                              },
-                              {
-                                title: 'Peak Power (kW)',
-                                dataIndex: 'peakPower',
-                                key: 'peak',
-                                render: (value) => value?.toFixed(2) || 'N/A',
-                              },
-                              {
-                                title: 'Efficiency (%)',
-                                dataIndex: 'efficiency',
-                                key: 'efficiency',
-                                render: (value) => value?.toFixed(1) || 'N/A',
-                              },
-                            ]}
-                            dataSource={Array.isArray(equipmentStatistics) ? equipmentStatistics : []}
-                            size="small"
-                            pagination={{ pageSize: 10 }}
-                          />
-                        )}
+                      <Space wrap>
+                        <Button
+                          icon={<BarChartOutlined />}
+                          onClick={() => handleOpenEquipmentStatsDashboard(selectedDevice.equipmentSn, selectedDevice.equipmentName)}
+                        >
+                          Daily / Monthly / Yearly Statistics
+                        </Button>
+                        <Button
+                          icon={<LineChartOutlined />}
+                          onClick={() => handleViewEquipmentHistory(selectedDevice)}
+                          style={{ background: '#13c2c2', borderColor: '#13c2c2', color: '#fff' }}
+                        >
+                          Historical Data
+                        </Button>
                       </Space>
                     </Card>
                   ),
@@ -2613,7 +2444,7 @@ const HopeCloudManagement: React.FC = () => {
               <Descriptions.Item label="Alarm Code">{selectedAlarmDetails.alarmCode}</Descriptions.Item>
               <Descriptions.Item label="Device SN">{selectedAlarmDetails.equipmentSn || selectedAlarmDetails.deviceSn}</Descriptions.Item>
               <Descriptions.Item label="Equipment PN">{selectedAlarmDetails.equipmentPn}</Descriptions.Item>
-              <Descriptions.Item label="Alarm Grade">{selectedAlarmDetails.alarmGrade}</Descriptions.Item>
+              <Descriptions.Item label="Alarm Level">{alarmGradeLabel(selectedAlarmDetails.alarmGrade)}</Descriptions.Item>
               <Descriptions.Item label="Status" span={2}>
                 <Badge 
                   status={selectedAlarmDetails.status === 'active' ? 'error' : 'success'} 
@@ -2623,8 +2454,8 @@ const HopeCloudManagement: React.FC = () => {
               <Descriptions.Item label="Alarm Content" span={2}>
                 {selectedAlarmDetails.alarmContent || selectedAlarmDetails.message}
               </Descriptions.Item>
-              <Descriptions.Item label="Reported Time">{selectedAlarmDetails.reportedTime}</Descriptions.Item>
-              <Descriptions.Item label="Restore Time">{selectedAlarmDetails.restoreTime}</Descriptions.Item>
+              <Descriptions.Item label="Reported Time">{formatHopeCloudTime(selectedAlarmDetails.reportedTime || selectedAlarmDetails.occurredAt)}</Descriptions.Item>
+              <Descriptions.Item label="Restore Time">{selectedAlarmDetails.restoreTime ? formatHopeCloudTime(selectedAlarmDetails.restoreTime) : '-'}</Descriptions.Item>
               {selectedAlarmDetails.causesAnalysis && (
                 <Descriptions.Item label="Causes Analysis" span={2}>
                   {selectedAlarmDetails.causesAnalysis}
@@ -2662,14 +2493,14 @@ const HopeCloudManagement: React.FC = () => {
             <Descriptions column={2} size="small" bordered>
               <Descriptions.Item label="Module Name">{selectedCommModule.divertorName}</Descriptions.Item>
               <Descriptions.Item label="Part Number">{selectedCommModule.equipmentPn}</Descriptions.Item>
-              <Descriptions.Item label="Device Type">{selectedCommModule.deviceType}</Descriptions.Item>
+              <Descriptions.Item label="Device Type">{moduleTypeLabel(selectedCommModule.deviceType)}</Descriptions.Item>
               <Descriptions.Item label="Status">
                 <Badge
-                  status={selectedCommModule.status === 'online' ? 'success' : 'error'}
-                  text={selectedCommModule.status === 'online' ? 'Online' : 'Offline'}
+                  status={selectedCommModule.status === 'online' ? 'success' : selectedCommModule.status === 'fault' ? 'warning' : 'error'}
+                  text={selectedCommModule.status === 'online' ? 'Online' : selectedCommModule.status === 'fault' ? 'Fault' : 'Offline'}
                 />
               </Descriptions.Item>
-              <Descriptions.Item label="RSSI">{selectedCommModule.rssi} dBm</Descriptions.Item>
+              <Descriptions.Item label="Signal (0-100)">{selectedCommModule.rssi}</Descriptions.Item>
               <Descriptions.Item label="Loaded Number">{selectedCommModule.loadedNumber}</Descriptions.Item>
               {selectedCommModule.iccid && (
                 <Descriptions.Item label="ICCID" span={2}>{selectedCommModule.iccid}</Descriptions.Item>
@@ -2687,76 +2518,12 @@ const HopeCloudManagement: React.FC = () => {
                 <Descriptions.Item label="Power Plant">{selectedCommModule.powerPlantName}</Descriptions.Item>
               )}
               {selectedCommModule.updateTime && (
-                <Descriptions.Item label="Last Update">{selectedCommModule.updateTime}</Descriptions.Item>
+                <Descriptions.Item label="Last Update">{formatHopeCloudTime(selectedCommModule.updateTime)}</Descriptions.Item>
               )}
             </Descriptions>
           )}
         </Modal>
 
-        {/* Statistics Modal */}
-        <Modal
-          title="Statistics Analysis"
-          open={statisticsVisible}
-          onCancel={() => {
-            setStatisticsVisible(false);
-            setStationStatistics([]);
-            setEquipmentStatistics([]);
-          }}
-          footer={[
-            <Button key="close" onClick={() => {
-              setStatisticsVisible(false);
-              setStationStatistics([]);
-              setEquipmentStatistics([]);
-            }}>
-              Close
-            </Button>
-          ]}
-          width={800}
-        >
-          {((Array.isArray(stationStatistics) && stationStatistics.length > 0) || (Array.isArray(equipmentStatistics) && equipmentStatistics.length > 0)) && (
-            <Table
-              columns={[
-                {
-                  title: 'Period',
-                  key: 'period',
-                  render: (_, record) => record.collectTime || 'N/A',
-                },
-                {
-                  title: 'Total Generation (kWh)',
-                  dataIndex: 'totalGeneration',
-                  key: 'generation',
-                  render: (value) => value?.toFixed(2) || '0.00',
-                },
-                {
-                  title: 'Peak Power (kW)',
-                  dataIndex: 'peakPower',
-                  key: 'peak',
-                  render: (value) => value?.toFixed(2) || 'N/A',
-                },
-                {
-                  title: 'Average Power (kW)',
-                  dataIndex: 'averagePower',
-                  key: 'average',
-                  render: (value) => value?.toFixed(2) || 'N/A',
-                },
-                {
-                  title: 'Efficiency (%)',
-                  dataIndex: 'efficiency',
-                  key: 'efficiency',
-                  render: (value) => value?.toFixed(1) || 'N/A',
-                },
-              ]}
-              dataSource={
-                (Array.isArray(stationStatistics) && stationStatistics.length > 0) 
-                  ? stationStatistics 
-                  : (Array.isArray(equipmentStatistics) ? equipmentStatistics : [])
-              }
-              size="small"
-              pagination={{ pageSize: 15 }}
-              scroll={{ y: 400 }}
-            />
-          )}
-        </Modal>
       </Content>
 
 
@@ -2777,11 +2544,14 @@ const HopeCloudManagement: React.FC = () => {
             <Descriptions.Item label="Module ID">{selectedCommModuleDetails.id}</Descriptions.Item>
             <Descriptions.Item label="Equipment PN">{selectedCommModuleDetails.equipmentPn}</Descriptions.Item>
             <Descriptions.Item label="Name">{selectedCommModuleDetails.divertorName}</Descriptions.Item>
-            <Descriptions.Item label="Device Type">{selectedCommModuleDetails.deviceType}</Descriptions.Item>
+            <Descriptions.Item label="Device Type">{moduleTypeLabel(selectedCommModuleDetails.deviceType)}</Descriptions.Item>
             <Descriptions.Item label="Status">
-              <Badge status={selectedCommModuleDetails.status === 'online' ? 'success' : 'error'} text={selectedCommModuleDetails.status === 'online' ? 'Online' : 'Offline'} />
+              <Badge
+                status={selectedCommModuleDetails.status === 'online' ? 'success' : selectedCommModuleDetails.status === 'fault' ? 'warning' : 'error'}
+                text={selectedCommModuleDetails.status === 'online' ? 'Online' : selectedCommModuleDetails.status === 'fault' ? 'Fault' : 'Offline'}
+              />
             </Descriptions.Item>
-            <Descriptions.Item label="RSSI">{selectedCommModuleDetails.rssi} dBm</Descriptions.Item>
+            <Descriptions.Item label="Signal (0-100)">{selectedCommModuleDetails.rssi}</Descriptions.Item>
             <Descriptions.Item label="Loaded Devices">{selectedCommModuleDetails.loadedNumber}</Descriptions.Item>
             {selectedCommModuleDetails.iccid && (
               <Descriptions.Item label="ICCID">{selectedCommModuleDetails.iccid}</Descriptions.Item>
@@ -2790,7 +2560,7 @@ const HopeCloudManagement: React.FC = () => {
               <Descriptions.Item label="Operator">{selectedCommModuleDetails.operatorType}</Descriptions.Item>
             )}
             {selectedCommModuleDetails.updateTime && (
-              <Descriptions.Item label="Last Update">{selectedCommModuleDetails.updateTime}</Descriptions.Item>
+              <Descriptions.Item label="Last Update">{formatHopeCloudTime(selectedCommModuleDetails.updateTime)}</Descriptions.Item>
             )}
           </Descriptions>
         )}

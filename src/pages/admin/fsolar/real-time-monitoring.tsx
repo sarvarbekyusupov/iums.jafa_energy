@@ -15,7 +15,6 @@ import {
   message,
   Badge,
   Divider,
-  Switch,
   Empty,
 } from 'antd';
 import {
@@ -32,18 +31,30 @@ import {
   CheckCircleOutlined,
   WarningOutlined,
   ThunderboltFilled,
-  DatabaseOutlined,
 } from '@ant-design/icons';
-import { fsolarDeviceService } from '../../../service/fsolar';
 import fsolarService, { energyRowToVendorPoint, type FsolarDbDevice } from '../../../service/fsolar.service';
 import type { Device } from '../../../types/fsolar';
 import DataAsOf from '../../../components/DataAsOf';
 
 const { Title, Text } = Typography;
 
-// Stored rows land every 5 minutes, so polling faster than once a minute is wasted; live vendor stays at 5 s.
+// Stored rows land every 5 minutes, so polling faster than once a minute is wasted. There is no
+// "live" mode: the vendor's own points are 5-minute points too, and its deviceBasic call (what the
+// live switch used to poll every 5 s) carries no power figures at all.
 const DB_REFRESH_MS = 60_000;
-const LIVE_REFRESH_MS = 5_000;
+
+/** workMode codes from the Felicity open API (realtime data field list). */
+const WORK_MODE: Record<string, string> = {
+  '0': 'Power On',
+  '1': 'Standby',
+  '2': 'Bypass',
+  '3': 'Off-Grid',
+  '4': 'Fault',
+  '5': 'Line',
+  '6': 'PV Charge',
+  '7': 'Generator',
+  '8': 'Turned Off',
+};
 
 interface DeviceMetrics {
   deviceSn: string;
@@ -67,15 +78,16 @@ interface DeviceMetrics {
   pvInCurr: string;
   pv2Volt: string;
   pv2InCurr: string;
+  /** Battery pack temperature. */
   tempMax: string;
-  devTempMax: string;
-  ePvToday: string;
+  /** Inverter temperature; absent on a battery pack. */
+  devTempMax?: string;
+  epvToday: string;
   workMode: string;
 }
 
 const RealTimeMonitoring: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [useDbSource, setUseDbSource] = useState(true);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [metrics, setMetrics] = useState<DeviceMetrics | null>(null);
@@ -85,23 +97,17 @@ const RealTimeMonitoring: React.FC = () => {
   const [noStoredData, setNoStoredData] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Fetch devices: stored table in stored mode, vendor list in live mode
   const fetchDevices = async () => {
     try {
-      let list: Device[];
-      if (useDbSource) {
-        const result = await fsolarService.getDbDevices({ limit: 100 });
-        const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
-        list = rows.map((d) => ({
-          id: d.id,
-          deviceSn: d.deviceSn,
-          deviceType: d.deviceType || '',
-          deviceName: d.name || d.deviceSn,
-          status: d.status || 'unknown',
-        }));
-      } else {
-        list = await fsolarDeviceService.getAllDevices();
-      }
+      const result = await fsolarService.getDbDevices({ limit: 100 });
+      const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
+      const list: Device[] = rows.map((d) => ({
+        id: d.id,
+        deviceSn: d.deviceSn,
+        deviceType: d.deviceType || '',
+        deviceName: d.name || d.deviceSn,
+        status: d.status || 'unknown',
+      }));
       setDevices(list);
       // Keep the current selection when the new list still has it, otherwise fall back to the first device.
       if (list.length > 0 && !list.some((d) => d.deviceSn === selectedDevice)) {
@@ -112,33 +118,22 @@ const RealTimeMonitoring: React.FC = () => {
     }
   };
 
-  // Fetch metrics: newest stored row in stored mode, vendor basic-info in live mode
   const fetchMetrics = async (deviceSn: string) => {
     try {
       setLoading(true);
-
-      if (useDbSource) {
-        const result = await fsolarService.getDbDeviceEnergyLatest(deviceSn);
-        const row = result?.data;
-        if (!row) {
-          setMetrics(null);
-          setDataAsOf(null);
-          setNoStoredData(true);
-          return;
-        }
-        setNoStoredData(false);
-        setDataAsOf(row.timestamp);
-        // energyRowToVendorPoint fills every DeviceMetrics key (rawData first, entity columns as fallback),
-        // but its index-signature type does not structurally overlap, so go through unknown.
-        setMetrics(energyRowToVendorPoint(row) as unknown as DeviceMetrics);
-      } else {
-        const result: any = await fsolarDeviceService.getDeviceBasicInfo(deviceSn);
-        setNoStoredData(false);
+      const result = await fsolarService.getDbDeviceEnergyLatest(deviceSn);
+      const row = result?.data;
+      if (!row) {
+        setMetrics(null);
         setDataAsOf(null);
-        if (result) {
-          setMetrics(result as DeviceMetrics);
-        }
+        setNoStoredData(true);
+        return;
       }
+      setNoStoredData(false);
+      setDataAsOf(row.timestamp);
+      // energyRowToVendorPoint fills every DeviceMetrics key (rawData first, entity columns as fallback),
+      // but its index-signature type does not structurally overlap, so go through unknown.
+      setMetrics(energyRowToVendorPoint(row) as unknown as DeviceMetrics);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch device metrics');
     } finally {
@@ -148,13 +143,13 @@ const RealTimeMonitoring: React.FC = () => {
 
   useEffect(() => {
     fetchDevices();
-  }, [useDbSource]);
+  }, []);
 
   useEffect(() => {
     if (selectedDevice) {
       fetchMetrics(selectedDevice);
     }
-  }, [selectedDevice, useDbSource]);
+  }, [selectedDevice]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -163,14 +158,20 @@ const RealTimeMonitoring: React.FC = () => {
       if (selectedDevice) {
         fetchMetrics(selectedDevice);
       }
-    }, useDbSource ? DB_REFRESH_MS : LIVE_REFRESH_MS);
+    }, DB_REFRESH_MS);
 
     return () => clearInterval(interval);
-  }, [selectedDevice, autoRefresh, useDbSource]);
+  }, [selectedDevice, autoRefresh]);
 
+  const isBattery = devices.find((d) => d.deviceSn === selectedDevice)?.deviceType === 'battery';
   const soc = parseFloat(metrics?.emsSoc || '0');
-  const temp = parseFloat(metrics?.tempMax || '0');
-  const devTemp = parseFloat(metrics?.devTempMax || '0');
+  const packTemp = parseFloat(metrics?.tempMax || '0');
+  // The inverter's own temperature is devTempMax; tempMax is the battery pack's (vendor field list).
+  const devTemp = isBattery ? packTemp : parseFloat(metrics?.devTempMax || '0');
+  // The battery pack sends no grid fields and the store fills a missing one with "0": unknown, not 0 Hz.
+  const gridFreq = parseFloat(metrics?.acRInFreq || '');
+  const hasGridFreq = Number.isFinite(gridFreq) && gridFreq > 0;
+  const workMode = metrics?.workMode ? WORK_MODE[metrics.workMode] ?? `Mode ${metrics.workMode}` : null;
   const pvPower = parseFloat(metrics?.pvTotalPower || '0');
   const batteryPower = parseFloat(metrics?.emsPower || '0');
   const gridPower = parseFloat(metrics?.acTtlInpower || '0');
@@ -194,8 +195,8 @@ const RealTimeMonitoring: React.FC = () => {
     }
     const issues = [];
     if (soc < 20) issues.push('Low battery');
-    if (temp > 70 || devTemp > 70) issues.push('High temperature');
-    if (parseFloat(metrics.acRInFreq || '0') < 49 || parseFloat(metrics.acRInFreq || '0') > 51) {
+    if (packTemp > 70 || devTemp > 70) issues.push('High temperature');
+    if (hasGridFreq && (gridFreq < 49 || gridFreq > 51)) {
       issues.push('Grid frequency abnormal');
     }
 
@@ -226,16 +227,6 @@ const RealTimeMonitoring: React.FC = () => {
           ))}
         </Select>
         <Divider type="vertical" />
-        <Switch
-          checked={useDbSource}
-          onChange={setUseDbSource}
-          checkedChildren={<DatabaseOutlined />}
-          unCheckedChildren={<CloudOutlined />}
-        />
-        <Tag color={useDbSource ? 'blue' : 'green'}>
-          {useDbSource ? 'Stored data' : 'Live vendor API'}
-        </Tag>
-        <Divider type="vertical" />
         <Button
           icon={<ReloadOutlined />}
           onClick={() => selectedDevice && fetchMetrics(selectedDevice)}
@@ -247,7 +238,7 @@ const RealTimeMonitoring: React.FC = () => {
           type={autoRefresh ? 'primary' : 'default'}
           onClick={() => setAutoRefresh(!autoRefresh)}
         >
-          Auto: {autoRefresh ? 'ON' : 'OFF'} ({useDbSource ? '60 s' : '5 s'})
+          Auto: {autoRefresh ? 'ON' : 'OFF'} (60 s)
         </Button>
         {metrics && (
           <Text type="secondary">
@@ -267,7 +258,7 @@ const RealTimeMonitoring: React.FC = () => {
       </Col>
       <Col>
         <Space>
-          {useDbSource && <DataAsOf timestamp={dataAsOf} />}
+          <DataAsOf timestamp={dataAsOf} />
           <Badge status={systemStatus.status as any} text={systemStatus.text} />
         </Space>
       </Col>
@@ -280,20 +271,18 @@ const RealTimeMonitoring: React.FC = () => {
         {header}
         {controls}
         <Card loading={loading && !noStoredData}>
-          {useDbSource && noStoredData ? (
+          {noStoredData ? (
             <Empty
               description={
                 <span>
                   No stored readings yet for this device
                   <br />
-                  <Text type="secondary">
-                    The 5-minute sync has not stored a row for it. Switch to Live vendor API to query the vendor directly.
-                  </Text>
+                  <Text type="secondary">The 5-minute sync has not stored a row for it.</Text>
                 </span>
               }
             />
           ) : devices.length === 0 && !loading ? (
-            <Empty description={useDbSource ? 'No devices synced yet' : 'No devices returned by the vendor'} />
+            <Empty description="No devices synced yet" />
           ) : (
             <Text type="secondary">Loading device metrics...</Text>
           )}
@@ -441,7 +430,7 @@ const RealTimeMonitoring: React.FC = () => {
           <Card>
             <Statistic
               title="Today's Solar Energy"
-              value={parseFloat(metrics.ePvToday || '0')}
+              value={parseFloat(metrics.epvToday || '0')}
               precision={2}
               suffix="kWh"
               prefix={<SunOutlined />}
@@ -474,12 +463,12 @@ const RealTimeMonitoring: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="System Temperature"
-              value={temp}
+              title={isBattery ? 'Battery Temperature' : 'Inverter Temperature'}
+              value={devTemp}
               precision={1}
               suffix="°C"
               prefix={<FireOutlined />}
-              valueStyle={{ color: getTemperatureColor(temp) }}
+              valueStyle={{ color: getTemperatureColor(devTemp) }}
             />
           </Card>
         </Col>
@@ -498,7 +487,7 @@ const RealTimeMonitoring: React.FC = () => {
                   <Statistic title="Current" value={metrics.acRInCurr} suffix="A" />
                 </Col>
                 <Col span={8}>
-                  <Statistic title="Frequency" value={metrics.acRInFreq} suffix="Hz" />
+                  <Statistic title="Frequency" value={hasGridFreq ? gridFreq : '-'} suffix={hasGridFreq ? 'Hz' : undefined} />
                 </Col>
               </Row>
             </Card>
@@ -573,16 +562,22 @@ const RealTimeMonitoring: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <Text strong>Work Mode: </Text>
-                <Tag color="blue" style={{ fontSize: 14 }}>
-                  {metrics.workMode}
-                </Tag>
+                {workMode ? (
+                  <Tag color={metrics.workMode === '4' ? 'red' : 'blue'} style={{ fontSize: 14 }}>
+                    {workMode}
+                  </Tag>
+                ) : (
+                  <Text type="secondary">-</Text>
+                )}
               </div>
-              <div>
-                <Text strong>Device Temperature: </Text>
-                <Text style={{ color: getTemperatureColor(devTemp), fontSize: 16, fontWeight: 'bold' }}>
-                  {devTemp.toFixed(1)}°C
-                </Text>
-              </div>
+              {!isBattery && (
+                <div>
+                  <Text strong>Battery Pack Temperature: </Text>
+                  <Text style={{ color: getTemperatureColor(packTemp), fontSize: 16, fontWeight: 'bold' }}>
+                    {packTemp.toFixed(1)}°C
+                  </Text>
+                </div>
+              )}
               <div>
                 <Text strong>Battery SOC: </Text>
                 <Progress
@@ -598,7 +593,7 @@ const RealTimeMonitoring: React.FC = () => {
           <Card title="Quick Stats">
             <Descriptions column={1} size="small">
               <Descriptions.Item label="Meter Power">{metrics.meterPower} W</Descriptions.Item>
-              <Descriptions.Item label="PV Power">{metrics.pvPower} W</Descriptions.Item>
+              <Descriptions.Item label="PV Power (all strings)">{pvPower} W</Descriptions.Item>
               <Descriptions.Item label="Device SN">{metrics.deviceSn}</Descriptions.Item>
             </Descriptions>
           </Card>

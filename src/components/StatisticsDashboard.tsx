@@ -344,12 +344,8 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
       key: 'equipmentKwh',
       render: (value: number) => value?.toFixed(2) || '0.00'
     }] : []),
-    {
-      title: 'Earnings',
-      dataIndex: 'earnings',
-      key: 'earnings',
-      render: (value: number, record: any) => `${value?.toFixed(2) || '0.00'} ${record.earningsUnit || 'CNY'}`
-    }
+    // No earnings column: it was a constant "0.00 CNY". HopeCloud's earnings are in the
+    // account's currency at the tariff typed into HopeCloud, not ours.
   ];
 
   // Table data source
@@ -358,8 +354,6 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({
     time: item.time,
     stationKwh: item.station,
     equipmentKwh: item.equipment,
-    earnings: 0, // This would come from API data
-    earningsUnit: 'CNY'
   }));
 
   return (

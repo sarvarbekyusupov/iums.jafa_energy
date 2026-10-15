@@ -43,19 +43,21 @@ const SolisCloudAlarms: React.FC = () => {
           page: pagination.current,
           limit: pagination.pageSize,
         });
-        const dbAlarms = (response.data?.records || response.data || []).map((alarm: any, idx: number) => ({
+        // soliscloud_alarms rows: alarmMessage, deviceSn, startTime/endTime as dates and status
+        // 'active' / 'resolved'. Mapped onto the vendor's keys the columns read.
+        const dbAlarms = (response.data?.records || []).map((alarm: any, idx: number) => ({
           ...alarm,
           uniqueIndex: `${pagination.current}-${idx}`,
-          alarmLevel: alarm.level?.toString() || alarm.alarmLevel,
-          alarmMsg: alarm.message || alarm.alarmMsg,
-          alarmCode: alarm.code || alarm.alarmCode,
-          alarmBeginTime: alarm.startTime || alarm.alarmBeginTime,
-          alarmEndTime: alarm.endTime || alarm.alarmEndTime,
-          state: alarm.status?.toString() || alarm.state,
+          alarmLevel: alarm.level?.toString(),
+          alarmMsg: alarm.alarmMessage,
+          alarmDeviceSn: alarm.deviceSn,
+          alarmBeginTime: alarm.startTime ? Date.parse(alarm.startTime) : undefined,
+          alarmEndTime: alarm.endTime ? Date.parse(alarm.endTime) : undefined,
+          state: alarm.status === 'active' ? '0' : '2',
         }));
         setAlarms(dbAlarms);
         setFilteredAlarms(dbAlarms);
-        setPagination(prev => ({ ...prev, total: response.data?.total || dbAlarms.length }));
+        setPagination(prev => ({ ...prev, total: response.data?.pagination?.total ?? dbAlarms.length }));
       } else {
         response = await solisCloudService.getAlarmList({
           pageNo: pagination.current,
@@ -98,6 +100,7 @@ const SolisCloudAlarms: React.FC = () => {
     });
   };
 
+  // Vendor state: 0 pending, 1 processed in the portal, 2 restored. Only 0 needs anyone.
   const getStateTag = (state: string) => {
     return state === '0' ? (
       <Badge status="error" text="Active" />
@@ -133,6 +136,28 @@ const SolisCloudAlarms: React.FC = () => {
         { text: 'Critical', value: '3' },
       ],
       onFilter: (value: any, record: DeviceAlarm) => record.alarmLevel === value,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'state',
+      key: 'state',
+      width: 100,
+      render: (state: string) => getStateTag(state),
+    },
+    {
+      title: 'Station',
+      dataIndex: 'stationName',
+      key: 'stationName',
+      width: 160,
+      ellipsis: true,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: 'Device SN',
+      dataIndex: 'alarmDeviceSn',
+      key: 'alarmDeviceSn',
+      width: 170,
+      render: (text: string) => (text ? <Text code>{text}</Text> : '-'),
     },
     {
       title: 'Alarm Message',
@@ -172,14 +197,14 @@ const SolisCloudAlarms: React.FC = () => {
       ellipsis: { showTitle: false },
       render: (text: string) => (
         <Text ellipsis={{ tooltip: text }} style={{ maxWidth: 280 }}>
-          {text || 'No Action Required'}
+          {text || '-'}
         </Text>
       ),
     },
   ];
 
   const activeAlarms = alarms.filter(a => a.state === '0').length;
-  const resolvedAlarms = alarms.filter(a => a.state === '1').length;
+  const resolvedAlarms = alarms.filter(a => a.state === '1' || a.state === '2').length;
   const warningAlarms = alarms.filter(a => a.alarmLevel === '1').length;
   const faultAlarms = alarms.filter(a => a.alarmLevel === '2').length;
   const criticalAlarms = alarms.filter(a => a.alarmLevel === '3').length;
@@ -303,7 +328,7 @@ const SolisCloudAlarms: React.FC = () => {
             showTotal: (total) => `Total ${total} alarms`,
           }}
           onChange={handleTableChange}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1450 }}
           rowClassName={(record) => record.state === '0' ? 'active-alarm-row' : ''}
         />
       </Card>

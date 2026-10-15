@@ -13,7 +13,12 @@ import type { ColumnsType } from "antd/es/table";
 import {
   huaweiService,
   type HuaweiAlarmRow,
+  type HuaweiDeviceRow,
+  type HuaweiInverterLatest,
+  type HuaweiMeterLatest,
+  type HuaweiStateKind,
   type HuaweiStationRow,
+  type HuaweiSyncRun,
 } from "../../../service/huawei.service";
 import { formatKwh } from "../../../helpers/currency";
 
@@ -43,6 +48,83 @@ const LEVEL: Record<number, { text: string; color: string }> = {
   4: { text: "Ogohlantirish", color: "gold" },
 };
 
+/** Inverter states grouped as the backend does (SmartPVMS reference, Table 5-1). */
+const STATE: Record<HuaweiStateKind, { text: string; color: string }> = {
+  "on-grid": { text: "Tarmoqda", color: "green" },
+  standby: { text: "Kutish", color: "default" },
+  starting: { text: "Ishga tushmoqda", color: "blue" },
+  shutdown: { text: "To'xtagan", color: "red" },
+  scheduling: { text: "Tarmoq boshqaruvi", color: "blue" },
+  testing: { text: "Tekshiruv", color: "blue" },
+  "comm-lost": { text: "Aloqa yo'q", color: "orange" },
+  unknown: { text: "Noma'lum", color: "default" },
+};
+
+const RUN_STATUS: Record<string, { text: string; color: string }> = {
+  success: { text: "muvaffaqiyatli", color: "green" },
+  skipped: { text: "kvota kutilmoqda", color: "gold" },
+  failed: { text: "xato", color: "red" },
+};
+
+const fixed = (v: number | null | undefined, digits: number, unit: string) =>
+  v === null || v === undefined ? "—" : `${v.toFixed(digits)} ${unit}`;
+
+const isInverter = (d: HuaweiDeviceRow) => d.devTypeId === 1 || d.devTypeId === 38;
+
+const latestCell = (d: HuaweiDeviceRow) => {
+  if (!d.latest) return <Text type="secondary">—</Text>;
+  if (isInverter(d)) {
+    const l = d.latest as HuaweiInverterLatest;
+    const state = STATE[l.stateKind] ?? STATE.unknown;
+    return (
+      <Space size={4} wrap>
+        <Tooltip title={l.stateLabel ? `${l.stateLabel} (${l.inverterState})` : undefined}>
+          <Tag color={state.color}>{state.text}</Tag>
+        </Tooltip>
+        <Text>{fixed(l.activePower, 2, "kW")}</Text>
+        <Tooltip title="Ichki harorat; faqat tarmoqqa ishlayotganda o'lchanadi">
+          <Text type="secondary">{fixed(l.temperature, 1, "°C")}</Text>
+        </Tooltip>
+        <Tooltip title="Samaradorlik; faqat tarmoqqa ishlayotganda o'lchanadi">
+          <Text type="secondary">{fixed(l.efficiency, 1, "%")}</Text>
+        </Tooltip>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {formatTime(l.readAt)}
+        </Text>
+      </Space>
+    );
+  }
+  if (d.devTypeId === 47) {
+    const l = d.latest as HuaweiMeterLatest;
+    return (
+      <Space size={4} wrap>
+        <Text>{l.activePowerW === null ? "—" : `${(l.activePowerW / 1000).toFixed(2)} kW`}</Text>
+        <Tooltip title="Musbat / manfiy aktiv energiya hisoblagichi (yo'nalish datchik qanday o'rnatilganiga bog'liq)">
+          <Text type="secondary">
+            +{formatKwh(l.positiveKwh, 1)} / −{formatKwh(l.negativeKwh, 1)}
+          </Text>
+        </Tooltip>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {formatTime(l.readAt)}
+        </Text>
+      </Space>
+    );
+  }
+  return <Text type="secondary">—</Text>;
+};
+
+const capacity = (s: HuaweiStationRow) => {
+  const kwp = Number(s.capacityKwp);
+  if (s.capacityKwp !== null && kwp > 0) return `${kwp} kWp`;
+  if (s.ratedKw !== null)
+    return (
+      <Tooltip title="FusionSolar'da stansiya quvvati kiritilmagan; invertor modelidan olindi">
+        <Text>{s.ratedKw} kW*</Text>
+      </Tooltip>
+    );
+  return "—";
+};
+
 const health = (state: number | null) => {
   if (state === 3) return <Tag color="green">Sog'lom</Tag>;
   if (state === 2) return <Tag color="red">Nosoz</Tag>;
@@ -54,6 +136,7 @@ const HuaweiStations: React.FC = () => {
   const [rows, setRows] = useState<HuaweiStationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [runs, setRuns] = useState<HuaweiSyncRun[] | null>(null);
 
   useEffect(() => {
     huaweiService
@@ -61,7 +144,15 @@ const HuaweiStations: React.FC = () => {
       .then((data) => setRows(data))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
+    huaweiService
+      .getSyncStatus()
+      .then((s) => setRuns(s.recent))
+      .catch(() => setRuns([]));
   }, []);
+
+  const realtime = runs?.filter((r) => r.job === "realtime") ?? [];
+  const lastRun = realtime[0] ?? null;
+  const lastSuccess = realtime.find((r) => r.status === "success") ?? null;
 
   const columns: ColumnsType<HuaweiStationRow> = [
     {
@@ -91,6 +182,20 @@ const HuaweiStations: React.FC = () => {
         ) : (
           <Text type="secondary">yo'q</Text>
         ),
+    },
+    {
+      title: "Hozir",
+      dataIndex: "nowKw",
+      render: (v: number | null) => (
+        <Tooltip title="Invertorlarning so'nggi 30 daqiqadagi quvvati">
+          <Text>{fixed(v, 1, "kW")}</Text>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Quvvati",
+      key: "capacity",
+      render: (_: unknown, s) => capacity(s),
     },
     {
       title: "Bugun",
@@ -134,6 +239,26 @@ const HuaweiStations: React.FC = () => {
       <Typography.Title level={3} style={{ margin: 0 }}>
         Huawei stansiyalari
       </Typography.Title>
+      {runs !== null && (
+        <Text type="secondary">
+          Realtime: oxirgi ishga tushish{" "}
+          {lastRun ? (
+            <>
+              {formatTime(lastRun.startedAt)}{" "}
+              <Tooltip title={lastRun.error ?? undefined}>
+                <Tag color={RUN_STATUS[lastRun.status]?.color}>
+                  {RUN_STATUS[lastRun.status]?.text ?? lastRun.status}
+                </Tag>
+              </Tooltip>
+            </>
+          ) : (
+            "—"
+          )}
+          {lastRun && lastSuccess && lastSuccess !== lastRun && (
+            <> · oxirgi muvaffaqiyatli {formatTime(lastSuccess.startedAt)}</>
+          )}
+        </Text>
+      )}
       {failed && (
         <Alert
           type="error"
@@ -148,7 +273,7 @@ const HuaweiStations: React.FC = () => {
             dataSource={rows}
             columns={columns}
             pagination={false}
-            scroll={{ x: 760 }}
+            scroll={{ x: 960 }}
             expandable={{
               expandedRowRender: (s) => (
                 <div style={{ display: "grid", gap: 12 }}>
@@ -229,6 +354,11 @@ const HuaweiStations: React.FC = () => {
                         dataIndex: "softwareVersion",
                         render: (v: string | null) => v ?? "—",
                       },
+                      {
+                        title: "Oxirgi o'lchov",
+                        key: "latest",
+                        render: (_: unknown, d: HuaweiDeviceRow) => latestCell(d),
+                      },
                     ]}
                   />
                 </div>
@@ -240,7 +370,9 @@ const HuaweiStations: React.FC = () => {
       <Text type="secondary" style={{ fontSize: 13 }}>
         Ma'lumot Huawei FusionSolar'dan har 10 daqiqada, alarmlar har 32
         daqiqada olinadi; stansiya va qurilmalar ro'yxati har 2 soatda
-        yangilanadi. Alarm 30 daqiqadan ko'p davom etsa, Telegram'ga xabar
+        yangilanadi. Invertor harorati va samaradorligi faqat u tarmoqqa
+        ishlayotganda o'lchanadi, kechasi "—" ko'rinadi. "*" belgili quvvat
+        invertor modelidan olingan. Alarm 30 daqiqadan ko'p davom etsa, Telegram'ga xabar
         ketadi. Ishlash foizi, harorat va daromad umumiy sahifalarda boshqa
         stansiyalar bilan birga ko'rinadi.
       </Text>

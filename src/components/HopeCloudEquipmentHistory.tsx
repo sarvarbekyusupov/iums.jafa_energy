@@ -40,6 +40,7 @@ import type {
   HopeCloudHistoricalOptions
 } from '../types/hopecloud';
 import DataAsOf from './DataAsOf';
+import { toNumber } from '../helpers/hopecloud-fields';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
@@ -85,21 +86,26 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
   const [useDbSource, setUseDbSource] = useState(true);
   const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [selectedParameters, setSelectedParameters] = useState<string[]>([
-    'acActivePower',
-    'dcInputPower',
+    'ACActivePower',
+    'DCInputPower',
     'internalTemperature',
     'inverterEfficiency'
   ]);
   const [syncing, setSyncing] = useState(false);
 
+  // Keys exactly as the inverter sends them in paramList (case matters: ACActivePower, not
+  // acActivePower, which matched nothing and left the chart empty)
   const keyParameters: ParameterInfo[] = [
-    { name: 'AC Active Power', key: 'acActivePower', unit: 'kW', color: '#1890ff' },
-    { name: 'DC Input Power', key: 'dcInputPower', unit: 'kW', color: '#52c41a' },
+    { name: 'AC Active Power', key: 'ACActivePower', unit: 'kW', color: '#1890ff' },
+    { name: 'DC Input Power', key: 'DCInputPower', unit: 'kW', color: '#52c41a' },
     { name: 'Internal Temperature', key: 'internalTemperature', unit: '℃', color: '#fa8c16' },
     { name: 'Inverter Efficiency', key: 'inverterEfficiency', unit: '%', color: '#722ed1' },
-    { name: 'Daily Electricity', key: 'dailyElectricity', unit: 'kWh', color: '#13c2c2' },
-    { name: 'Total Electricity', key: 'totalElectricity', unit: 'kWh', color: '#eb2f96' },
-    { name: 'Grid BC Line Voltage', key: 'gridBCLineVoltage', unit: 'V', color: '#f5222d' }
+    { name: 'Daily Electricity', key: 'dayElectricity', unit: 'kWh', color: '#13c2c2' },
+    { name: 'Total Electricity', key: 'totalGeneratingCapacity', unit: 'kWh', color: '#eb2f96' },
+    { name: 'Grid Frequency', key: 'gridFrequency', unit: 'Hz', color: '#2f54eb' },
+    { name: 'Grid AB Line Voltage', key: 'gridABLineVoltage', unit: 'V', color: '#fa541c' },
+    { name: 'Grid BC Line Voltage', key: 'gridBCLineVoltage', unit: 'V', color: '#f5222d' },
+    { name: 'Grid CA Line Voltage', key: 'gridCALineVoltage', unit: 'V', color: '#a0d911' }
   ];
 
   const handleResyncDevice = async () => {
@@ -180,9 +186,10 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
       };
 
       parameterKeys.forEach(key => {
-        const param = entry.paramList?.find(p => p.key === key);
-        if (param) {
-          processed[key] = param.value;
+        // Values arrive as strings ("9.98"); the chart needs numbers
+        const value = toNumber(entry.paramList?.find(p => p.key === key)?.value);
+        if (value !== undefined) {
+          processed[key] = value;
         }
       });
 
@@ -192,8 +199,8 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
 
   const getParameterStats = (parameterKey: string) => {
     const values = historicalData
-      .map(entry => entry.paramList?.find(p => p.key === parameterKey)?.value)
-      .filter(v => v !== undefined) as number[];
+      .map(entry => toNumber(entry.paramList?.find(p => p.key === parameterKey)?.value))
+      .filter((v): v is number => v !== undefined);
 
     if (values.length === 0) return null;
 
@@ -205,9 +212,11 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
     };
   };
 
+  // The newest reading of the day (the list starts at the first one)
   const getAllParameters = (): HopeCloudEquipmentParameter[] => {
     if (!historicalData.length) return [];
-    return historicalData[0].paramList || [];
+    const latest = historicalData.reduce((a, b) => ((b.time || '') >= (a.time || '') ? b : a));
+    return latest.paramList || [];
   };
 
   const chartData = extractParameters(selectedParameters);
@@ -226,9 +235,9 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
           <YAxis />
           <Tooltip
             formatter={(value: number, name: string) => {
-              const paramInfo = selectedParamInfo.find(p => p.key === name);
+              const paramInfo = selectedParamInfo.find(p => p.name === name || p.key === name);
               return [
-                `${value.toFixed(2)} ${paramInfo?.unit || ''}`,
+                `${typeof value === 'number' ? value.toFixed(2) : value} ${paramInfo?.unit || ''}`,
                 paramInfo?.name || name
               ];
             }}
@@ -268,7 +277,7 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
                 value={stats?.latest}
                 suffix={paramInfo?.unit}
                 prefix={
-                  paramInfo?.key === 'acActivePower' ? <ThunderboltOutlined /> :
+                  paramInfo?.key === 'ACActivePower' ? <ThunderboltOutlined /> :
                   paramInfo?.key === 'internalTemperature' ? <FireOutlined /> :
                   <BarChartOutlined />
                 }
@@ -393,13 +402,18 @@ const HopeCloudEquipmentHistory: React.FC<HopeCloudEquipmentHistoryProps> = ({
                           title: 'Value',
                           dataIndex: 'value',
                           key: 'value',
-                          render: (value: number) => value?.toFixed(2) || 'N/A'
+                          // Text parameters (inverterState, versions) are strings; .toFixed on them
+                          // crashed the whole modal
+                          render: (value: unknown) => {
+                            if (value === null || value === undefined || value === '') return '-';
+                            return typeof value === 'number' ? value.toFixed(2) : String(value);
+                          }
                         },
                         {
                           title: 'Unit',
                           dataIndex: 'unit',
                           key: 'unit',
-                          render: (unit: string) => <Tag color="blue">{unit}</Tag>
+                          render: (unit: string) => (unit ? <Tag color="blue">{unit}</Tag> : null)
                         },
                         {
                           title: 'Key',

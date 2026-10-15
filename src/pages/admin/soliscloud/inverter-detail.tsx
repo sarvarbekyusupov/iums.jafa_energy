@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatSolisTime, toKw, toKwh } from '../../../helpers/solis-units';
+import { isSolisParallelMaster, solisDcPowerKw } from '../../../helpers/solis-fields';
 import solisCloudService from '../../../service/soliscloud.service';
 import DataAsOf from '../../../components/DataAsOf';
 import type { InverterDetail } from '../../../types/soliscloud';
@@ -51,12 +52,15 @@ const withLatestReading = (inv: InverterDetail, r: any): InverterDetail => {
   if (!r) return inv;
   const fresh: Record<string, unknown> = {
     uPv1: r.uDc1, iPv1: r.iDc1, uPv2: r.uDc2, iPv2: r.iDc2,
-    uAc1: r.uAc1, iAc1: r.iAc1, uAc2: r.uAc2, iAc2: r.iAc2,
+    uAc1: r.uAc1, iAc1: r.iAc1, uAc2: r.uAc2, iAc2: r.iAc2, uAc3: r.uAc3, iAc3: r.iAc3,
     fac: r.fAc,
     inverterTemperature: r.temperature,
+    // grid, load and battery power are kW in the readings table; pac alone is W
     gridPower: r.gridPower,
     familyLoadPower: r.loadPower,
-    pac: r.pac != null ? parseValue(r.pac) / 1000 : null, // readings store W
+    batteryPower: r.batteryPower,
+    batteryCapacitySoc: r.batterySoc,
+    pac: r.pac != null ? parseValue(r.pac) / 1000 : null,
   };
   // Only what the reading actually carries; a null must not hide the vendor detail's value.
   return { ...inv, ...Object.fromEntries(Object.entries(fresh).filter(([, v]) => v !== null && v !== undefined)) } as InverterDetail;
@@ -73,6 +77,10 @@ const normalizeLiveInverter = (d: any): InverterDetail => ({
   eYear: toKwh(d.eYear, d.eYearStr),
   eTotal: toKwh(d.eTotal, d.eTotalStr),
   familyLoadPower: toKw(d.familyLoadPower, d.familyLoadPowerStr),
+  // The doc says pSum; the detail sends psum. Below 0 the site is buying from the grid
+  // (night readings on 2026-10-15: pac 0, load 0.54 kW, psum -0.68 kW).
+  gridPower: d.psum != null ? toKw(d.psum, d.psumStr) : d.pSum != null ? toKw(d.pSum, d.pSumStr) : undefined,
+  batteryPower: d.batteryPower != null ? toKw(d.batteryPower, d.batteryPowerStr) : undefined,
   batteryTodayChargeEnergy: toKwh(d.batteryTodayChargeEnergy, d.batteryTodayChargeEnergyStr),
   batteryTodayDischargeEnergy: toKwh(d.batteryTodayDischargeEnergy, d.batteryTodayDischargeEnergyStr),
   batteryTotalChargeEnergy: toKwh(d.batteryTotalChargeEnergy, d.batteryTotalChargeEnergyStr),
@@ -87,6 +95,9 @@ const InverterDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<InverterDetail | null>(null);
   const [useDbSource, setUseDbSource] = useState(true);
+  // The vendor's own record as one snapshot: DC power and efficiency must come from the same
+  // moment, not mix the hourly detail with the 5-minute reading.
+  const [snapshot, setSnapshot] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -102,6 +113,7 @@ const InverterDetailPage: React.FC = () => {
       if (useDbSource) {
         const response = await solisCloudService.getDbInverter(id);
         const row = response.data || response;
+        setSnapshot(row?.detail ?? null);
         let inverter = normalizeDbInverter(row);
         // The hourly sync keeps the vendor's full detail; show all of it, with our own row and
         // newest reading on top where they are fresher.
@@ -126,6 +138,7 @@ const InverterDetailPage: React.FC = () => {
         setDetail(inverter);
       } else {
         const response = await solisCloudService.getInverterDetail({ id });
+        setSnapshot(response as any);
         setDetail(normalizeLiveInverter(response));
       }
     } catch (error: any) {
@@ -165,6 +178,29 @@ const InverterDetailPage: React.FC = () => {
       </Card>
     );
   }
+
+  const d = detail as any;
+  const parallelMaster = isSolisParallelMaster(snapshot);
+  const powerTitle = parallelMaster ? 'System power (parallel group)' : 'Current Power';
+  const dcPower = solisDcPowerKw(snapshot);
+  const snapshotPac = snapshot?.pac != null ? toKw(snapshot.pac, snapshot.pacStr) : undefined;
+  // A master's pac covers the whole group while its strings are its own, so the ratio means nothing.
+  const efficiency = !parallelMaster && dcPower && dcPower > 0 && snapshotPac !== undefined
+    ? ((snapshotPac / dcPower) * 100).toFixed(1)
+    : '-';
+  // acOutputType 0 is single-phase, anything else three-phase (doc 3.4).
+  const threePhase = d.acOutputType != null ? Number(d.acOutputType) !== 0 : parseValue(d.uAc3) > 0;
+  const phases = [
+    { n: 1, title: 'Phase A', bg: '#fff7e6' },
+    ...(threePhase
+      ? [
+          { n: 2, title: 'Phase B', bg: '#f0f5ff' },
+          { n: 3, title: 'Phase C', bg: '#f6ffed' },
+        ]
+      : []),
+  ];
+  const gridPower = d.gridPower == null || d.gridPower === '' ? undefined : parseValue(d.gridPower);
+  const batteryPower = parseValue(d.batteryPower);
 
   return (
     <div>
@@ -253,7 +289,7 @@ const InverterDetailPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Current Power"
+              title={powerTitle}
               value={parseValue(detail.pac).toFixed(2)}
               suffix="kW"
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
@@ -292,8 +328,13 @@ const InverterDetailPage: React.FC = () => {
           <Descriptions.Item label="Station Name">{detail.stationName || '-'}</Descriptions.Item>
           <Descriptions.Item label="Model">{detail.model || '-'}</Descriptions.Item>
           <Descriptions.Item label="Station ID">{detail.stationId || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Inverter Type">{detail.inverterType || '-'}</Descriptions.Item>
           <Descriptions.Item label="Full Power">{detail.fullPower ? `${detail.fullPower} kW` : '-'}</Descriptions.Item>
+          {d.faultCodeDesc && <Descriptions.Item label="Fault / State">{d.faultCodeDesc}</Descriptions.Item>}
+          {parallelMaster && (
+            <Descriptions.Item label="Parallel Group">
+              Master of {d.parallelNumber}; its power is the whole group's
+            </Descriptions.Item>
+          )}
         </Descriptions>
       </Card>
 
@@ -303,7 +344,7 @@ const InverterDetailPage: React.FC = () => {
           <Col xs={24} sm={12} md={8}>
             <Card size="small">
               <Statistic
-                title="AC Power"
+                title={parallelMaster ? 'AC Power (parallel group)' : 'AC Power'}
                 value={parseValue(detail.pac).toFixed(2)}
                 suffix="kW"
                 valueStyle={{ fontSize: 18 }}
@@ -314,8 +355,8 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="DC Power"
-                value={parseValue(detail.pdc).toFixed(2)}
-                suffix="kW"
+                value={dcPower !== undefined ? dcPower.toFixed(2) : '-'}
+                suffix={dcPower !== undefined ? 'kW' : undefined}
                 valueStyle={{ fontSize: 18 }}
               />
             </Card>
@@ -324,12 +365,8 @@ const InverterDetailPage: React.FC = () => {
             <Card size="small">
               <Statistic
                 title="Efficiency"
-                value={(() => {
-                  const pac = parseValue(detail.pac);
-                  const pdc = parseValue(detail.pdc);
-                  return pdc > 0 ? ((pac / pdc) * 100).toFixed(1) : '0.0';
-                })()}
-                suffix="%"
+                value={efficiency}
+                suffix={efficiency === '-' ? undefined : '%'}
                 valueStyle={{ fontSize: 18, color: '#52c41a' }}
               />
             </Card>
@@ -385,26 +422,28 @@ const InverterDetailPage: React.FC = () => {
       {/* Grid AC Output */}
       <Card title={<Space><ThunderboltFilled />Grid AC Output</Space>} style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} md={12}>
-            <Card size="small" title="Phase A" style={{ background: '#fff7e6' }}>
-              <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Voltage">{parseValue(detail.uAc1) > 0 ? `${parseValue(detail.uAc1).toFixed(1)} V` : '-'}</Descriptions.Item>
-                <Descriptions.Item label="Current">{parseValue(detail.iAc1) > 0 ? `${parseValue(detail.iAc1).toFixed(2)} A` : '-'}</Descriptions.Item>
-              </Descriptions>
-            </Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card size="small" title="Phase B" style={{ background: '#f0f5ff' }}>
-              <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Voltage">{parseValue(detail.uAc2) > 0 ? `${parseValue(detail.uAc2).toFixed(1)} V` : '-'}</Descriptions.Item>
-                <Descriptions.Item label="Current">{parseValue(detail.iAc2) > 0 ? `${parseValue(detail.iAc2).toFixed(2)} A` : '-'}</Descriptions.Item>
-              </Descriptions>
-            </Card>
-          </Col>
+          {phases.map(({ n, title, bg }) => {
+            const u = parseValue(d[`uAc${n}`]);
+            const i = parseValue(d[`iAc${n}`]);
+            return (
+              <Col xs={24} md={24 / phases.length} key={n}>
+                <Card size="small" title={title} style={{ background: bg }}>
+                  <Descriptions size="small" column={1}>
+                    <Descriptions.Item label="Voltage">{u > 0 ? `${u.toFixed(1)} V` : '-'}</Descriptions.Item>
+                    <Descriptions.Item label="Current">{i > 0 ? `${i.toFixed(2)} A` : '-'}</Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
         <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="Grid Frequency">{parseValue(detail.fac) > 0 ? `${parseValue(detail.fac).toFixed(2)} Hz` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="Grid Power">{parseValue(detail.gridPower) > 0 ? `${parseValue(detail.gridPower).toFixed(2)} kW` : '-'}</Descriptions.Item>
+          <Descriptions.Item label="Grid Power">
+            {gridPower === undefined
+              ? '-'
+              : `${Math.abs(gridPower).toFixed(2)} kW ${gridPower < 0 ? '(buying)' : gridPower > 0 ? '(selling)' : ''}`}
+          </Descriptions.Item>
           <Descriptions.Item label="Power Factor">{detail.powerFactor !== undefined ? detail.powerFactor : '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
@@ -436,10 +475,10 @@ const InverterDetailPage: React.FC = () => {
             <Col xs={24} sm={12} md={6}>
               <Card size="small">
                 <Statistic
-                  title="Battery Power"
-                  value={parseValue(detail.batteryPower).toFixed(2)}
+                  title={batteryPower < 0 ? 'Battery Power (discharging)' : batteryPower > 0 ? 'Battery Power (charging)' : 'Battery Power'}
+                  value={Math.abs(batteryPower).toFixed(2)}
                   suffix="kW"
-                  valueStyle={{ color: parseValue(detail.batteryPower) > 0 ? '#52c41a' : '#ff4d4f' }}
+                  valueStyle={{ color: batteryPower >= 0 ? '#52c41a' : '#ff4d4f' }}
                 />
               </Card>
             </Col>
@@ -456,7 +495,8 @@ const InverterDetailPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="Battery Current"
-                  value={parseValue(detail.batteryCurrent).toFixed(2)}
+                  // the vendor key really is spelled "bsttery"
+                  value={parseValue(d.bstteryCurrent ?? d.batteryCurrent).toFixed(2)}
                   suffix="A"
                 />
               </Card>
@@ -468,13 +508,13 @@ const InverterDetailPage: React.FC = () => {
             <Descriptions.Item label="Today's Discharge">{parseValue(detail.batteryTodayDischargeEnergy) > 0 ? `${parseValue(detail.batteryTodayDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Total Charge">{parseValue(detail.batteryTotalChargeEnergy) > 0 ? `${parseValue(detail.batteryTotalChargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Total Discharge">{parseValue(detail.batteryTotalDischargeEnergy) > 0 ? `${parseValue(detail.batteryTotalDischargeEnergy).toFixed(2)} kWh` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Remaining Capacity">{parseValue(detail.batteryCapacityRemain) > 0 ? `${parseValue(detail.batteryCapacityRemain).toFixed(2)} kWh` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Battery Health (SOH)">{d.batteryHealthSoh != null && d.batteryHealthSoh !== '' ? `${parseValue(d.batteryHealthSoh)}%` : '-'}</Descriptions.Item>
           </Descriptions>
         </Card>
       )}
 
-      {/* Temperature & Environment */}
-      <Card title={<Space><FireOutlined />Temperature & Environment</Space>} style={{ marginBottom: 16 }}>
+      {/* Temperature */}
+      <Card title={<Space><FireOutlined />Temperature</Space>} style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Card size="small">
@@ -486,28 +526,6 @@ const InverterDetailPage: React.FC = () => {
                   color: parseValue(detail.inverterTemperature) > 60 ? '#ff4d4f' :
                          parseValue(detail.inverterTemperature) > 45 ? '#faad14' : '#52c41a'
                 }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Card size="small">
-              <Statistic
-                title="Module Temperature"
-                value={parseValue(detail.moduleTemperature) > 0 ? parseValue(detail.moduleTemperature).toFixed(1) : '-'}
-                suffix="°C"
-                valueStyle={{
-                  color: parseValue(detail.moduleTemperature) > 60 ? '#ff4d4f' :
-                         parseValue(detail.moduleTemperature) > 45 ? '#faad14' : '#52c41a'
-                }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Card size="small">
-              <Statistic
-                title="Ambient Temperature"
-                value={parseValue(detail.ambientTemperature) > 0 ? parseValue(detail.ambientTemperature).toFixed(1) : '-'}
-                suffix="°C"
               />
             </Card>
           </Col>

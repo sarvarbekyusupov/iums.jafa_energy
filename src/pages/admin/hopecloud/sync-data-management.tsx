@@ -13,7 +13,6 @@ import {
   Badge,
   Layout,
   Input,
-  Empty,
   Form,
   Alert,
 } from 'antd';
@@ -23,7 +22,6 @@ import {
   ReloadOutlined,
   BellOutlined,
   LineChartOutlined,
-  TeamOutlined,
   WifiOutlined,
   SettingOutlined,
   SyncOutlined,
@@ -32,33 +30,33 @@ import {
 import { sitesService, deviceAlarmsService, hopeCloudService, communicationModulesService } from '../../../service';
 import SyncedSiteHistory from '../../../components/SyncedSiteHistory';
 import dayjs from 'dayjs';
+import { alarmTypeLabel, moduleTypeLabel } from '../../../helpers/hopecloud-fields';
 
 const { Text } = Typography;
 const { Content } = Layout;
 const { Search } = Input;
 
-// Types for synced data
+// Shapes of GET /sites and /devices (SiteResponseDto / DeviceResponseDto)
 interface SyncedSite {
   id: number;
-  siteName: string;
-  capacityKw: string;
+  name: string;
+  capacityKw?: string;
   status: string;
   location?: string;
-  province?: string;
-  city?: string;
-  address?: string;
+  latitude?: string;
+  longitude?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 interface SyncedDevice {
   id: number;
-  deviceName: string;
+  name: string;
   deviceType: string;
   status: string;
-  siteId: number;
+  stationId: number;
   serialNumber?: string;
-  model?: string;
+  deviceModel?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,10 +76,12 @@ interface SyncedDevice {
 interface SyncedAlarm {
   id: number;
   deviceId: number;
+  alarmType?: string;
+  alarmCode?: string;
+  title: string;
   severity: string;
   status: string;
-  description: string;
-  message: string;
+  description?: string;
   occurredAt: string;
   acknowledgedAt?: string;
   resolvedAt?: string;
@@ -173,8 +173,10 @@ const SyncDataManagement: React.FC = () => {
 
   // Stations Content
   const StationsContent = () => {
+    const search = siteSearchText.toLowerCase();
     const filteredSites = sites.filter(site =>
-      site.siteName?.toLowerCase().includes(siteSearchText.toLowerCase()) ||
+      site.name?.toLowerCase().includes(search) ||
+      site.location?.toLowerCase().includes(search) ||
       site.id.toString().includes(siteSearchText)
     );
 
@@ -191,7 +193,7 @@ const SyncDataManagement: React.FC = () => {
         key: 'name',
         render: (text: string, record: SyncedSite) => (
           <Space>
-            <Text strong>{text || (record as any).siteName || `Site ${record.id}`}</Text>
+            <Text strong>{text || `Site ${record.id}`}</Text>
           </Space>
         ),
       },
@@ -215,7 +217,7 @@ const SyncDataManagement: React.FC = () => {
         title: 'Location',
         key: 'location',
         render: (record: SyncedSite) => (
-          <Text>{record.province || record.city || record.location || 'N/A'}</Text>
+          <Text>{record.location || '-'}</Text>
         ),
       },
       {
@@ -312,11 +314,12 @@ const SyncDataManagement: React.FC = () => {
         hideLoading();
 
         if (response.status === 'success') {
-          const { alarmsCreated, errors } = response.data.details;
+          const { created = 0, updated = 0, unchanged = 0, errors = [] } = response.data?.details ?? {};
+          const summary = `${created} new, ${updated} recovered, ${unchanged} already stored`;
           if (errors.length > 0) {
-            message.warning(`Synced ${alarmsCreated} alarms with ${errors.length} errors`);
+            message.warning(`Alarms synced (${summary}) with ${errors.length} errors`);
           } else {
-            message.success(`Successfully synced ${alarmsCreated} alarms from HopeCloud`);
+            message.success(`Alarms synced from HopeCloud: ${summary}`);
           }
           // Refresh only alarms data without blocking entire UI
           setAlarmsLoading(true);
@@ -353,7 +356,7 @@ const SyncDataManagement: React.FC = () => {
         const alarmsRes = await deviceAlarmsService.getAllDeviceAlarms();
         const alarmsData = Array.isArray(alarmsRes) ? alarmsRes : [];
         setAlarms(alarmsData);
-      } catch (error) {
+      } catch {
         message.error('Failed to refresh alarms');
       } finally {
         setAlarmsLoading(false);
@@ -381,14 +384,16 @@ const SyncDataManagement: React.FC = () => {
 
     const getDeviceName = (deviceId: number) => {
       const device = devices.find(d => d.id === deviceId);
-      return device?.deviceName || `Device ${deviceId}`;
+      return device?.name || device?.serialNumber || `Device ${deviceId}`;
     };
 
     const filteredAlarms = alarms.filter(alarm => {
       if (!alarmSearchText) return true;
       const searchLower = alarmSearchText.toLowerCase();
       return (
-        alarm.message?.toLowerCase().includes(searchLower) ||
+        alarm.title?.toLowerCase().includes(searchLower) ||
+        alarm.description?.toLowerCase().includes(searchLower) ||
+        alarm.alarmCode?.toLowerCase().includes(searchLower) ||
         alarm.severity?.toLowerCase().includes(searchLower) ||
         getDeviceName(alarm.deviceId).toLowerCase().includes(searchLower)
       );
@@ -416,7 +421,7 @@ const SyncDataManagement: React.FC = () => {
         title: 'Type',
         dataIndex: 'alarmType',
         key: 'alarmType',
-        render: (type: string) => type || 'N/A',
+        render: (type: string) => alarmTypeLabel(type),
       },
       {
         title: 'Severity',
@@ -496,8 +501,8 @@ const SyncDataManagement: React.FC = () => {
         >
           <div style={{ marginBottom: 16 }}>
             <Alert
-              message="Note: HopeCloud processes alarms in 1-day chunks"
-              description="Syncing large date ranges may take time. Recommended: 7-30 days at a time. Default syncs last 7 days for all devices."
+              message="HopeCloud returns alarms one calendar month at a time"
+              description="Alarms already stored are matched by their HopeCloud id, so a resync does not duplicate them. Default: the last 7 days."
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
@@ -559,7 +564,7 @@ const SyncDataManagement: React.FC = () => {
 
     const getSiteName = (siteId: number) => {
       const site = sites.find(s => s.id === siteId);
-      return site?.siteName || `Site ${siteId}`;
+      return site?.name || `Site ${siteId}`;
     };
 
     const commModuleColumns: TableColumnsType<any> = [
@@ -586,7 +591,7 @@ const SyncDataManagement: React.FC = () => {
         dataIndex: 'deviceType',
         key: 'deviceType',
         render: (type: string) => (
-          <Tag color="blue">{type === '707' ? 'WiFi' : type === '705' ? '4G' : type || 'N/A'}</Tag>
+          <Tag color="blue">{moduleTypeLabel(type)}</Tag>
         ),
       },
       {
@@ -620,9 +625,11 @@ const SyncDataManagement: React.FC = () => {
       },
       {
         title: 'Last Update',
-        dataIndex: 'lastUpdate',
         key: 'lastUpdate',
-        render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : 'N/A',
+        render: (record: any) => {
+          const date = record.lastUpdate ?? record.updateTime ?? record.updatedAt;
+          return date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '-';
+        },
       },
     ];
 
@@ -661,34 +668,6 @@ const SyncDataManagement: React.FC = () => {
             locale={{
               emptyText: 'No communication modules found. Click "Sync from HopeCloud" to load data.'
             }}
-          />
-        </Card>
-      </div>
-    );
-  };
-
-  // Users Content
-  const UsersContent = () => {
-    return (
-      <div style={{ padding: '24px' }}>
-        <Card
-          title={
-            <Space>
-              <TeamOutlined />
-              Users & Channels (Database)
-            </Space>
-          }
-        >
-          <Alert
-            message="User & Channel Data Not Available"
-            description="User and channel synchronization from HopeCloud to database is pending. This section will show synced user/channel data with the same interface as Real Time Data."
-            type="info"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-          <Empty
-            description="No user/channel data synchronized yet"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
           />
         </Card>
       </div>
@@ -746,8 +725,8 @@ const SyncDataManagement: React.FC = () => {
       },
       {
         title: 'Device Name',
-        dataIndex: 'deviceName',
-        key: 'deviceName',
+        dataIndex: 'name',
+        key: 'name',
         render: (name: string) => <Text strong>{name || 'N/A'}</Text>,
       },
       {
@@ -755,6 +734,12 @@ const SyncDataManagement: React.FC = () => {
         dataIndex: 'deviceType',
         key: 'deviceType',
         render: (type: string) => <Tag color="blue">{type}</Tag>,
+      },
+      {
+        title: 'Model',
+        dataIndex: 'deviceModel',
+        key: 'deviceModel',
+        render: (model: string) => model || '-',
       },
       {
         title: 'Serial Number',
@@ -878,16 +863,6 @@ const SyncDataManagement: React.FC = () => {
       ),
       children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><CommunicationContent /></div>,
     },
-    {
-      key: 'users',
-      label: (
-        <Space>
-          <TeamOutlined />
-          Users & Channels
-        </Space>
-      ),
-      children: <div style={{ padding: 0, margin: 0, minHeight: 'calc(100vh - 120px)', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}><UsersContent /></div>,
-    },
   ];
 
   return (
@@ -908,7 +883,7 @@ const SyncDataManagement: React.FC = () => {
 
       {/* Site Details Modal */}
       <Modal
-        title={`Site Details - ${selectedSite?.siteName || selectedSite?.id}`}
+        title={`Site Details - ${selectedSite?.name || selectedSite?.id}`}
         open={siteModalVisible}
         onCancel={() => setSiteModalVisible(false)}
         footer={null}
@@ -917,16 +892,17 @@ const SyncDataManagement: React.FC = () => {
         {selectedSite && (
           <Descriptions column={2} bordered>
             <Descriptions.Item label="Site ID">{selectedSite.id}</Descriptions.Item>
-            <Descriptions.Item label="Site Name">{(selectedSite as any).name || selectedSite.siteName || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="Capacity">{selectedSite.capacityKw} kW</Descriptions.Item>
+            <Descriptions.Item label="Site Name">{selectedSite.name || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Capacity">{selectedSite.capacityKw ? `${selectedSite.capacityKw} kW` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag color={selectedSite.status === 'active' ? 'green' : 'red'}>
                 {selectedSite.status?.toUpperCase()}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Province">{selectedSite.province || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="City">{selectedSite.city || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="Address" span={2}>{selectedSite.address || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="Location" span={2}>{selectedSite.location || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Coordinates" span={2}>
+              {selectedSite.latitude && selectedSite.longitude ? `${selectedSite.latitude}, ${selectedSite.longitude}` : 'Not set'}
+            </Descriptions.Item>
             <Descriptions.Item label="Created">{dayjs(selectedSite.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
             <Descriptions.Item label="Updated">{dayjs(selectedSite.updatedAt).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
           </Descriptions>
@@ -935,7 +911,7 @@ const SyncDataManagement: React.FC = () => {
 
       {/* History Modal */}
       <Modal
-        title={`Historical Data - ${selectedSite?.siteName || selectedSite?.id}`}
+        title={`Historical Data - ${selectedSite?.name || selectedSite?.id}`}
         open={historyModalVisible}
         onCancel={() => setHistoryModalVisible(false)}
         footer={null}

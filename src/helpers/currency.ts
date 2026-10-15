@@ -16,6 +16,8 @@ export const formatUzsShort = (value?: number | string | null): string => {
 };
 
 export const formatKwh = (value?: number | string | null, digits = 0): string => {
+  // Number(null) and Number('') are 0, which would print a missing figure as "0 kWh".
+  if (value === null || value === undefined || value === '') return '-';
   const n = Number(value);
   if (!Number.isFinite(n)) return '-';
   if (Math.abs(n) >= 1000) {

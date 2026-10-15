@@ -13,6 +13,7 @@ import { Line } from '@ant-design/charts';
 import dayjs, { Dayjs } from 'dayjs';
 import solisCloudService from '../../../service/soliscloud.service';
 import { powerDayStats } from '../../../helpers/power-series';
+import { solisDayInstant } from '../../../helpers/solis-fields';
 
 const { Title, Text } = Typography;
 
@@ -49,7 +50,6 @@ const StationChartsPage: React.FC = () => {
       // the live stationDay curve sends `power` in W with powerPec 0.001. Energy is kWh everywhere.
       // The stored month table holds one row per month, so the Month tab (one bar per day) always
       // reads the vendor; Year and All years read our tables unless "live" is chosen.
-      const toIso = (t: any) => (typeof t === 'number' || /^\d+$/.test(String(t)) ? new Date(Number(t)).toISOString() : t);
       const energyRows = (rows: any[], timeOf: (r: any) => any, type: string) =>
         (rows || []).map((r: any) => ({ time: timeOf(r), type, value: parseValue(r.energy) }));
 
@@ -69,11 +69,14 @@ const StationChartsPage: React.FC = () => {
             timeZone: 5, // the plants are in Tashkent, UTC+5
             money: '',
           } as any);
-          setDayData((rows || []).map((r: any) => ({
-            time: toIso(r.time ?? r.dataTimestamp),
-            type: 'Power (kW)',
-            value: parseValue(r.power ?? r.pac) * Number(r.powerPec ?? 0.001),
-          })));
+          const date = selectedDate.format('YYYY-MM-DD');
+          setDayData((rows || [])
+            .map((r: any) => ({
+              time: solisDayInstant(date, r),
+              type: 'Power (kW)',
+              value: parseValue(r.power ?? r.pac) * Number(r.powerPec ?? 0.001),
+            }))
+            .filter((p: any) => p.time));
         }
 
       } else if (activeTab === 'month') {

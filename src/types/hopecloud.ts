@@ -83,11 +83,11 @@ export interface HopeCloudAlarm {
   diagnosticAdvice?: string;
 }
 
+/** getPowerPlantRealData: power and the time it was measured, nothing else. */
 export interface HopeCloudRealtimeData {
-  nowKw: number;
-  todayKwh: number;
-  totalKwh: number;
-  updateTime: string;
+  nowKw: number | string;
+  powerUnit?: string;
+  time?: string;
 }
 
 export interface HopeCloudStatistics {
@@ -187,26 +187,49 @@ export interface HopeCloudChannelTreeNode {
   userName: string;
 }
 
+/** getEquipmentDetail, as the Open API document lists it. */
 export interface HopeCloudEquipmentDetails {
-  sn: string;
-  deviceName: string;
-  deviceType: string;
-  model: string;
-  capacity: number;
-  status: string;
-  lastUpdateTime: string;
-  firmwareVersion: string;
+  id?: string;
+  equipmentName?: string;
+  equipmentSn?: string;
+  equipmentModel?: string;
+  equipmentPn?: string;
+  divertorName?: string;
+  ratedPower?: number;
+  nowKw?: number;
+  todayKwh?: number;
+  monKwh?: number;
+  yearKwh?: number;
+  sumKwh?: number;
+  status?: number;
+  softDcacCode?: string;
+  softDcdcCode?: string;
+  paramDcacCode?: string;
+  paramDcdcCode?: string;
+  powerPlantName?: string;
+  updateTime?: string;
 }
 
+/** getEquipmentData: a few top-level figures plus the inverter's own parameter list. */
 export interface HopeCloudEquipmentRealtimeData {
-  sn: string;
-  timestamp: string;
-  activePower: number;
-  voltage: number;
-  current: number;
-  frequency: number;
-  temperature: number;
-  efficiency: number;
+  nowKw?: number;
+  powerUnit?: string;
+  ratedPower?: number;
+  ratedVoltage?: number;
+  powerFactor?: number;
+  powerPercentage?: number;
+  fullHours?: number;
+  internalTemperature?: number;
+  todayKwh?: number;
+  monKwh?: number;
+  yearKwh?: number;
+  sumKwh?: number;
+  equipmentModel?: string;
+  status?: number;
+  paramData?: {
+    time?: string;
+    paramList?: { key: string; name?: string; unit?: string; value: unknown }[];
+  };
 }
 
 export interface HopeCloudCommunicationModule {
@@ -490,7 +513,8 @@ export interface HopeCloudEquipmentParameter {
   name: string;
   key: string;
   unit: string;
-  value: number;
+  /** Numbers arrive as strings ("9.98"); some parameters are text ("On-grid operation") */
+  value: number | string | null;
 }
 
 export interface HopeCloudEquipmentHistoricalData {

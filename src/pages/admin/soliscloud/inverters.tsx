@@ -15,6 +15,8 @@ import {
   CloudOutlined,
 } from '@ant-design/icons';
 import solisCloudService from '../../../service/soliscloud.service';
+import { toKw, toKwh } from '../../../helpers/solis-units';
+import { solisWarrantyStatus } from '../../../helpers/solis-fields';
 import DataAsOf from '../../../components/DataAsOf';
 import type { Inverter } from '../../../types/soliscloud';
 
@@ -38,13 +40,29 @@ const normalizeDbInverter = (i: any): Inverter => ({
   state: Number(i.state),
 });
 
+// Vendor list rows: each figure carries its own unit (etotal 4.56 + etotalStr "MWh").
+const normalizeLiveInverter = (i: any): Inverter => ({
+  ...i,
+  pac: toKw(i.pac, i.pacStr),
+  etoday: toKwh(i.etoday, i.etodayStr),
+  etotal: toKwh(i.etotal, i.etotalStr),
+  power: i.power == null ? undefined : toKw(i.power, i.powerStr),
+  batteryCapacitySoc: i.batteryCapacitySoc == null || i.batteryCapacitySoc === '' ? undefined : parseValue(i.batteryCapacitySoc),
+  state: Number(i.state),
+});
+
+const WARRANTY_TAG = {
+  active: { color: 'success', text: 'Active' },
+  expired: { color: 'error', text: 'Expired' },
+  unknown: { color: 'default', text: 'Unknown' },
+} as const;
+
 const SolisCloudInverters: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [inverters, setInverters] = useState<Inverter[]>([]);
   const [filteredInverters, setFilteredInverters] = useState<Inverter[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [warrantyData, setWarrantyData] = useState<Map<string, any>>(new Map());
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<any>(null);
@@ -53,7 +71,7 @@ const SolisCloudInverters: React.FC = () => {
 
   useEffect(() => {
     fetchInverters();
-  }, [pagination.current, pagination.pageSize, useDbSource]);
+  }, [useDbSource]);
 
   useEffect(() => {
     filterInverters();
@@ -63,32 +81,26 @@ const SolisCloudInverters: React.FC = () => {
     try {
       setLoading(true);
 
+      // The whole fleet is loaded and paged in the table: the totals above it used to be summed
+      // over the visible page only (20 of 26 inverters).
       if (useDbSource) {
-        // Fetch from database
-        const response = await solisCloudService.getDbInverters({
-          page: pagination.current,
-          limit: pagination.pageSize,
-        });
-
-        const records = (response.data?.records || []).map(normalizeDbInverter);
+        const response = await solisCloudService.getDbInverters({ page: 1, limit: 1000 });
+        const rows: any[] = response.data?.records || [];
+        const records = rows.map(normalizeDbInverter);
         setInverters(records);
         setFilteredInverters(records);
-        setPagination(prev => ({ ...prev, total: response.data?.pagination?.total || 0 }));
+        // The stored list carries each inverter's warranty from the synced vendor detail.
+        setWarrantyData(new Map(rows.filter((r) => r.warranty).map((r) => [r.sn, r.warranty])));
       } else {
-        // Fetch from API
-        const response = await solisCloudService.getInverterList({
-          pageNo: pagination.current,
-          pageSize: pagination.pageSize,
-        });
-
-        setInverters(response.page?.records || []);
-        setFilteredInverters(response.page?.records || []);
-        setPagination(prev => ({ ...prev, total: response.page?.total || 0 }));
-
-        // Fetch warranty data for all inverters (only for API source)
-        if (!useDbSource) {
-          fetchWarrantyData();
+        const records: Inverter[] = [];
+        for (let pageNo = 1; pageNo <= 20; pageNo++) {
+          const response = await solisCloudService.getInverterList({ pageNo, pageSize: 100 });
+          records.push(...(response.page?.records || []).map(normalizeLiveInverter));
+          if (records.length >= Number(response.page?.total || 0) || !response.page?.records?.length) break;
         }
+        setInverters(records);
+        setFilteredInverters(records);
+        fetchWarrantyData();
       }
     } catch (error: any) {
       message.error(error?.response?.data?.msg || error?.response?.data?.message || 'Failed to fetch inverters');
@@ -139,14 +151,6 @@ const SolisCloudInverters: React.FC = () => {
       inverter.model?.toLowerCase().includes(searchText.toLowerCase())
     );
     setFilteredInverters(filtered);
-  };
-
-  const handleTableChange = (newPagination: any) => {
-    setPagination({
-      current: newPagination.current,
-      pageSize: newPagination.pageSize,
-      total: pagination.total,
-    });
   };
 
   const getStateTag = (state: number) => {
@@ -242,11 +246,11 @@ const SolisCloudInverters: React.FC = () => {
         const warranty = warrantyData.get(sn);
         if (!warranty) return <Text type="secondary">-</Text>;
 
-        const isActive = warranty.shelfState === 0;
+        const tag = WARRANTY_TAG[solisWarrantyStatus(warranty.shelfState, warranty.shelfEndTime)];
         return (
           <Space direction="vertical" size="small">
-            <Tag color={isActive ? 'success' : 'error'} icon={<SafetyOutlined />}>
-              {isActive ? 'Active' : 'Expired'}
+            <Tag color={tag.color} icon={<SafetyOutlined />}>
+              {tag.text}
             </Tag>
             <Button
               type="link"
@@ -297,9 +301,11 @@ const SolisCloudInverters: React.FC = () => {
   const totalPower = inverters.reduce((sum, i) => sum + parseValue(i.pac), 0);
   const totalEnergyToday = inverters.reduce((sum, i) => sum + parseValue(i.etoday), 0);
   const totalEnergyAll = inverters.reduce((sum, i) => sum + parseValue(i.etotal), 0);
-  const avgBatterySoc = inverters.length > 0
-    ? inverters.reduce((sum, i) => sum + parseValue(i.batteryCapacitySoc), 0) / inverters.length
-    : 0;
+  // Only inverters that report a battery; the rest would pull the average towards 0.
+  const withBattery = inverters.filter((i) => i.batteryCapacitySoc !== undefined && i.batteryCapacitySoc !== null);
+  const avgBatterySoc = withBattery.length > 0
+    ? withBattery.reduce((sum, i) => sum + parseValue(i.batteryCapacitySoc), 0) / withBattery.length
+    : undefined;
 
   return (
     <div>
@@ -395,9 +401,9 @@ const SolisCloudInverters: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Avg Battery SOC"
-              value={avgBatterySoc.toFixed(0)}
-              suffix="%"
+              title={`Avg Battery SOC${withBattery.length ? ` (${withBattery.length} with battery)` : ''}`}
+              value={avgBatterySoc !== undefined ? avgBatterySoc.toFixed(0) : '-'}
+              suffix={avgBatterySoc !== undefined ? '%' : undefined}
               prefix={<ThunderboltFilled style={{ color: '#722ed1' }} />}
               valueStyle={{ color: '#722ed1' }}
             />
@@ -439,11 +445,10 @@ const SolisCloudInverters: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={{
-            ...pagination,
+            defaultPageSize: 20,
             showSizeChanger: true,
             showTotal: (total) => `Total ${total} inverters`,
           }}
-          onChange={handleTableChange}
           scroll={{ x: 1400 }}
           onRow={(record) => ({
             onClick: () => navigate(`/admin/soliscloud/inverters/${record.id}`),
@@ -475,9 +480,10 @@ const SolisCloudInverters: React.FC = () => {
               <Text code>{selectedWarranty.sn}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="Warranty Status">
-              <Tag color={selectedWarranty.shelfState === 0 ? 'success' : 'error'} icon={<SafetyOutlined />}>
-                {selectedWarranty.shelfState === 0 ? 'Active' : 'Expired'}
-              </Tag>
+              {(() => {
+                const tag = WARRANTY_TAG[solisWarrantyStatus(selectedWarranty.shelfState, selectedWarranty.shelfEndTime)];
+                return <Tag color={tag.color} icon={<SafetyOutlined />}>{tag.text}</Tag>;
+              })()}
             </Descriptions.Item>
             <Descriptions.Item label="Warranty Start Date">
               {selectedWarranty.shelfBeginTime ? new Date(selectedWarranty.shelfBeginTime).toLocaleDateString() : '-'}

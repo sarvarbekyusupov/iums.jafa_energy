@@ -1,5 +1,38 @@
 import { apiClient } from './api-client';
 
+export type HuaweiStateKind =
+  | 'standby'
+  | 'starting'
+  | 'on-grid'
+  | 'shutdown'
+  | 'scheduling'
+  | 'testing'
+  | 'comm-lost'
+  | 'unknown';
+
+/** Newest stored sample of an inverter. Temperature and efficiency are null outside 512-514. */
+export interface HuaweiInverterLatest {
+  readAt: string;
+  activePower: number | null;
+  temperature: number | null;
+  efficiency: number | null;
+  dayKwh: number | null;
+  inverterState: number | null;
+  /** The reference's wording (Table 5-1), English. */
+  stateLabel: string | null;
+  stateKind: HuaweiStateKind;
+}
+
+/** Newest stored sample of a power sensor (devTypeId 47). */
+export interface HuaweiMeterLatest {
+  readAt: string;
+  /** W, not kW. */
+  activePowerW: number | null;
+  positiveKwh: number | null;
+  negativeKwh: number | null;
+  meterStatus: number | null;
+}
+
 export interface HuaweiDeviceRow {
   id: string;
   plantCode: string;
@@ -8,6 +41,17 @@ export interface HuaweiDeviceRow {
   devTypeId: number;
   model: string | null;
   softwareVersion: string | null;
+  latest: HuaweiInverterLatest | HuaweiMeterLatest | null;
+}
+
+export interface HuaweiSyncRun {
+  id: number;
+  job: string;
+  startedAt: string;
+  /** "success", "skipped" or "failed". */
+  status: string;
+  rows: number;
+  error: string | null;
 }
 
 export interface HuaweiAlarmRow {
@@ -37,6 +81,10 @@ export interface HuaweiStationRow {
   totalKwh: string | null;
   kpiAt: string | null;
   lastSyncedAt: string | null;
+  /** Sum of the inverters' samples under 30 minutes old; null when there is none. */
+  nowKw: number | null;
+  /** Inverters' rated kW from the model name, for plants whose capacity is 0. */
+  ratedKw: number | null;
   devices: HuaweiDeviceRow[];
   activeAlarms?: HuaweiAlarmRow[];
 }
@@ -45,6 +93,13 @@ export interface HuaweiStationRow {
 class HuaweiService {
   async getStations(): Promise<HuaweiStationRow[]> {
     const response = await apiClient.get<{ data: HuaweiStationRow[] }>('/api/huawei/stations');
+    return response.data.data;
+  }
+
+  async getSyncStatus(): Promise<{ enabled: boolean; recent: HuaweiSyncRun[] }> {
+    const response = await apiClient.get<{ data: { enabled: boolean; recent: HuaweiSyncRun[] } }>(
+      '/api/huawei/sync/status',
+    );
     return response.data.data;
   }
 }

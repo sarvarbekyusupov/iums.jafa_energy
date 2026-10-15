@@ -166,6 +166,7 @@ export interface Station {
   stationName: string;
   stationCode: string;
   type: number;
+  stationTypeNew?: number | string; // see helpers/solis-fields solisStationType
   state: number; // 1=normal, 2=alarm
   capacity: number;
   eToday: number;

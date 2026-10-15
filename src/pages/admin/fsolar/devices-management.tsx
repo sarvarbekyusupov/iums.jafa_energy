@@ -10,7 +10,6 @@ import {
   Form,
   Input,
   Select,
-  Popconfirm,
   Typography,
   Row,
   Col,
@@ -23,7 +22,6 @@ import {
 import {
   ReloadOutlined,
   PlusOutlined,
-  DeleteOutlined,
   EyeOutlined,
   SettingOutlined,
   InfoCircleOutlined,
@@ -57,7 +55,8 @@ const DB_TYPE_TO_VENDOR: Record<string, string> = {
 
 /**
  * Map a stored fsolar_devices row to the vendor list shape the table columns read.
- * `status` is decided later from the freshness of the device's latest energy row (no reliable status column).
+ * `status` is decided later from the freshness of the device's latest energy row and the vendor's own
+ * deviceBasic status.
  */
 const normalizeDbDevice = (d: FsolarDbDevice): Device => {
   const list = d.metadata?.list || {};
@@ -84,6 +83,13 @@ const normalizeDbDevice = (d: FsolarDbDevice): Device => {
   };
 };
 
+/** deviceBasic ratedPower is in watts: this page used to show "5000 kW" for the 5 kW T-REX-5KLP. */
+const formatRatedPower = (v: unknown): string => {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || !Number.isFinite(n)) return '-';
+  return n >= 1000 ? `${n / 1000} kW` : `${n} W`;
+};
+
 const DevicesManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [useDbSource, setUseDbSource] = useState(true);
@@ -108,11 +114,9 @@ const DevicesManagement: React.FC = () => {
       setLoading(true);
 
       if (useDbSource) {
-        // Stored data: devices table plus each device's newest energy row for the online/unknown status.
-        const result = await fsolarService.getDbDevices({
-          page,
-          limit: pageSize,
-        });
+        // Stored data: every device at once (the account has a handful), so the counters above the
+        // table cover all of them and not just the page on screen; the table pages locally.
+        const result = await fsolarService.getDbDevices({ page: 1, limit: 500 });
         const rows: FsolarDbDevice[] = Array.isArray(result?.data) ? result.data : [];
         const normalized = rows.map(normalizeDbDevice);
         const latest = await Promise.all(
@@ -123,15 +127,13 @@ const DevicesManagement: React.FC = () => {
         normalized.forEach((d, i) => {
           const ts = latest[i]?.timestamp ?? null;
           d.lastDataAt = ts;
-          // Fresh data: online. Data that has gone stale: offline. No data at all: unknown.
-          d.status = !ts ? 'unknown' : freshnessOf(ts) === 'fresh' ? 'ON' : 'OF';
+          // Fresh data: online, or alarm when the vendor's deviceBasic says AL (the T-REX does while
+          // reporting normally). Data that has gone stale: offline. No data at all: unknown.
+          const fresh = !!ts && freshnessOf(ts) === 'fresh';
+          d.status = !ts ? 'unknown' : !fresh ? 'OF' : d.basic?.status === 'AL' ? 'AL' : 'ON';
         });
         setDevices(normalized);
-        setPagination({
-          current: parseInt(String(result?.pagination?.page)) || page,
-          pageSize: parseInt(String(result?.pagination?.limit)) || pageSize,
-          total: parseInt(String(result?.pagination?.total)) || 0,
-        });
+        setPagination({ current: page, pageSize, total: normalized.length });
       } else {
         // Live vendor API
         const result = await fsolarDeviceService.getDeviceList({
@@ -218,20 +220,6 @@ const DevicesManagement: React.FC = () => {
       fetchDevices(pagination.current, pagination.pageSize);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to add device');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle delete device
-  const handleDeleteDevice = async (deviceSn: string) => {
-    try {
-      setLoading(true);
-      await fsolarDeviceService.deleteDevices([deviceSn]);
-      message.success('Device deleted successfully');
-      fetchDevices(pagination.current, pagination.pageSize);
-    } catch (error: any) {
-      message.error(error?.response?.data?.message || 'Failed to delete device');
     } finally {
       setLoading(false);
     }
@@ -427,7 +415,9 @@ const DevicesManagement: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 180,
+      width: 80,
+      // No delete button: deleteDevices removes the unit from the Felicity account itself, not
+      // just from this list.
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="View Details">
@@ -438,21 +428,6 @@ const DevicesManagement: React.FC = () => {
               onClick={() => handleViewDetails(record)}
             />
           </Tooltip>
-          <Popconfirm
-            title="Delete Device"
-            description="Are you sure you want to delete this device?"
-            onConfirm={() => handleDeleteDevice(record.deviceSn)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Tooltip title="Delete">
-              <Button
-                danger
-                size="small"
-                icon={<DeleteOutlined />}
-              />
-            </Tooltip>
-          </Popconfirm>
         </Space>
       ),
     },
@@ -627,8 +602,11 @@ const DevicesManagement: React.FC = () => {
           locale={useDbSource ? { emptyText: DB_EMPTY_TEXT } : undefined}
           pagination={{
             ...pagination,
+            // Stored mode holds every device, so the table counts what the search and filter leave.
+            total: useDbSource ? undefined : pagination.total,
             onChange: (page, pageSize) => {
-              fetchDevices(page, pageSize);
+              if (useDbSource) setPagination((p) => ({ ...p, current: page, pageSize }));
+              else fetchDevices(page, pageSize);
             },
             showSizeChanger: true,
             showTotal: (total) => `Total ${total} devices`,
@@ -800,7 +778,7 @@ const DevicesManagement: React.FC = () => {
                         <div>
                           <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Rated Power</div>
                           <div style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>
-                            {selectedDevice.ratedPower} kW
+                            {formatRatedPower(selectedDevice.ratedPower)}
                           </div>
                         </div>
                       )}

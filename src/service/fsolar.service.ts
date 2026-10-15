@@ -106,13 +106,18 @@ const kwToW = (v: unknown): string => str(num(v) === null ? null : num(v)! * 100
  * rawData wins (it is the vendor point verbatim); entity columns only fill the gaps.
  */
 export function energyRowToVendorPoint(row: FsolarDbDeviceEnergy): FsolarVendorPoint {
-  const raw = (row.rawData || {}) as Record<string, any>;
+  // The vendor sends absent fields as null (e.g. ePvToday on every point since 2026-09-23); a
+  // null must not hide the column value below it.
+  const raw = Object.fromEntries(
+    Object.entries((row.rawData || {}) as Record<string, any>).filter(([, v]) => v !== null && v !== undefined),
+  );
   // Fallback for rows synced before rawData was stored: derive the vendor keys from the kW columns.
   const fromColumns: Record<string, string> = {
     pvPower: kwToW(row.pv1Power),
     pv2Power: kwToW(row.pv2Power),
     pvTotalPower: kwToW(row.totalPvPower),
-    acTotalOutActPower: kwToW(row.activePower ?? row.loadPower),
+    // load_power is the backup-load output; active_power is PV generation.
+    acTotalOutActPower: kwToW(row.loadPower),
     acTtlInpower: kwToW(row.purchasePower),
     meterPower: kwToW(row.purchasePower),
     emsPower: kwToW(row.batteryPower),
@@ -130,7 +135,7 @@ export function energyRowToVendorPoint(row: FsolarDbDeviceEnergy): FsolarVendorP
     pv2InCurr: str(num(row.pv2Current)),
     tempMax: str(num(row.temperature)),
     devTempMax: str(num(row.temperature)),
-    ePvToday: str(num(row.todayEnergy), 2),
+    epvToday: str(num(row.todayEnergy), 2),
     totalEnergy: str(num(row.totalEnergy), 2),
     workMode: row.runningStatus === null || row.runningStatus === undefined ? '' : String(row.runningStatus),
   };
